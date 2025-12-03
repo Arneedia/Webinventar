@@ -1,0 +1,205 @@
+// Prisma Schema für die lokale Inventar-Datenbank
+
+generator client {
+  provider = "prisma-client"
+  output   = "../lib/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+// Abteilungen
+model ABT {
+  ABTID    Int        @id @default(autoincrement())
+  ABTName  String?
+  Benutzer Benutzer[]
+}
+
+// Status
+model STAT {
+  StatusID   Int        @id @default(autoincrement())
+  StatusName String?
+  Benutzer   Benutzer[]
+}
+
+// Geschäftsstellen
+model GS {
+  GSID      Int        @id @default(autoincrement())
+  GSName    String?
+  GSStrasse String?
+  GSHausNr  String?
+  GSPLZ     String?
+  GSOrt     String?
+  Benutzer  Benutzer[]
+}
+
+// Hardware-Typen
+model HW {
+  HWID     Int      @id @default(autoincrement())
+  HWName   String?
+  GER      GER[]
+  HW_HS    HW_HS[]
+  HS_MOD   HS_MOD[]
+  Zubehoer Zubehoer[]
+}
+
+// Hersteller
+model HS {
+  HSID     Int      @id @default(autoincrement())
+  HSName   String?
+  GER      GER[]
+  HW_HS    HW_HS[]
+  HS_MOD   HS_MOD[]
+  Zubehoer Zubehoer[]
+}
+
+// Modelle
+model MOD {
+  ModID        Int      @id @default(autoincrement())
+  ModName      String?
+  ModellNummer String?
+  GER          GER[]
+  HS_MOD       HS_MOD[]
+  Zubehoer     Zubehoer[]
+}
+
+// Benutzer
+model Benutzer {
+  BenutzerID       Int               @id @default(autoincrement())
+  BenutzerName     String?
+  BenutzerRaum     String?
+  ABTID            Int?
+  StatusID         Int?
+  GSID             Int?
+  ABT              ABT?              @relation(fields: [ABTID], references: [ABTID])
+  STAT             STAT?             @relation(fields: [StatusID], references: [StatusID])
+  GS               GS?               @relation(fields: [GSID], references: [GSID])
+  BenutzerGER      BenutzerGER[]
+  ZubehoerBenutzer ZubehoerBenutzer[]
+}
+
+// Geräte
+model GER {
+  GerID       Int           @id @default(autoincrement())
+  HWID        Int
+  HSID        Int
+  MODID       Int
+  SNO         String
+  Preis       Decimal?
+  Zugang      DateTime
+  Abgang      DateTime?
+  EAN         String?
+  IMEI1       String?
+  IMEI2       String?
+  Test        Int?
+  TestGruppe  Int?
+  HW          HW            @relation(fields: [HWID], references: [HWID])
+  HS          HS            @relation(fields: [HSID], references: [HSID])
+  MOD         MOD           @relation(fields: [MODID], references: [ModID])
+  BenutzerGER BenutzerGER[]
+}
+
+// Benutzer-Geräte Zuordnung
+model BenutzerGER {
+  ID         Int       @id @default(autoincrement())
+  BenutzerID Int
+  GERID      Int
+  Start      DateTime
+  Ende       DateTime?
+  Benutzer   Benutzer  @relation(fields: [BenutzerID], references: [BenutzerID])
+  GER        GER       @relation(fields: [GERID], references: [GerID])
+}
+
+// Zubehör-Typen
+model ZT {
+  ID       Int        @id @default(autoincrement())
+  ZTName   String
+  Zubehoer Zubehoer[]
+}
+
+// Zubehör
+model Zubehoer {
+  ZubehoerID        Int                @id @default(autoincrement())
+  ZTID              Int
+  HWID              Int
+  ModID             Int
+  HSID              Int
+  Beschreibung      String?
+  ZT                ZT                 @relation(fields: [ZTID], references: [ID])
+  HW                HW                 @relation(fields: [HWID], references: [HWID])
+  MOD               MOD                @relation(fields: [ModID], references: [ModID])
+  HS                HS                 @relation(fields: [HSID], references: [HSID])
+  ZubehoerBenutzer  ZubehoerBenutzer[]
+  ZubehoerInventar  ZubehoerInventar[]
+
+  @@map("Zubehör")
+}
+
+// Zubehör-Benutzer Zuordnung
+model ZubehoerBenutzer {
+  ID         Int       @id @default(autoincrement())
+  BenutzerID Int
+  ZubehoerID Int
+  Start      DateTime
+  Ende       DateTime?
+  Benutzer   Benutzer  @relation(fields: [BenutzerID], references: [BenutzerID])
+  Zubehoer   Zubehoer  @relation(fields: [ZubehoerID], references: [ZubehoerID])
+
+  @@map("ZubehörBenutzer")
+}
+
+// Zubehör-Inventar
+model ZubehoerInventar {
+  InventarID Int       @id @default(autoincrement())
+  ZubehoerID Int
+  Menge      Int
+  Zugang     DateTime
+  Abgang     DateTime?
+  Zubehoer   Zubehoer  @relation(fields: [ZubehoerID], references: [ZubehoerID])
+
+  @@map("ZubehörInventar")
+}
+
+// Hardware-Hersteller Zuordnung
+model HW_HS {
+  HWID Int
+  HSID Int
+  HW   HW @relation(fields: [HWID], references: [HWID])
+  HS   HS @relation(fields: [HSID], references: [HSID])
+
+  @@id([HWID, HSID])
+}
+
+// Hersteller-Modell Zuordnung
+model HS_MOD {
+  HSID  Int
+  ModID Int
+  HWID  Int?
+  HS    HS   @relation(fields: [HSID], references: [HSID])
+  MOD   MOD  @relation(fields: [ModID], references: [ModID])
+  HW    HW?  @relation(fields: [HWID], references: [HWID])
+
+  @@id([HSID, ModID])
+}
+
+// Web-User für Login/Autorisierung
+model WebUser {
+  id           Int       @id @default(autoincrement())
+  email        String    @unique
+  name         String?
+  passwordHash String
+  role         String    @default("USER")
+  sessions     Session[]
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+}
+
+model Session {
+  id        Int      @id @default(autoincrement())
+  token     String   @unique
+  userId    Int
+  user      WebUser  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  expiresAt DateTime
+}
