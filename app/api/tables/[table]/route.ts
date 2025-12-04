@@ -1,12 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prismaClient';
 import { getTableConfig } from '@/lib/tableConfig';
+import { requireApiUser } from '@/lib/auth';
+import { AvailablePermissions } from '@/lib/permissionGroups';
 
 interface RouteContext {
   params: Promise<{ table: string }>;
 }
 
-export async function GET(_req: NextRequest, context: RouteContext) {
+export async function GET(req: NextRequest, context: RouteContext) {
+  const auth = await requireApiUser(req, AvailablePermissions.MASTER_DATA_VIEW);
+  if (!auth.authorized) {
+    return NextResponse.json({ error: auth.message }, { status: auth.status });
+  }
+
   try {
     const { table } = await context.params;
     const config = getTableConfig(table);
@@ -68,6 +75,11 @@ export async function GET(_req: NextRequest, context: RouteContext) {
 }
 
 export async function POST(req: NextRequest, context: RouteContext) {
+  const auth = await requireApiUser(req, AvailablePermissions.MASTER_DATA_EDIT);
+  if (!auth.authorized) {
+    return NextResponse.json({ error: auth.message }, { status: auth.status });
+  }
+
   try {
     const { table } = await context.params;
     const config = getTableConfig(table);

@@ -2,7 +2,8 @@ import { redirect } from 'next/navigation';
 import AdminUsersClient from './AdminUsersClient';
 import { getCurrentUser, Roles } from '@/lib/auth';
 import { prisma } from '@/lib/prismaClient';
-import { serializeWebUsers } from '@/lib/webUsers';
+import { serializeWebUsersWithGroups } from '@/lib/webUsers';
+import { serializePermissionGroups } from '@/lib/permissionGroups';
 
 export const dynamic = 'force-dynamic';
 
@@ -17,8 +18,20 @@ export default async function AdminUsersPage() {
     redirect('/');
   }
 
-  const users = await prisma.webUser.findMany({ orderBy: { createdAt: 'desc' } });
-  const serializableUsers = serializeWebUsers(users);
+  const [users, permissionGroups] = await Promise.all([
+    prisma.webUser.findMany({
+      orderBy: { createdAt: 'desc' },
+      include: {
+        permissionGroups: {
+          include: { permissionGroup: true },
+        },
+      },
+    }),
+    prisma.permissionGroup.findMany({
+      include: { users: true },
+      orderBy: { name: 'asc' },
+    }),
+  ]);
 
   return (
     <main className="mx-auto w-full max-w-6xl px-4 py-10">
@@ -30,7 +43,10 @@ export default async function AdminUsersPage() {
         </p>
       </div>
 
-      <AdminUsersClient initialUsers={serializableUsers} />
+      <AdminUsersClient 
+        initialUsers={serializeWebUsersWithGroups(users)} 
+        allPermissionGroups={serializePermissionGroups(permissionGroups)}
+      />
     </main>
   );
 }

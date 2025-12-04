@@ -1,19 +1,47 @@
 import Link from 'next/link';
-import { Database } from 'lucide-react';
-import { getCurrentUser, Roles } from '@/lib/auth';
+import { Database, ChevronDown } from 'lucide-react';
+import { getCurrentUser, Roles, userHasPermission, userHasAnyPermission } from '@/lib/auth';
+import { AvailablePermissions } from '@/lib/permissionGroups';
+import MobileMenu from './MobileMenu';
 
 export default async function Navbar() {
   const user = await getCurrentUser();
-  const mainLinks = [
-    { href: '/', label: 'Rohdaten' },
-    { href: '/geraete', label: 'Geräteverwaltung' },
+  
+  // Links die für alle eingeloggten Benutzer sichtbar sind (mit entsprechenden Berechtigungen)
+  const mainLinks: { href: string; label: string; show: boolean }[] = [
+    { 
+      href: '/', 
+      label: 'Rohdaten',
+      show: !user || user.role === Roles.ADMIN || userHasPermission(user, AvailablePermissions.MASTER_DATA_VIEW),
+    },
+    { 
+      href: '/geraete', 
+      label: 'Geräteverwaltung',
+      show: !user || user.role === Roles.ADMIN || userHasPermission(user, AvailablePermissions.DEVICES_VIEW),
+    },
   ];
 
+  // Admin-Links nur für Admins
   const adminLinks = [
+    { href: '/', label: 'Rohdaten' },
     { href: '/admin/users', label: 'Userverwaltung' },
+    { href: '/admin/permission-groups', label: 'Rechtegruppen' },
     { href: '/admin/relations', label: 'Zuordnungen' },
     { href: '/admin/accessories', label: 'Zubehör' },
   ];
+  
+  // Benutzer-spezifische Links basierend auf Berechtigungen
+  const userLinks: { href: string; label: string; show: boolean }[] = user && user.role !== Roles.ADMIN ? [
+    {
+      href: '/admin/accessories',
+      label: 'Zubehör',
+      show: userHasAnyPermission(user, [
+        AvailablePermissions.ACCESSORIES_VIEW,
+        AvailablePermissions.ACCESSORIES_CREATE,
+        AvailablePermissions.ACCESSORIES_EDIT,
+      ]),
+    },
+  ] : [];
   return (
     <header className="border-b bg-white/80 backdrop-blur-sm sticky top-0 z-20">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between gap-4">
@@ -34,8 +62,10 @@ export default async function Navbar() {
             <span className="text-gray-400">·</span>
             <span>Prisma</span>
           </div>
+          
+          {/* Desktop Navigation */}
           <nav className="hidden sm:flex items-center gap-2 text-xs sm:text-sm">
-            {mainLinks.map((link) => (
+            {mainLinks.filter(link => link.show).map((link) => (
               <Link
                 key={link.href}
                 href={link.href}
@@ -44,16 +74,39 @@ export default async function Navbar() {
                 {link.label}
               </Link>
             ))}
-            {user?.role === Roles.ADMIN &&
-              adminLinks.map((link) => (
-                <Link
-                  key={link.href}
-                  href={link.href}
-                  className="px-3 py-1 rounded-full text-gray-700 hover:bg-gray-100"
+            {/* Benutzer-spezifische Links basierend auf Berechtigungen */}
+            {userLinks.filter(link => link.show).map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                className="px-3 py-1 rounded-full text-gray-700 hover:bg-gray-100"
+              >
+                {link.label}
+              </Link>
+            ))}
+            {/* Admin-Links nur für Admins */}
+            {user?.role === Roles.ADMIN && (
+              <div className="relative group">
+                <button
+                  type="button"
+                  className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-gray-700 hover:bg-gray-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
                 >
-                  {link.label}
-                </Link>
-              ))}
+                  Administration
+                  <ChevronDown className="w-4 h-4" />
+                </button>
+                <div className="hidden group-hover:flex group-focus-within:flex flex-col absolute right-0 top-full w-56 rounded-xl border border-gray-200 bg-white shadow-lg z-30">
+                  {adminLinks.map((link) => (
+                    <Link
+                      key={link.href}
+                      href={link.href}
+                      className="px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 first:rounded-t-xl last:rounded-b-xl"
+                    >
+                      {link.label}
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            )}
             {user ? (
               <>
                 <span className="mx-1 h-4 w-px bg-gray-200" />
@@ -78,6 +131,15 @@ export default async function Navbar() {
               </Link>
             )}
           </nav>
+
+          {/* Mobile Menu */}
+          <MobileMenu
+            mainLinks={mainLinks}
+            userLinks={userLinks}
+            adminLinks={adminLinks}
+            isAdmin={user?.role === Roles.ADMIN}
+            user={user ? { name: user.name, email: user.email } : null}
+          />
         </div>
       </div>
     </header>

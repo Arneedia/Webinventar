@@ -208,15 +208,39 @@ model HS_MOD {
 
 // Web-User für Login/Autorisierung
 model WebUser {
-  id                 Int       @id @default(autoincrement())
-  email              String    @unique
+  id                 Int                       @id @default(autoincrement())
+  email              String                    @unique
   name               String?
   passwordHash       String
-  role               String    @default("USER")
-  mustChangePassword Boolean   @default(false)
+  role               String                    @default("USER")
+  mustChangePassword Boolean                   @default(false)
   sessions           Session[]
-  createdAt          DateTime  @default(now())
-  updatedAt          DateTime  @updatedAt
+  permissionGroups   WebUserPermissionGroup[]
+  createdAt          DateTime                  @default(now())
+  updatedAt          DateTime                  @updatedAt
+}
+
+// Rechtegruppen für granulare Berechtigungen
+model PermissionGroup {
+  id          Int                       @id @default(autoincrement())
+  name        String                    @unique
+  description String?
+  permissions String                    // JSON-Array mit Berechtigungen
+  users       WebUserPermissionGroup[]
+  createdAt   DateTime                  @default(now())
+  updatedAt   DateTime                  @updatedAt
+}
+
+// Many-to-Many Zuordnung WebUser <-> PermissionGroup
+model WebUserPermissionGroup {
+  id                Int             @id @default(autoincrement())
+  userId            Int
+  permissionGroupId Int
+  user              WebUser         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  permissionGroup   PermissionGroup @relation(fields: [permissionGroupId], references: [id], onDelete: Cascade)
+  assignedAt        DateTime        @default(now())
+
+  @@unique([userId, permissionGroupId])
 }
 
 model Session {

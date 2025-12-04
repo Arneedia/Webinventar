@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prismaClient";
-import { requireApiUser, Roles } from "@/lib/auth";
+import { requireApiUser } from "@/lib/auth";
+import { AvailablePermissions } from "@/lib/permissionGroups";
 
 function serializeRelation(record: any) {
   return {
@@ -25,7 +26,7 @@ function buildDeviceLabel(device: { GerID: number; SNO: string | null }): string
 }
 
 export async function GET(req: NextRequest) {
-  const auth = await requireApiUser(req, Roles.ADMIN);
+  const auth = await requireApiUser(req, AvailablePermissions.ACCESSORIES_VIEW);
   if (!auth.authorized) {
     return NextResponse.json({ error: auth.message }, { status: auth.status });
   }
@@ -48,7 +49,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const auth = await requireApiUser(req, Roles.ADMIN);
+  const auth = await requireApiUser(req, AvailablePermissions.ACCESSORIES_CREATE);
   if (!auth.authorized) {
     return NextResponse.json({ error: auth.message }, { status: auth.status });
   }

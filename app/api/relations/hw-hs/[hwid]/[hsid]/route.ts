@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prismaClient';
-import { requireApiUser, Roles } from '@/lib/auth';
+import { requireApiUser } from '@/lib/auth';
+import { AvailablePermissions } from '@/lib/permissionGroups';
 
 interface RouteContext {
   params: Promise<{ hwid: string; hsid: string }>;
@@ -18,7 +19,7 @@ function parseIds(hwid: string, hsid: string) {
 }
 
 export async function DELETE(req: NextRequest, context: RouteContext) {
-  const auth = await requireApiUser(req, Roles.ADMIN);
+  const auth = await requireApiUser(req, AvailablePermissions.MASTER_DATA_EDIT);
   if (!auth.authorized) {
     return NextResponse.json({ error: auth.message }, { status: auth.status });
   }

@@ -2,6 +2,7 @@ import { randomBytes, scryptSync, timingSafeEqual } from 'crypto';
 import { cookies } from 'next/headers';
 import type { NextRequest } from 'next/server';
 import { prisma } from './prismaClient';
+import { parsePermissions, expandPermissions, type Permission } from './permissionGroups';
 
 const SESSION_COOKIE_NAME = 'session';
 const SESSION_TTL_DAYS = 7;
@@ -61,7 +62,49 @@ export async function invalidateSession(token: string | undefined | null) {
   await prisma.session.deleteMany({ where: { token } });
 }
 
-export async function getCurrentUserFromRequest(req: NextRequest) {
+// Typ für User mit Berechtigungen
+export type UserWithPermissions = {
+  id: number;
+  email: string;
+  name: string | null;
+  role: string;
+  permissions: string[];
+};
+
+async function loadUserWithPermissions(userId: number): Promise<UserWithPermissions | null> {
+  const user = await prisma.webUser.findUnique({
+    where: { id: userId },
+    include: {
+      permissionGroups: {
+        include: { permissionGroup: true },
+      },
+    },
+  });
+
+  if (!user) return null;
+
+  // Sammle alle Berechtigungen aus allen Gruppen
+  const allPermissions = new Set<string>();
+  for (const { permissionGroup } of user.permissionGroups) {
+    const perms = parsePermissions(permissionGroup.permissions);
+    for (const perm of perms) {
+      allPermissions.add(perm);
+    }
+  }
+
+  // Erweitere Berechtigungen um implizierte (z.B. "bearbeiten" → "erstellen", "löschen", "anzeigen")
+  const expandedPermissions = expandPermissions(Array.from(allPermissions));
+
+  return {
+    id: user.id,
+    email: user.email,
+    name: user.name,
+    role: user.role,
+    permissions: expandedPermissions,
+  };
+}
+
+export async function getCurrentUserFromRequest(req: NextRequest): Promise<UserWithPermissions | null> {
   const token = req.cookies.get(SESSION_COOKIE_NAME)?.value;
   if (!token) return null;
 
@@ -70,13 +113,14 @@ export async function getCurrentUserFromRequest(req: NextRequest) {
       token,
       expiresAt: { gt: new Date() },
     },
-    include: { user: true },
+    select: { userId: true },
   });
 
-  return session?.user ?? null;
+  if (!session) return null;
+  return loadUserWithPermissions(session.userId);
 }
 
-export async function getCurrentUser() {
+export async function getCurrentUser(): Promise<UserWithPermissions | null> {
   const cookieStore = await cookies();
   const token = cookieStore.get(SESSION_COOKIE_NAME)?.value;
   if (!token) return null;
@@ -86,10 +130,11 @@ export async function getCurrentUser() {
       token,
       expiresAt: { gt: new Date() },
     },
-    include: { user: true },
+    select: { userId: true },
   });
 
-  return session?.user ?? null;
+  if (!session) return null;
+  return loadUserWithPermissions(session.userId);
 }
 
 export const AuthConstants = {
@@ -110,16 +155,61 @@ export function userHasRole(user: { role: string }, requiredRole?: WebUserRole) 
 }
 
 export type RequireApiUserResult =
-  | { authorized: true; user: NonNullable<Awaited<ReturnType<typeof getCurrentUser>>> }
+  | { authorized: true; user: UserWithPermissions }
   | { authorized: false; status: number; message: string };
 
-export async function requireApiUser(req: NextRequest, role?: WebUserRole): Promise<RequireApiUserResult> {
+/**
+ * Prüft ob der Benutzer angemeldet ist und optional eine bestimmte Rolle oder Berechtigung hat.
+ * Admins haben immer alle Berechtigungen.
+ */
+export async function requireApiUser(
+  req: NextRequest,
+  roleOrPermission?: WebUserRole | Permission
+): Promise<RequireApiUserResult> {
   const user = await getCurrentUserFromRequest(req);
   if (!user) {
     return { authorized: false, status: 401, message: 'Nicht angemeldet' };
   }
-  if (!userHasRole(user, role)) {
-    return { authorized: false, status: 403, message: 'Keine Berechtigung' };
+
+  // Admins haben immer alle Berechtigungen
+  if (user.role === Roles.ADMIN) {
+    return { authorized: true, user };
   }
+
+  // Wenn keine Rolle/Berechtigung erforderlich, nur Login prüfen
+  if (!roleOrPermission) {
+    return { authorized: true, user };
+  }
+
+  // Prüfe ob es eine Rolle ist (ADMIN oder USER)
+  if (roleOrPermission === Roles.ADMIN || roleOrPermission === Roles.USER) {
+    if (!userHasRole(user, roleOrPermission)) {
+      return { authorized: false, status: 403, message: 'Keine Berechtigung für diese Aktion' };
+    }
+    return { authorized: true, user };
+  }
+
+  // Ansonsten ist es eine Permission - prüfe ob der User sie hat
+  if (!userHasPermission(user, roleOrPermission)) {
+    return { authorized: false, status: 403, message: 'Keine Berechtigung für diese Aktion' };
+  }
+
   return { authorized: true, user };
+}
+
+/**
+ * Prüft ob ein Benutzer eine bestimmte Berechtigung hat.
+ * Admins haben immer alle Berechtigungen.
+ */
+export function userHasPermission(user: UserWithPermissions, permission: Permission): boolean {
+  if (user.role === Roles.ADMIN) return true;
+  return user.permissions.includes(permission);
+}
+
+/**
+ * Prüft ob ein Benutzer mindestens eine der angegebenen Berechtigungen hat.
+ */
+export function userHasAnyPermission(user: UserWithPermissions, permissions: Permission[]): boolean {
+  if (user.role === Roles.ADMIN) return true;
+  return permissions.some((perm) => user.permissions.includes(perm));
 }

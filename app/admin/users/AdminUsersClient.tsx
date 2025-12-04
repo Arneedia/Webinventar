@@ -2,9 +2,11 @@
 
 import { useCallback, useMemo, useState } from 'react';
 import type { SerializableWebUser } from '@/lib/webUsers';
+import type { SerializablePermissionGroup } from '@/lib/permissionGroups';
 
 interface AdminUsersClientProps {
   initialUsers: SerializableWebUser[];
+  allPermissionGroups: SerializablePermissionGroup[];
 }
 
 const roleOptions = [
@@ -14,8 +16,10 @@ const roleOptions = [
 
 type RoleValue = (typeof roleOptions)[number]['value'];
 
-export default function AdminUsersClient({ initialUsers }: AdminUsersClientProps) {
+export default function AdminUsersClient({ initialUsers, allPermissionGroups }: AdminUsersClientProps) {
   const [users, setUsers] = useState<SerializableWebUser[]>(initialUsers);
+  const [permissionGroups] = useState<SerializablePermissionGroup[]>(allPermissionGroups);
+  const [managingGroupsUserId, setManagingGroupsUserId] = useState<number | null>(null);
   const [email, setEmail] = useState('');
   const [name, setName] = useState('');
   const [password, setPassword] = useState('');
@@ -204,6 +208,66 @@ export default function AdminUsersClient({ initialUsers }: AdminUsersClientProps
     }
   };
 
+  const handleAddToGroup = useCallback(
+    async (userId: number, groupId: number) => {
+      setError(null);
+      setSuccess(null);
+
+      try {
+        const res = await fetch(`/api/permission-groups/${groupId}/users`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId }),
+        });
+
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          throw new Error(data.error ?? 'Benutzer konnte nicht zur Gruppe hinzugefügt werden');
+        }
+
+        await refreshUsers();
+        setSuccess('Benutzer zur Rechtegruppe hinzugefügt');
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Unbekannter Fehler');
+      }
+    },
+    [refreshUsers]
+  );
+
+  const handleRemoveFromGroup = useCallback(
+    async (userId: number, groupId: number) => {
+      setError(null);
+      setSuccess(null);
+
+      try {
+        const res = await fetch(`/api/permission-groups/${groupId}/users?userId=${userId}`, {
+          method: 'DELETE',
+        });
+
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          throw new Error(data.error ?? 'Benutzer konnte nicht aus der Gruppe entfernt werden');
+        }
+
+        await refreshUsers();
+        setSuccess('Benutzer aus Rechtegruppe entfernt');
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Unbekannter Fehler');
+      }
+    },
+    [refreshUsers]
+  );
+
+  const managingUser = managingGroupsUserId
+    ? users.find((u) => u.id === managingGroupsUserId)
+    : null;
+
+  const availableGroupsForUser = useMemo(() => {
+    if (!managingUser) return [];
+    const userGroupIds = new Set(managingUser.permissionGroups?.map((g) => g.id) ?? []);
+    return permissionGroups.filter((g) => !userGroupIds.has(g.id));
+  }, [managingUser, permissionGroups]);
+
   return (
     <div className="space-y-8">
       <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -323,8 +387,8 @@ export default function AdminUsersClient({ initialUsers }: AdminUsersClientProps
                 <th className="px-4 py-3">E-Mail</th>
                 <th className="px-4 py-3">Name</th>
                 <th className="px-4 py-3">Rolle</th>
+                <th className="px-4 py-3">Rechtegruppen</th>
                 <th className="px-4 py-3">Erstellt</th>
-                <th className="px-4 py-3">Aktualisiert</th>
                 <th className="px-4 py-3 text-center">Aktionen</th>
               </tr>
             </thead>
@@ -380,8 +444,23 @@ export default function AdminUsersClient({ initialUsers }: AdminUsersClientProps
                       </span>
                     )}
                   </td>
+                  <td className="px-4 py-3">
+                    <div className="flex flex-wrap gap-1">
+                      {user.permissionGroups && user.permissionGroups.length > 0 ? (
+                        user.permissionGroups.map((group) => (
+                          <span
+                            key={group.id}
+                            className="inline-flex items-center rounded-full bg-purple-50 px-2 py-0.5 text-xs font-medium text-purple-700"
+                          >
+                            {group.name}
+                          </span>
+                        ))
+                      ) : (
+                        <span className="text-xs text-gray-400">Keine</span>
+                      )}
+                    </div>
+                  </td>
                   <td className="px-4 py-3 text-gray-600">{formatDate(user.createdAt)}</td>
-                  <td className="px-4 py-3 text-gray-600">{formatDate(user.updatedAt)}</td>
                   <td className="px-4 py-3">
                     {editingUserId === user.id ? (
                       <div className="flex flex-col gap-2">
@@ -421,6 +500,13 @@ export default function AdminUsersClient({ initialUsers }: AdminUsersClientProps
                         </button>
                         <button
                           type="button"
+                          onClick={() => setManagingGroupsUserId(user.id)}
+                          className="rounded-full border border-purple-200 px-3 py-1 font-medium text-purple-600 hover:bg-purple-50"
+                        >
+                          Gruppen
+                        </button>
+                        <button
+                          type="button"
                           onClick={() => handleResetPassword(user)}
                           disabled={isResettingId === user.id}
                           className="rounded-full border border-amber-200 px-3 py-1 font-medium text-amber-600 hover:bg-amber-50 disabled:cursor-not-allowed disabled:border-amber-100 disabled:text-amber-300"
@@ -442,7 +528,7 @@ export default function AdminUsersClient({ initialUsers }: AdminUsersClientProps
               ))}
               {users.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="px-4 py-6 text-center text-sm text-gray-500">
+                  <td colSpan={6} className="px-4 py-6 text-center text-sm text-gray-500">
                     Keine Benutzer vorhanden.
                   </td>
                 </tr>
@@ -451,6 +537,91 @@ export default function AdminUsersClient({ initialUsers }: AdminUsersClientProps
           </table>
         </div>
       </section>
+
+      {/* Rechtegruppen-Verwaltung Modal */}
+      {managingUser && (
+        <section className="rounded-2xl border border-purple-200 bg-white/80 p-6 shadow-sm backdrop-blur">
+          <div className="mb-4 flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900">
+                Rechtegruppen für {managingUser.name || managingUser.email}
+              </h2>
+              <p className="text-sm text-gray-500">
+                Weisen Sie dem Benutzer Rechtegruppen zu oder entfernen Sie diese.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setManagingGroupsUserId(null)}
+              className="rounded-full border border-gray-200 p-2 text-gray-500 hover:bg-gray-50"
+            >
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+
+          {/* Aktuelle Gruppen */}
+          <div className="mb-6">
+            <h3 className="mb-2 text-sm font-medium text-gray-700">Zugewiesene Gruppen</h3>
+            {managingUser.permissionGroups && managingUser.permissionGroups.length > 0 ? (
+              <div className="flex flex-wrap gap-2">
+                {managingUser.permissionGroups.map((group) => (
+                  <span
+                    key={group.id}
+                    className="inline-flex items-center gap-1 rounded-full bg-purple-100 px-3 py-1 text-sm font-medium text-purple-800"
+                  >
+                    {group.name}
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveFromGroup(managingUser.id, group.id)}
+                      className="ml-1 rounded-full p-0.5 hover:bg-purple-200"
+                      title="Aus Gruppe entfernen"
+                    >
+                      <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-gray-500">Keine Rechtegruppen zugewiesen.</p>
+            )}
+          </div>
+
+          {/* Gruppe hinzufügen */}
+          {availableGroupsForUser.length > 0 && (
+            <div>
+              <h3 className="mb-2 text-sm font-medium text-gray-700">Gruppe hinzufügen</h3>
+              <div className="flex flex-wrap gap-2">
+                {availableGroupsForUser.map((group) => (
+                  <button
+                    key={group.id}
+                    type="button"
+                    onClick={() => handleAddToGroup(managingUser.id, group.id)}
+                    className="inline-flex items-center gap-1 rounded-full border border-purple-200 bg-white px-3 py-1 text-sm font-medium text-purple-700 hover:bg-purple-50"
+                  >
+                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                    </svg>
+                    {group.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {permissionGroups.length === 0 && (
+            <p className="text-sm text-gray-500">
+              Keine Rechtegruppen vorhanden.{' '}
+              <a href="/admin/permission-groups" className="text-purple-600 hover:underline">
+                Rechtegruppen erstellen
+              </a>
+            </p>
+          )}
+        </section>
+      )}
     </div>
   );
 }

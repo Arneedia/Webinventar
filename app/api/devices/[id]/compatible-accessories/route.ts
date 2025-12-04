@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prismaClient";
-import { requireApiUser, Roles } from "@/lib/auth";
+import { requireApiUser } from "@/lib/auth";
+import { AvailablePermissions } from "@/lib/permissionGroups";
 
 interface RouteContext {
   params: Promise<{ id: string }>;
@@ -18,7 +19,7 @@ interface RouteContext {
  * Zusätzlich wird der aktuelle Lagerbestand zurückgegeben.
  */
 export async function GET(req: NextRequest, context: RouteContext) {
-  const auth = await requireApiUser(req, Roles.USER);
+  const auth = await requireApiUser(req, AvailablePermissions.ACCESSORIES_VIEW);
   if (!auth.authorized) {
     return NextResponse.json({ error: auth.message }, { status: auth.status });
   }

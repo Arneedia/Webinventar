@@ -1,8 +1,15 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prismaClient';
+import { requireApiUser } from '@/lib/auth';
+import { AvailablePermissions } from '@/lib/permissionGroups';
 
 // Liste aller Geräte mit aktuellen Zuordnungen
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const auth = await requireApiUser(req, AvailablePermissions.DEVICES_VIEW);
+  if (!auth.authorized) {
+    return NextResponse.json({ error: auth.message }, { status: auth.status });
+  }
+
   try {
     const devices = await prisma.gER.findMany({
       include: {

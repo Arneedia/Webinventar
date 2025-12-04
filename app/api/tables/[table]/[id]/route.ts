@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prismaClient';
 import { getTableConfig } from '@/lib/tableConfig';
+import { requireApiUser } from '@/lib/auth';
+import { AvailablePermissions } from '@/lib/permissionGroups';
 
 interface RouteContext {
   params: Promise<{ table: string; id: string }>;
@@ -29,6 +31,11 @@ function buildWhere(config: ReturnType<typeof getTableConfig>, id: string) {
 }
 
 export async function PUT(req: NextRequest, context: RouteContext) {
+  const auth = await requireApiUser(req, AvailablePermissions.MASTER_DATA_EDIT);
+  if (!auth.authorized) {
+    return NextResponse.json({ error: auth.message }, { status: auth.status });
+  }
+
   try {
     const { table, id } = await context.params;
     const config = getTableConfig(table);
@@ -72,7 +79,12 @@ export async function PUT(req: NextRequest, context: RouteContext) {
   }
 }
 
-export async function DELETE(_req: NextRequest, context: RouteContext) {
+export async function DELETE(req: NextRequest, context: RouteContext) {
+  const auth = await requireApiUser(req, AvailablePermissions.MASTER_DATA_EDIT);
+  if (!auth.authorized) {
+    return NextResponse.json({ error: auth.message }, { status: auth.status });
+  }
+
   try {
     const { table, id } = await context.params;
     const config = getTableConfig(table);

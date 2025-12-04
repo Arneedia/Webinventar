@@ -1,11 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prismaClient';
+import { requireApiUser } from '@/lib/auth';
+import { AvailablePermissions } from '@/lib/permissionGroups';
 
 interface RouteContext {
   params: Promise<{ id: string }>;
 }
 
-export async function POST(_req: NextRequest, context: RouteContext) {
+export async function POST(req: NextRequest, context: RouteContext) {
+  const auth = await requireApiUser(req, AvailablePermissions.DEVICES_EDIT);
+  if (!auth.authorized) {
+    return NextResponse.json({ error: auth.message }, { status: auth.status });
+  }
+
   try {
     const { id } = await context.params;
     const deviceId = Number(id);

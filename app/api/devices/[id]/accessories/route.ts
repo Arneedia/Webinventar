@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prismaClient";
-import { requireApiUser, Roles } from "@/lib/auth";
+import { requireApiUser } from "@/lib/auth";
+import { AvailablePermissions } from "@/lib/permissionGroups";
 
 interface RouteContext {
   params: Promise<{ id: string }>;
@@ -11,7 +12,7 @@ interface RouteContext {
  * Liefert alle Zubehör-Zuordnungen für ein Gerät (aktiv + abgeschlossen).
  */
 export async function GET(req: NextRequest, context: RouteContext) {
-  const auth = await requireApiUser(req, Roles.USER);
+  const auth = await requireApiUser(req, AvailablePermissions.ACCESSORIES_VIEW);
   if (!auth.authorized) {
     return NextResponse.json({ error: auth.message }, { status: auth.status });
   }
@@ -66,7 +67,7 @@ export async function GET(req: NextRequest, context: RouteContext) {
  * - Bucht automatisch Abgang im ZubehoerInventar (Menge 1).
  */
 export async function POST(req: NextRequest, context: RouteContext) {
-  const auth = await requireApiUser(req, Roles.ADMIN);
+  const auth = await requireApiUser(req, AvailablePermissions.ACCESSORIES_EDIT);
   if (!auth.authorized) {
     return NextResponse.json({ error: auth.message }, { status: auth.status });
   }

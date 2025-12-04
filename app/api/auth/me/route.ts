@@ -14,6 +14,7 @@ export async function GET(req: NextRequest) {
         email: user.email,
         name: user.name,
         role: user.role,
+        permissions: user.permissions,
       },
     });
   } catch (error) {
