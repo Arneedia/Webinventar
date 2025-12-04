@@ -1,33 +1,74 @@
 import { Package, PackagePlus } from "lucide-react";
 import type { AccessoryItemSummary, AccessoryTypeSummary } from "@/lib/accessories";
-import type { AccessoryFormState, CatalogFilterState, SelectOption } from "../types";
+import type { AccessoryFormState, CatalogFilterState, DropdownFilterState, SelectOption } from "../types";
 
 interface CatalogTabProps {
   items: AccessoryItemSummary[];
   types: AccessoryTypeSummary[];
   form: AccessoryFormState;
   filters: CatalogFilterState;
+  dropdownFilters: DropdownFilterState;
   hwOptions: SelectOption[];
   hsOptions: SelectOption[];
   modOptions: SelectOption[];
   onFormChange: (field: keyof AccessoryFormState, value: string) => void;
   onFiltersChange: (field: keyof CatalogFilterState, value: string) => void;
+  onDropdownFilterChange: (field: keyof DropdownFilterState, value: string) => void;
   onSubmit: (event: React.FormEvent<HTMLFormElement>) => void;
 }
 
-const formatModelLabel = (model: AccessoryItemSummary["model"]) =>
-  [model.name, model.modellNummer].filter(Boolean).join(" · ") || `Modell #${model.id}`;
+const formatModelLabel = (model: AccessoryItemSummary["model"]) => {
+  if (!model) {
+    return "Modell unbekannt";
+  }
+
+  const label = [model.name, model.modellNummer].filter(Boolean).join(" · ");
+  return label || `Modell #${model.id}`;
+};
+
+const formatManufacturerLabel = (manufacturer: AccessoryItemSummary["manufacturer"]) => {
+  if (!manufacturer) {
+    return "Hersteller unbekannt";
+  }
+
+  if (manufacturer.name && manufacturer.name.trim().length > 0) {
+    return manufacturer.name.trim();
+  }
+
+  return `Hersteller #${manufacturer.id}`;
+};
+
+const formatAccessoryName = (item: AccessoryItemSummary) => {
+  if (item.description && item.description.trim().length > 0) {
+    return item.description.trim();
+  }
+
+  // Format: "Typ für Hersteller Modell"
+  const typeName = item.type?.name ?? null;
+  const manufacturerName = item.manufacturer?.name?.trim() ?? null;
+  const modelName = item.model?.name?.trim() ?? item.model?.modellNummer?.trim() ?? null;
+
+  if (typeName && manufacturerName && modelName) {
+    return `${typeName} für ${manufacturerName} ${modelName}`;
+  }
+
+  // Fallback wenn nicht alle Teile vorhanden
+  const parts = [typeName, manufacturerName, modelName].filter(Boolean);
+  return parts.join(" · ") || `Zubehör #${item.id}`;
+};
 
 export default function CatalogTab({
   items,
   types,
   form,
   filters,
+  dropdownFilters,
   hwOptions,
   hsOptions,
   modOptions,
   onFormChange,
   onFiltersChange,
+  onDropdownFilterChange,
   onSubmit,
 }: CatalogTabProps) {
   return (
@@ -41,6 +82,17 @@ export default function CatalogTab({
         </div>
 
         <form onSubmit={onSubmit} className="mt-4 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          <label className="md:col-span-2 lg:col-span-3 text-sm text-gray-600">
+            Name
+            <input
+              type="text"
+              value={form.Beschreibung}
+              onChange={(event) => onFormChange("Beschreibung", event.target.value)}
+              className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+              placeholder="z.B. Ladekabel für Samsung Galaxy S23"
+            />
+          </label>
+
           <label className="text-sm text-gray-600">
             Typ *
             <select
@@ -58,68 +110,83 @@ export default function CatalogTab({
             </select>
           </label>
 
-          <label className="text-sm text-gray-600">
-            Hardware-Typ *
-            <select
-              required
-              value={form.HWID}
-              onChange={(event) => onFormChange("HWID", event.target.value)}
-              className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
-            >
-              <option value="">Hardware auswählen</option>
-              {hwOptions.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
-          </label>
+          <div className="text-sm text-gray-600">
+            <span className="block mb-1">Hardware-Typ *</span>
+            <div className="space-y-1">
+              <input
+                type="text"
+                placeholder="Hardware-Typ suchen..."
+                value={dropdownFilters.hwFilter}
+                onChange={(event) => onDropdownFilterChange("hwFilter", event.target.value)}
+                className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+              />
+              <select
+                required
+                value={form.HWID}
+                onChange={(event) => onFormChange("HWID", event.target.value)}
+                className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+              >
+                <option value="">-- Hardware-Typ wählen --</option>
+                {hwOptions.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label} (ID {opt.value})
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
 
-          <label className="text-sm text-gray-600">
-            Hersteller *
-            <select
-              required
-              value={form.HSID}
-              onChange={(event) => onFormChange("HSID", event.target.value)}
-              className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
-            >
-              <option value="">Hersteller auswählen</option>
-              {hsOptions.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
-          </label>
+          <div className="text-sm text-gray-600">
+            <span className="block mb-1">Hersteller</span>
+            <div className="space-y-1">
+              <input
+                type="text"
+                placeholder="Hersteller suchen..."
+                value={dropdownFilters.hsFilter}
+                onChange={(event) => onDropdownFilterChange("hsFilter", event.target.value)}
+                className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+              />
+              <select
+                value={form.HSID}
+                onChange={(event) => onFormChange("HSID", event.target.value)}
+                className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+              >
+                <option value="">-- Hersteller wählen (optional) --</option>
+                {hsOptions.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label} (ID {opt.value})
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
 
-          <label className="text-sm text-gray-600">
-            Modell *
-            <select
-              required
-              value={form.ModID}
-              onChange={(event) => onFormChange("ModID", event.target.value)}
-              className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
-            >
-              <option value="">Modell auswählen</option>
-              {modOptions.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
-          </label>
+          <div className="text-sm text-gray-600">
+            <span className="block mb-1">Modell</span>
+            <div className="space-y-1">
+              <input
+                type="text"
+                placeholder="Modell suchen..."
+                value={dropdownFilters.modFilter}
+                onChange={(event) => onDropdownFilterChange("modFilter", event.target.value)}
+                className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+              />
+              <select
+                value={form.ModID}
+                onChange={(event) => onFormChange("ModID", event.target.value)}
+                className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+              >
+                <option value="">-- Modell wählen (optional) --</option>
+                {modOptions.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label} (ID {opt.value})
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
 
-          <label className="md:col-span-2 lg:col-span-3 text-sm text-gray-600">
-            Beschreibung
-            <textarea
-              value={form.Beschreibung}
-              onChange={(event) => onFormChange("Beschreibung", event.target.value)}
-              className="mt-1 w-full rounded-2xl border border-gray-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
-              rows={2}
-              placeholder="z.B. 65W USB-C Netzteil"
-            />
-          </label>
-
+          
           <div className="lg:col-span-3 flex justify-end">
             <button
               type="submit"
@@ -165,11 +232,11 @@ export default function CatalogTab({
           {items.map((item) => (
             <div key={item.id} className="rounded-2xl border border-gray-200 p-4 shadow-sm space-y-2">
               <div className="flex items-center justify-between">
-                <p className="font-semibold text-gray-900">{item.description || `Zubehör #${item.id}`}</p>
+                <p className="font-semibold text-gray-900">{formatAccessoryName(item)}</p>
                 <span className="rounded-full bg-blue-50 px-3 py-0.5 text-xs text-blue-700">{item.type.name}</span>
               </div>
               <p className="text-xs text-gray-500">HW: {item.hardware.name || `#${item.hardware.id}`}</p>
-              <p className="text-xs text-gray-500">Hersteller: {item.manufacturer.name || `#${item.manufacturer.id}`}</p>
+              <p className="text-xs text-gray-500">Hersteller: {formatManufacturerLabel(item.manufacturer)}</p>
               <p className="text-xs text-gray-500">Modell: {formatModelLabel(item.model)}</p>
               <div className="flex items-center justify-between pt-2 text-xs">
                 <span

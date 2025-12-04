@@ -175,8 +175,8 @@ export const tables: TableConfig[] = [
       { name: 'ZubehoerID', type: 'int', nullable: false, identity: true },
       { name: 'ZTID', type: 'int', nullable: false },
       { name: 'HWID', type: 'int', nullable: false },
-      { name: 'ModID', type: 'int', nullable: false },
-      { name: 'HSID', type: 'int', nullable: false },
+      { name: 'ModID', type: 'int', nullable: true },
+      { name: 'HSID', type: 'int', nullable: true },
       { name: 'Beschreibung', type: 'nvarchar', nullable: true, maxLength: 1000 },
     ],
     foreignKeys: [

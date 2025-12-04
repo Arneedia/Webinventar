@@ -24,11 +24,14 @@ export default function AdminUsersClient({ initialUsers }: AdminUsersClientProps
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [editingUserId, setEditingUserId] = useState<number | null>(null);
+  const [editEmail, setEditEmail] = useState('');
   const [editName, setEditName] = useState('');
   const [editRole, setEditRole] = useState<RoleValue>('USER');
   const [editPassword, setEditPassword] = useState('');
   const [isSavingEdit, setIsSavingEdit] = useState(false);
   const [isDeletingId, setIsDeletingId] = useState<number | null>(null);
+  const [isResettingId, setIsResettingId] = useState<number | null>(null);
+  const [tempPassword, setTempPassword] = useState<string | null>(null);
 
   const formatDate = useCallback((value: string) => {
     return new Date(value).toLocaleString('de-DE', {
@@ -53,11 +56,13 @@ export default function AdminUsersClient({ initialUsers }: AdminUsersClientProps
 
   const startEdit = useCallback((user: SerializableWebUser) => {
     setEditingUserId(user.id);
+    setEditEmail(user.email);
     setEditName(user.name ?? '');
     setEditRole(user.role as RoleValue);
     setEditPassword('');
     setError(null);
     setSuccess(null);
+    setTempPassword(null);
   }, []);
 
   const cancelEdit = useCallback(() => {
@@ -73,6 +78,7 @@ export default function AdminUsersClient({ initialUsers }: AdminUsersClientProps
 
     try {
       const payload: Record<string, unknown> = {
+        email: editEmail,
         name: editName,
         role: editRole,
       };
@@ -100,7 +106,39 @@ export default function AdminUsersClient({ initialUsers }: AdminUsersClientProps
     } finally {
       setIsSavingEdit(false);
     }
-  }, [editingUserId, editName, editRole, editPassword, refreshUsers, cancelEdit]);
+  }, [editingUserId, editEmail, editName, editRole, editPassword, refreshUsers, cancelEdit]);
+
+  const handleResetPassword = useCallback(async (user: SerializableWebUser) => {
+    if (!window.confirm(`Passwort für "${user.email}" wirklich zurücksetzen?`)) {
+      return;
+    }
+
+    setIsResettingId(user.id);
+    setError(null);
+    setSuccess(null);
+    setTempPassword(null);
+
+    try {
+      const res = await fetch(`/api/webusers/${user.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ resetPassword: true }),
+      });
+
+      const response = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(response.error ?? 'Passwort konnte nicht zurückgesetzt werden');
+      }
+
+      await refreshUsers();
+      setTempPassword(response.tempPassword);
+      setSuccess(`Passwort zurückgesetzt. Temporäres Passwort: ${response.tempPassword}`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unbekannter Fehler');
+    } finally {
+      setIsResettingId(null);
+    }
+  }, [refreshUsers]);
 
   const handleDelete = useCallback(
     async (user: SerializableWebUser) => {
@@ -239,6 +277,17 @@ export default function AdminUsersClient({ initialUsers }: AdminUsersClientProps
           <div className="md:col-span-2 flex flex-col gap-3">
             {error && <p className="text-sm text-red-600">{error}</p>}
             {success && <p className="text-sm text-emerald-600">{success}</p>}
+            {tempPassword && (
+              <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
+                <p className="text-sm font-medium text-amber-800">Temporäres Passwort:</p>
+                <code className="mt-1 block rounded bg-white px-2 py-1 font-mono text-sm text-amber-900 select-all">
+                  {tempPassword}
+                </code>
+                <p className="mt-2 text-xs text-amber-700">
+                  Der Benutzer muss sich mit diesem Passwort anmelden und wird dann aufgefordert, ein neues Passwort festzulegen.
+                </p>
+              </div>
+            )}
             <div>
               <button
                 type="submit"
@@ -282,7 +331,18 @@ export default function AdminUsersClient({ initialUsers }: AdminUsersClientProps
             <tbody className="divide-y divide-gray-100">
               {users.map((user) => (
                 <tr key={user.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3 font-medium text-gray-900">{user.email}</td>
+                  <td className="px-4 py-3 font-medium text-gray-900">
+                    {editingUserId === user.id ? (
+                      <input
+                        type="email"
+                        value={editEmail}
+                        onChange={(e) => setEditEmail(e.target.value)}
+                        className="w-full rounded-lg border border-gray-200 px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none"
+                      />
+                    ) : (
+                      user.email
+                    )}
+                  </td>
                   <td className="px-4 py-3 text-gray-700">
                     {editingUserId === user.id ? (
                       <input
@@ -358,6 +418,14 @@ export default function AdminUsersClient({ initialUsers }: AdminUsersClientProps
                           className="rounded-full border border-gray-200 px-3 py-1 font-medium text-gray-700 hover:bg-gray-50"
                         >
                           Bearbeiten
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleResetPassword(user)}
+                          disabled={isResettingId === user.id}
+                          className="rounded-full border border-amber-200 px-3 py-1 font-medium text-amber-600 hover:bg-amber-50 disabled:cursor-not-allowed disabled:border-amber-100 disabled:text-amber-300"
+                        >
+                          {isResettingId === user.id ? 'Setzt zurück…' : 'PW Reset'}
                         </button>
                         <button
                           type="button"

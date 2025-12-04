@@ -12,6 +12,7 @@ import type {
   AssignmentFilterState,
   AssignmentFormState,
   CatalogFilterState,
+  DropdownFilterState,
   MovementFormState,
   SelectOption,
   TabConfig,
@@ -53,6 +54,12 @@ interface GERRow {
   SNO: string | null;
 }
 
+interface HsModRelation {
+  HSID: number;
+  ModID: number;
+  HWID: number | null;
+}
+
 const tabs: TabConfig<TabKey>[] = [
   { key: "types", label: "Stammdaten", description: "Zubehör-Typen pflegen" },
   { key: "catalog", label: "Zubehör-Katalog", description: "Zubehör mit Hardware-Bezug verwalten" },
@@ -87,6 +94,16 @@ export default function AccessoriesManager() {
   const { data: modTable } = useSWR<TableResponse<MODRow>>("/api/tables/MOD", jsonFetcher);
   const { data: userTable } = useSWR<TableResponse<BenutzerRow>>("/api/tables/Benutzer", jsonFetcher);
   const { data: gerTable } = useSWR<TableResponse<GERRow>>("/api/tables/GER", jsonFetcher);
+  const { data: hsModTable } = useSWR<{ data: HsModRelation[] }>("/api/tables/HS_MOD", jsonFetcher);
+
+  const hsModRelations = useMemo<HsModRelation[]>(
+    () => (hsModTable?.data ?? []).map((row) => ({
+      HSID: Number(row.HSID),
+      ModID: Number(row.ModID),
+      HWID: row.HWID === null || row.HWID === undefined ? null : Number(row.HWID),
+    })),
+    [hsModTable?.data],
+  );
 
   const hwOptions = useMemo<SelectOption[]>(
     () =>
@@ -164,6 +181,7 @@ export default function AccessoriesManager() {
     Ende: "",
   });
   const [catalogFilters, setCatalogFilters] = useState<CatalogFilterState>({ search: "", type: "" });
+  const [dropdownFilters, setDropdownFilters] = useState<DropdownFilterState>({ hwFilter: "", hsFilter: "", modFilter: "" });
   const [assignmentFilters, setAssignmentFilters] = useState<AssignmentFilterState>({ status: "all", search: "" });
 
   useEffect(() => {
@@ -171,6 +189,105 @@ export default function AccessoriesManager() {
     setMovementForm((prev: MovementFormState) => (prev.date ? prev : { ...prev, date: currentDate }));
     setAssignmentForm((prev: AssignmentFormState) => (prev.Start ? prev : { ...prev, Start: currentDate }));
   }, []);
+
+  // Ausgewählte IDs aus dem Formular
+  const selectedHwId = newAccessory.HWID ? Number(newAccessory.HWID) : null;
+  const selectedHsId = newAccessory.HSID ? Number(newAccessory.HSID) : null;
+  const selectedModId = newAccessory.ModID ? Number(newAccessory.ModID) : null;
+
+  // Berechne erlaubte IDs basierend auf HS_MOD Relationen
+  const relationSets = useMemo(() => {
+    const allowedHwIds = new Set<number>();
+    const allowedHsIds = new Set<number>();
+    const allowedModIds = new Set<number>();
+
+    if (hsModRelations.length === 0) {
+      return { allowedHwIds, allowedHsIds, allowedModIds };
+    }
+
+    hsModRelations.forEach((rel) => {
+      if (
+        (!selectedHsId && !selectedModId) ||
+        ((!selectedHsId || rel.HSID === selectedHsId) && (!selectedModId || rel.ModID === selectedModId))
+      ) {
+        if (rel.HWID != null) {
+          allowedHwIds.add(rel.HWID);
+        }
+      }
+
+      if (
+        (!selectedHwId && !selectedModId) ||
+        ((!selectedHwId || rel.HWID === selectedHwId) && (!selectedModId || rel.ModID === selectedModId))
+      ) {
+        allowedHsIds.add(rel.HSID);
+      }
+
+      if (
+        (!selectedHwId && !selectedHsId) ||
+        ((!selectedHwId || rel.HWID === selectedHwId) && (!selectedHsId || rel.HSID === selectedHsId))
+      ) {
+        allowedModIds.add(rel.ModID);
+      }
+    });
+
+    return { allowedHwIds, allowedHsIds, allowedModIds };
+  }, [hsModRelations, selectedHwId, selectedHsId, selectedModId]);
+
+  const canFilterByRelations = hsModRelations.length > 0;
+  const shouldRestrictHw = canFilterByRelations && (selectedHsId != null || selectedModId != null);
+  const shouldRestrictHs = canFilterByRelations && (selectedHwId != null || selectedModId != null);
+  const shouldRestrictMod = canFilterByRelations && (selectedHwId != null || selectedHsId != null);
+
+  const optionMatchesSearch = (label: string, value: number, term: string) => {
+    if (!term) return true;
+    const lower = term.toLowerCase();
+    return label.toLowerCase().includes(lower) || String(value).includes(lower);
+  };
+
+  const filteredHwOptions = useMemo<SelectOption[]>(() => {
+    return hwOptions.filter((o) => {
+      if (!optionMatchesSearch(o.label, o.value, dropdownFilters.hwFilter)) {
+        return false;
+      }
+      if (!shouldRestrictHw) {
+        return true;
+      }
+      if (relationSets.allowedHwIds.size === 0) {
+        return false;
+      }
+      return relationSets.allowedHwIds.has(o.value);
+    });
+  }, [hwOptions, dropdownFilters.hwFilter, shouldRestrictHw, relationSets.allowedHwIds]);
+
+  const filteredHsOptions = useMemo<SelectOption[]>(() => {
+    return hsOptions.filter((o) => {
+      if (!optionMatchesSearch(o.label, o.value, dropdownFilters.hsFilter)) {
+        return false;
+      }
+      if (!shouldRestrictHs) {
+        return true;
+      }
+      if (relationSets.allowedHsIds.size === 0) {
+        return false;
+      }
+      return relationSets.allowedHsIds.has(o.value);
+    });
+  }, [hsOptions, dropdownFilters.hsFilter, shouldRestrictHs, relationSets.allowedHsIds]);
+
+  const filteredModOptions = useMemo<SelectOption[]>(() => {
+    return modOptions.filter((o) => {
+      if (!optionMatchesSearch(o.label, o.value, dropdownFilters.modFilter)) {
+        return false;
+      }
+      if (!shouldRestrictMod) {
+        return true;
+      }
+      if (relationSets.allowedModIds.size === 0) {
+        return false;
+      }
+      return relationSets.allowedModIds.has(o.value);
+    });
+  }, [modOptions, dropdownFilters.modFilter, shouldRestrictMod, relationSets.allowedModIds]);
 
   const filteredAccessories = useMemo<AccessoryItemSummary[]>(() => {
     const list = overview?.accessories ?? [];
@@ -223,6 +340,10 @@ export default function AccessoriesManager() {
 
   const handleCatalogFilterChange = (field: keyof CatalogFilterState, value: string) => {
     setCatalogFilters((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleDropdownFilterChange = (field: keyof DropdownFilterState, value: string) => {
+    setDropdownFilters((prev) => ({ ...prev, [field]: value }));
   };
 
   const handleMovementFormChange = (field: keyof MovementFormState, value: string) => {
@@ -399,11 +520,13 @@ export default function AccessoriesManager() {
           types={overview?.types ?? []}
           form={newAccessory}
           filters={catalogFilters}
-          hwOptions={hwOptions}
-          hsOptions={hsOptions}
-          modOptions={modOptions}
+          dropdownFilters={dropdownFilters}
+          hwOptions={filteredHwOptions}
+          hsOptions={filteredHsOptions}
+          modOptions={filteredModOptions}
           onFormChange={handleAccessoryFormChange}
           onFiltersChange={handleCatalogFilterChange}
+          onDropdownFilterChange={handleDropdownFilterChange}
           onSubmit={handleCreateAccessory}
         />
       )}

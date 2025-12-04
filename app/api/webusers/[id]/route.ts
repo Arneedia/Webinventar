@@ -60,6 +60,37 @@ export async function PUT(req: NextRequest, context: RouteContext) {
         return NextResponse.json({ error: 'Passwort muss mindestens 6 Zeichen haben' }, { status: 400 });
       }
       data.passwordHash = hashPassword(body.password);
+      // Bei normalem Passwort-Update: mustChangePassword auf false setzen
+      data.mustChangePassword = false;
+    }
+
+    // Passwort zurücksetzen (generiert temporäres Passwort, User muss es ändern)
+    if (body.resetPassword === true) {
+      const tempPassword = Math.random().toString(36).slice(-8);
+      data.passwordHash = hashPassword(tempPassword);
+      data.mustChangePassword = true;
+      // Temporäres Passwort wird in der Response zurückgegeben
+      const updated = await prisma.webUser.update({ where: { id: userId }, data });
+      return NextResponse.json({ 
+        user: serializeWebUser(updated), 
+        tempPassword,
+        message: 'Passwort wurde zurückgesetzt. Der Benutzer muss sich mit dem temporären Passwort anmelden und ein neues festlegen.'
+      });
+    }
+
+    if (typeof body.email === 'string') {
+      const trimmedEmail = body.email.trim().toLowerCase();
+      if (trimmedEmail.length === 0) {
+        return NextResponse.json({ error: 'E-Mail darf nicht leer sein' }, { status: 400 });
+      }
+      // Prüfen ob E-Mail bereits vergeben
+      const existing = await prisma.webUser.findFirst({ 
+        where: { email: trimmedEmail, NOT: { id: userId } } 
+      });
+      if (existing) {
+        return NextResponse.json({ error: 'Diese E-Mail wird bereits verwendet' }, { status: 400 });
+      }
+      data.email = trimmedEmail;
     }
 
     if (body.role !== undefined) {
@@ -83,7 +114,8 @@ export async function PUT(req: NextRequest, context: RouteContext) {
       return error;
     }
     console.error('Error in PUT /api/webusers/[id]:', error);
-    return NextResponse.json({ error: 'Benutzer konnte nicht aktualisiert werden' }, { status: 500 });
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    return NextResponse.json({ error: 'Benutzer konnte nicht aktualisiert werden', details: errorMessage }, { status: 500 });
   }
 }
 

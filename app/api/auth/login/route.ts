@@ -36,6 +36,7 @@ export async function POST(req: NextRequest) {
       email: authed.email,
       name: authed.name,
       role: authed.role,
+      mustChangePassword: authed.mustChangePassword,
     });
 
     res.cookies.set(AuthConstants.SESSION_COOKIE_NAME, token, {

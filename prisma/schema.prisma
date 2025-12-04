@@ -126,13 +126,13 @@ model Zubehoer {
   ZubehoerID        Int                @id @default(autoincrement())
   ZTID              Int
   HWID              Int
-  ModID             Int
-  HSID              Int
+  ModID             Int?
+  HSID              Int?
   Beschreibung      String?
   ZT                ZT                 @relation(fields: [ZTID], references: [ID])
   HW                HW                 @relation(fields: [HWID], references: [HWID])
-  MOD               MOD                @relation(fields: [ModID], references: [ModID])
-  HS                HS                 @relation(fields: [HSID], references: [HSID])
+  MOD               MOD?               @relation(fields: [ModID], references: [ModID])
+  HS                HS?                @relation(fields: [HSID], references: [HSID])
   ZubehoerBenutzer  ZubehoerBenutzer[]
   ZubehoerInventar  ZubehoerInventar[]
   ZubehoerBewegung  ZubehoerBewegung[]
@@ -208,14 +208,15 @@ model HS_MOD {
 
 // Web-User für Login/Autorisierung
 model WebUser {
-  id           Int       @id @default(autoincrement())
-  email        String    @unique
-  name         String?
-  passwordHash String
-  role         String    @default("USER")
-  sessions     Session[]
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  id                 Int       @id @default(autoincrement())
+  email              String    @unique
+  name               String?
+  passwordHash       String
+  role               String    @default("USER")
+  mustChangePassword Boolean   @default(false)
+  sessions           Session[]
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
 }
 
 model Session {

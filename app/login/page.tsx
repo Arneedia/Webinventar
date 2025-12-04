@@ -31,7 +31,12 @@ export default function LoginPage() {
         throw new Error(data.error || 'Login fehlgeschlagen');
       }
 
-      router.push(redirectTo || '/geraete');
+      // Prüfen ob Passwort geändert werden muss
+      if (data.mustChangePassword) {
+        router.push('/change-password');
+      } else {
+        router.push(redirectTo || '/geraete');
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Login fehlgeschlagen');
     } finally {

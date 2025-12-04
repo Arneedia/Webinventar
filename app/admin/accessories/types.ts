@@ -37,6 +37,12 @@ export interface CatalogFilterState {
   type: string;
 }
 
+export interface DropdownFilterState {
+  hwFilter: string;
+  hsFilter: string;
+  modFilter: string;
+}
+
 export interface AssignmentFilterState {
   status: "all" | "active" | "returned";
   search: string;
