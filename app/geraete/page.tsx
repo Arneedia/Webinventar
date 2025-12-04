@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { Database, MonitorSmartphone, UserRound, History, AlertTriangle, Plus, RefreshCw } from 'lucide-react';
+import { Database, MonitorSmartphone, UserRound, History, AlertTriangle, Plus, RefreshCw, Package, Undo2, XCircle } from 'lucide-react';
 
 interface DeviceListItem {
   id: number;
@@ -40,6 +40,24 @@ interface HsModRelation {
   HWID: number | null;
 }
 
+interface DeviceAccessory {
+  id: number;
+  accessoryId: number;
+  accessoryLabel: string;
+  accessoryType: string | null;
+  userId: number | null;
+  userName: string | null;
+  start: string | null;
+  end: string | null;
+  status: 'ACTIVE' | 'RETURNED';
+}
+
+interface AccessoryOption {
+  id: number;
+  label: string;
+  stock: number;
+}
+
 export default function DeviceManagementPage() {
   const [devices, setDevices] = useState<DeviceListItem[]>([]);
   const [loadingDevices, setLoadingDevices] = useState(true);
@@ -71,6 +89,13 @@ export default function DeviceManagementPage() {
   const [creating, setCreating] = useState(false);
   const [saving, setSaving] = useState(false);
 
+  // Zubehör-State
+  const [deviceAccessories, setDeviceAccessories] = useState<DeviceAccessory[]>([]);
+  const [accessoriesLoading, setAccessoriesLoading] = useState(false);
+  const [accessoryOptions, setAccessoryOptions] = useState<AccessoryOption[]>([]);
+  const [selectedAccessoryId, setSelectedAccessoryId] = useState<string>('');
+  const [accessoryActionLoading, setAccessoryActionLoading] = useState(false);
+
   const [newDevice, setNewDevice] = useState({
     HWID: '',
     HSID: '',
@@ -92,8 +117,12 @@ export default function DeviceManagementPage() {
   useEffect(() => {
     if (selectedDeviceId != null) {
       fetchHistory(selectedDeviceId);
+      fetchDeviceAccessories(selectedDeviceId);
+      fetchCompatibleAccessories(selectedDeviceId);
     } else {
       setHistory([]);
+      setDeviceAccessories([]);
+      setAccessoryOptions([]);
     }
   }, [selectedDeviceId]);
 
@@ -128,6 +157,79 @@ export default function DeviceManagementPage() {
       setHsModRelations(relations);
     } catch {
       setHsModRelations([]);
+    }
+  };
+
+  const fetchCompatibleAccessories = async (deviceId: number) => {
+    try {
+      const res = await fetch(`/api/devices/${deviceId}/compatible-accessories`);
+      if (!res.ok) return;
+      const json = await res.json();
+      const options: AccessoryOption[] = (json.accessories ?? []).map((a: any) => ({
+        id: a.id,
+        label: a.label || `Zubehör #${a.id}`,
+        stock: a.stock ?? 0,
+      }));
+      setAccessoryOptions(options);
+    } catch {
+      setAccessoryOptions([]);
+    }
+  };
+
+  const fetchDeviceAccessories = async (deviceId: number) => {
+    try {
+      setAccessoriesLoading(true);
+      const res = await fetch(`/api/devices/${deviceId}/accessories`);
+      if (!res.ok) throw new Error('Fehler beim Laden des Zubehörs');
+      const json = await res.json();
+      setDeviceAccessories(json.accessories ?? []);
+    } catch {
+      setDeviceAccessories([]);
+    } finally {
+      setAccessoriesLoading(false);
+    }
+  };
+
+  const handleAssignAccessory = async () => {
+    if (!selectedDeviceId || !selectedAccessoryId) return;
+    try {
+      setAccessoryActionLoading(true);
+      setActionError(null);
+      const res = await fetch(`/api/devices/${selectedDeviceId}/accessories`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ZubehoerID: Number(selectedAccessoryId) }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || 'Fehler beim Zuweisen');
+      setSelectedAccessoryId('');
+      fetchDeviceAccessories(selectedDeviceId);
+      fetchCompatibleAccessories(selectedDeviceId); // Bestand aktualisieren
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Fehler beim Zuweisen');
+    } finally {
+      setAccessoryActionLoading(false);
+    }
+  };
+
+  const handleReturnAccessory = async (assignmentId: number, returnToStock: boolean) => {
+    if (!selectedDeviceId) return;
+    try {
+      setAccessoryActionLoading(true);
+      setActionError(null);
+      const res = await fetch(`/api/devices/${selectedDeviceId}/accessories/${assignmentId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ returnToStock }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || 'Fehler bei Rückgabe');
+      fetchDeviceAccessories(selectedDeviceId);
+      if (returnToStock) fetchCompatibleAccessories(selectedDeviceId);
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Fehler bei Rückgabe');
+    } finally {
+      setAccessoryActionLoading(false);
     }
   };
 
@@ -924,6 +1026,120 @@ export default function DeviceManagementPage() {
                 )
               ) : (
                 <p className="text-xs text-gray-500">Wähle links ein Gerät, um den Verlauf zu sehen.</p>
+              )}
+            </div>
+
+            {/* Zubehör-Sektion */}
+            <div className="bg-white rounded-xl border border-gray-200 p-4 flex flex-col">
+              <h2 className="text-sm font-semibold text-gray-900 flex items-center gap-2 mb-3">
+                <Package className="w-4 h-4 text-blue-600" />
+                Zubehör
+              </h2>
+
+              {selectedDevice ? (
+                <>
+                  {/* Zubehör zuweisen */}
+                  <div className="mb-3 text-xs space-y-2">
+                    <label className="block text-xs font-medium text-gray-700">Zubehör aus Lager zuweisen</label>
+                    <select
+                      value={selectedAccessoryId}
+                      onChange={(e) => setSelectedAccessoryId(e.target.value)}
+                      className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="">-- Zubehör wählen --</option>
+                      {accessoryOptions
+                        .filter((opt) => opt.stock > 0)
+                        .map((opt) => (
+                          <option key={opt.id} value={opt.id}>
+                            {opt.label} (Bestand: {opt.stock})
+                          </option>
+                        ))}
+                    </select>
+                    <button
+                      type="button"
+                      onClick={handleAssignAccessory}
+                      disabled={!selectedAccessoryId || accessoryActionLoading}
+                      className="w-full px-3 py-1.5 rounded-lg bg-blue-600 text-white text-xs hover:bg-blue-700 disabled:bg-blue-300 disabled:cursor-not-allowed"
+                    >
+                      {accessoryActionLoading ? 'Wird zugewiesen...' : 'Zuweisen & vom Lager abbuchen'}
+                    </button>
+                  </div>
+
+                  {/* Zugewiesenes Zubehör */}
+                  <div className="border-t border-gray-100 pt-3">
+                    <p className="text-xs font-medium text-gray-700 mb-2">Zugewiesenes Zubehör</p>
+                    {accessoriesLoading ? (
+                      <div className="flex items-center justify-center py-4">
+                        <RefreshCw className="w-4 h-4 text-blue-600 animate-spin" />
+                      </div>
+                    ) : deviceAccessories.filter((a) => a.status === 'ACTIVE').length === 0 ? (
+                      <p className="text-[11px] text-gray-500">Kein Zubehör zugewiesen.</p>
+                    ) : (
+                      <ul className="space-y-2 text-xs text-gray-700 max-h-48 overflow-y-auto pr-1">
+                        {deviceAccessories
+                          .filter((a) => a.status === 'ACTIVE')
+                          .map((acc) => (
+                            <li
+                              key={acc.id}
+                              className="rounded-lg border border-gray-200 px-3 py-2 bg-gray-50/60 flex items-center justify-between gap-2"
+                            >
+                              <div className="flex-1 min-w-0">
+                                <div className="font-medium text-gray-900">{acc.accessoryLabel}</div>
+                                {acc.accessoryType && (
+                                  <div className="text-[11px] text-gray-500">{acc.accessoryType}</div>
+                                )}
+                                <div className="text-[11px] text-gray-500">
+                                  seit {acc.start ? new Date(acc.start).toLocaleDateString('de-DE') : '—'}
+                                </div>
+                              </div>
+                              <div className="flex gap-1">
+                                <button
+                                  type="button"
+                                  onClick={() => handleReturnAccessory(acc.id, true)}
+                                  disabled={accessoryActionLoading}
+                                  className="p-1.5 rounded-lg border border-gray-200 text-gray-500 hover:bg-emerald-50 hover:text-emerald-600 hover:border-emerald-200 disabled:opacity-50"
+                                  title="Zurückgeben (ins Lager)"
+                                >
+                                  <Undo2 className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleReturnAccessory(acc.id, false)}
+                                  disabled={accessoryActionLoading}
+                                  className="p-1.5 rounded-lg border border-gray-200 text-gray-500 hover:bg-red-50 hover:text-red-600 hover:border-red-200 disabled:opacity-50"
+                                  title="Ausbuchen / Defekt (nicht ins Lager)"
+                                >
+                                  <XCircle className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </li>
+                          ))}
+                      </ul>
+                    )}
+                  </div>
+
+                  {/* Zubehör-Historie (beendet) */}
+                  {deviceAccessories.filter((a) => a.status === 'RETURNED').length > 0 && (
+                    <div className="border-t border-gray-100 pt-3 mt-3">
+                      <p className="text-xs font-medium text-gray-700 mb-2">Zubehör-Historie</p>
+                      <ul className="space-y-1 text-[11px] text-gray-500 max-h-32 overflow-y-auto pr-1">
+                        {deviceAccessories
+                          .filter((a) => a.status === 'RETURNED')
+                          .map((acc) => (
+                            <li key={acc.id} className="flex justify-between">
+                              <span>{acc.accessoryLabel}</span>
+                              <span>
+                                {acc.start ? new Date(acc.start).toLocaleDateString('de-DE') : '?'} –{' '}
+                                {acc.end ? new Date(acc.end).toLocaleDateString('de-DE') : '?'}
+                              </span>
+                            </li>
+                          ))}
+                      </ul>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <p className="text-xs text-gray-500">Wähle links ein Gerät, um Zubehör zu verwalten.</p>
               )}
             </div>
           </section>

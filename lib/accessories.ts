@@ -32,6 +32,8 @@ export interface AccessoryAssignmentSummary {
   accessoryLabel: string;
   userId: number;
   userName: string;
+  deviceId: number | null;
+  deviceLabel: string | null;
   start: string;
   end: string | null;
   status: 'ACTIVE' | 'RETURNED';
@@ -51,6 +53,14 @@ function formatDate(value: Date | null): string | null {
 
 function buildAccessoryLabel(desc: string | null, fallbackId: number) {
   return desc?.trim() ? desc.trim() : `Zubehör #${fallbackId}`;
+}
+
+function buildDeviceLabel(device: { GerID: number; SNO: string | null } | null): string | null {
+  if (!device) return null;
+  if (device.SNO && device.SNO.trim().length > 0) {
+    return `${device.SNO.trim()} (#${device.GerID})`;
+  }
+  return `Gerät #${device.GerID}`;
 }
 
 export async function getAccessoryOverview(): Promise<AccessoryOverviewPayload> {
@@ -87,6 +97,12 @@ export async function getAccessoryOverview(): Promise<AccessoryOverviewPayload> 
             ZubehoerID: true,
             Beschreibung: true,
             ZT: { select: { ZTName: true } },
+          },
+        },
+        GER: {
+          select: {
+            GerID: true,
+            SNO: true,
           },
         },
       },
@@ -149,6 +165,8 @@ export async function getAccessoryOverview(): Promise<AccessoryOverviewPayload> 
     ),
     userId: assignment.BenutzerID,
     userName: assignment.Benutzer?.BenutzerName ?? `Benutzer #${assignment.BenutzerID}`,
+    deviceId: assignment.GerID ?? null,
+    deviceLabel: buildDeviceLabel(assignment.GER ?? null),
     start: formatDate(assignment.Start) ?? '',
     end: formatDate(assignment.Ende),
     status: assignment.Ende ? 'RETURNED' : 'ACTIVE',

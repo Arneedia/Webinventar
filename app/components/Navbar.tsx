@@ -12,6 +12,7 @@ export default async function Navbar() {
   const adminLinks = [
     { href: '/admin/users', label: 'Userverwaltung' },
     { href: '/admin/relations', label: 'Zuordnungen' },
+    { href: '/admin/accessories', label: 'Zubehör' },
   ];
   return (
     <header className="border-b bg-white/80 backdrop-blur-sm sticky top-0 z-20">

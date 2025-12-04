@@ -75,8 +75,9 @@ model Benutzer {
   ABT              ABT?              @relation(fields: [ABTID], references: [ABTID])
   STAT             STAT?             @relation(fields: [StatusID], references: [StatusID])
   GS               GS?               @relation(fields: [GSID], references: [GSID])
-  BenutzerGER      BenutzerGER[]
-  ZubehoerBenutzer ZubehoerBenutzer[]
+  BenutzerGER        BenutzerGER[]
+  ZubehoerBenutzer   ZubehoerBenutzer[]
+  ZubehoerBewegung   ZubehoerBewegung[]
 }
 
 // Geräte
@@ -97,7 +98,9 @@ model GER {
   HW          HW            @relation(fields: [HWID], references: [HWID])
   HS          HS            @relation(fields: [HSID], references: [HSID])
   MOD         MOD           @relation(fields: [MODID], references: [ModID])
-  BenutzerGER BenutzerGER[]
+  BenutzerGER        BenutzerGER[]
+  ZubehoerBenutzer   ZubehoerBenutzer[]
+  ZubehoerBewegung   ZubehoerBewegung[]
 }
 
 // Benutzer-Geräte Zuordnung
@@ -132,6 +135,7 @@ model Zubehoer {
   HS                HS                 @relation(fields: [HSID], references: [HSID])
   ZubehoerBenutzer  ZubehoerBenutzer[]
   ZubehoerInventar  ZubehoerInventar[]
+  ZubehoerBewegung  ZubehoerBewegung[]
 
   @@map("Zubehör")
 }
@@ -139,12 +143,14 @@ model Zubehoer {
 // Zubehör-Benutzer Zuordnung
 model ZubehoerBenutzer {
   ID         Int       @id @default(autoincrement())
-  BenutzerID Int
+  BenutzerID Int?
   ZubehoerID Int
+  GerID      Int?
   Start      DateTime
   Ende       DateTime?
-  Benutzer   Benutzer  @relation(fields: [BenutzerID], references: [BenutzerID])
+  Benutzer   Benutzer? @relation(fields: [BenutzerID], references: [BenutzerID])
   Zubehoer   Zubehoer  @relation(fields: [ZubehoerID], references: [ZubehoerID])
+  GER        GER?      @relation(fields: [GerID], references: [GerID])
 
   @@map("ZubehörBenutzer")
 }
@@ -159,6 +165,23 @@ model ZubehoerInventar {
   Zubehoer   Zubehoer  @relation(fields: [ZubehoerID], references: [ZubehoerID])
 
   @@map("ZubehörInventar")
+}
+
+// Zubehör-Bewegungen (Tracking)
+model ZubehoerBewegung {
+  ID          Int       @id @default(autoincrement())
+  ZubehoerID  Int
+  Typ         String    // ZUGANG, ABGANG, ZUWEISUNG_GERAET, RUECKGABE_GERAET, ZUWEISUNG_BENUTZER, RUECKGABE_BENUTZER, DEFEKT
+  Menge       Int       @default(1)
+  GerID       Int?
+  BenutzerID  Int?
+  Bemerkung   String?
+  Zeitpunkt   DateTime  @default(now())
+  Zubehoer    Zubehoer  @relation(fields: [ZubehoerID], references: [ZubehoerID])
+  GER         GER?      @relation(fields: [GerID], references: [GerID])
+  Benutzer    Benutzer? @relation(fields: [BenutzerID], references: [BenutzerID])
+
+  @@map("ZubehörBewegung")
 }
 
 // Hardware-Hersteller Zuordnung

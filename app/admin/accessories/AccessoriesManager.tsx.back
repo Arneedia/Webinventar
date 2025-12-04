@@ -1,0 +1,246 @@
+nter rounded-full bg-gray-100 px-3 py-1 text-xs text-gray-700">
+              {type.accessoryCount} Zubehörteile
+            </span>
+          </div>
+        ))}
+        {types.length === 0 && <p className="text-sm text-gray-500">Noch keine Typen vorhanden.</p>}
+      </div>
+    </section>
+  );
+
+  const renderCatalogTab = (items: AccessoryItemSummary[], types: AccessoryTypeSummary[]) => (
+    <div className="space-y-6">
+      <section className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+        <div className="flex flex-col gap-1">
+          <h2 className="flex items-center gap-2 text-lg font-semibold text-gray-900">
+            <Package className="h-5 w-5 text-blue-500" /> Zubehör hinzufügen
+          </h2>
+          <p className="text-sm text-gray-500">Typ, Hardware, Hersteller und Modell miteinander verknüpfen.</p>
+        </div>
+        <form onSubmit={handleCreateAccessory} className="mt-4 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          <label className="text-sm text-gray-600">
+            Typ *
+            <select
+              required
+              value={newAccessory.ZTID}
+              onChange={(e) => setNewAccessory((prev) => ({ ...prev, ZTID: e.target.value }))}
+              className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+            >
+              <option value="">Typ wählen</option>
+              {types.map((type) => (
+                <option key={type.id} value={type.id}>
+                  {type.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="text-sm text-gray-600">
+            Hardware-Typ *
+            <select
+              required
+              value={newAccessory.HWID}
+              onChange={(e) => setNewAccessory((prev) => ({ ...prev, HWID: e.target.value }))}
+              className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+            >
+              <option value="">Hardware auswählen</option>
+              {hwOptions.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="text-sm text-gray-600">
+            Hersteller *
+            <select
+              required
+              value={newAccessory.HSID}
+              onChange={(e) => setNewAccessory((prev) => ({ ...prev, HSID: e.target.value }))}
+              className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+            >
+              <option value="">Hersteller auswählen</option>
+              {hsOptions.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="text-sm text-gray-600">
+            Modell *
+            <select
+              required
+              value={newAccessory.ModID}
+              onChange={(e) => setNewAccessory((prev) => ({ ...prev, ModID: e.target.value }))}
+              className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+            >
+              <option value="">Modell auswählen</option>
+              {modOptions.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="md:col-span-2 lg:col-span-3 text-sm text-gray-600">
+            Beschreibung
+            <textarea
+              value={newAccessory.Beschreibung}
+              onChange={(e) => setNewAccessory((prev) => ({ ...prev, Beschreibung: e.target.value }))}
+              className="mt-1 w-full rounded-2xl border border-gray-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+              rows={2}
+              placeholder="z.B. 65W USB-C Netzteil"
+            />
+          </label>
+          <div className="lg:col-span-3 flex justify-end">
+            <button
+              type="submit"
+              className="inline-flex items-center gap-2 rounded-full bg-blue-600 px-5 py-2 text-sm font-semibold text-white shadow hover:bg-blue-500"
+            >
+              <PackagePlus className="h-4 w-4" /> Speichern
+            </button>
+          </div>
+        </form>
+      </section>
+
+      <section className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm space-y-4">
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900">Zubehör-Katalog</h2>
+            <p className="text-sm text-gray-500">Filtere nach Typ oder nutze die Volltextsuche.</p>
+          </div>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <select
+              value={catalogFilters.type}
+              onChange={(e) => setCatalogFilters((prev) => ({ ...prev, type: e.target.value }))}
+              className="rounded-full border border-gray-200 px-4 py-2 text-sm focus:border-blue-500 focus:outline-none"
+            >
+              <option value="">Alle Typen</option>
+              {types.map((type) => (
+                <option key={type.id} value={type.id}>
+                  {type.name}
+                </option>
+              ))}
+            </select>
+            <input
+              type="text"
+              value={catalogFilters.search}
+              onChange={(e) => setCatalogFilters((prev) => ({ ...prev, search: e.target.value }))}
+              placeholder="Suche"
+              className="rounded-full border border-gray-200 px-4 py-2 text-sm focus:border-blue-500 focus:outline-none"
+            />
+          </div>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {items.length === 0 && <p className="text-sm text-gray-500">Noch kein Zubehör vorhanden.</p>}
+          {items.map((item) => (
+            <div key={item.id} className="rounded-2xl border border-gray-200 p-4 shadow-sm space-y-2">
+              <div className="flex items-center justify-between">
+                <p className="font-semibold text-gray-900">{item.description || `Zubehör #${item.id}`}</p>
+                <span className="rounded-full bg-blue-50 px-3 py-0.5 text-xs text-blue-700">{item.type.name}</span>
+              </div>
+              <p className="text-xs text-gray-500">HW: {item.hardware.name || `#${item.hardware.id}`}</p>
+              <p className="text-xs text-gray-500">Hersteller: {item.manufacturer.name || `#${item.manufacturer.id}`}</p>
+              <p className="text-xs text-gray-500">Modell: {formatModelLabel(item.model)}</p>
+              <div className="flex items-center justify-between pt-2 text-xs">
+                <span
+                  className={`inline-flex items-center rounded-full px-3 py-0.5 font-medium ${
+                    item.stock > 5
+                      ? "bg-emerald-50 text-emerald-700"
+                      : item.stock > 0
+                        ? "bg-amber-50 text-amber-700"
+                        : "bg-red-50 text-red-700"
+                  }`}
+                >
+                  Bestand: {item.stock}
+                </span>
+                <span className="text-gray-500">
+                  Aktiv: {item.assignments.active}/{item.assignments.total}
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+    </div>
+  );
+
+  const renderInventoryTab = (movements: InventoryMovementSummary[], accessories: AccessoryItemSummary[]) => (
+    <div className="space-y-6">
+      <section className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+        <div className="flex items-center gap-2">
+          <Boxes className="h-5 w-5 text-blue-500" />
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900">Bestandsbewegung buchen</h2>
+            <p className="text-sm text-gray-500">Zugänge oder Abgänge dokumentieren.</p>
+          </div>
+        </div>
+        <form onSubmit={handleInventoryMovement} className="mt-4 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          <label className="text-sm text-gray-600 lg:col-span-2">
+            Zubehör *
+            <select
+              required
+              value={movementForm.ZubehoerID}
+              onChange={(e) => setMovementForm((prev) => ({ ...prev, ZubehoerID: e.target.value }))}
+              className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+            >
+              <option value="">Zubehör auswählen</option>
+              {accessories.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.description || `Zubehör #${item.id}`} (Bestand {item.stock})
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="text-sm text-gray-600">
+            Richtung
+            <select
+              value={movementForm.direction}
+              onChange={(e) => setMovementForm((prev) => ({ ...prev, direction: e.target.value as "IN" | "OUT" }))}
+              className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm"
+            >
+              <option value="IN">Zugang</option>
+              <option value="OUT">Abgang</option>
+            </select>
+          </label>
+          <label className="text-sm text-gray-600">
+            Menge
+            <input
+              type="number"
+              min={1}
+              value={movementForm.Menge}
+              onChange={(e) => setMovementForm((prev) => ({ ...prev, Menge: e.target.value }))}
+              className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm"
+            />
+          </label>
+          <label className="text-sm text-gray-600">
+            Datum
+            <input
+              type="date"
+              value={movementForm.date}
+              onChange={(e) => setMovementForm((prev) => ({ ...prev, date: e.target.value }))}
+              className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm"
+            />
+          </label>
+          <div className="lg:col-span-4 flex justify-end">
+            <button
+              type="submit"
+              className="inline-flex items-center gap-2 rounded-full bg-blue-600 px-5 py-2 text-sm font-semibold text-white shadow hover:bg-blue-500"
+            >
+              <RefreshCw className="h-4 w-4" /> Buchen
+            </button>
+          </div>
+        </form>
+      </section>
+
+      <section className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm space-y-4">
+        <h2 className="text-lg font-semibold text-gray-900">Letzte Bewegungen</h2>
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-100 text-sm">
+            <thead>
+              <tr className="bg-gray-50 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+                <th className="px-4 py-3">Datum</th>
+                <th className="px-4 py-3">Zubehör</th>
+                <th className="px-4 py-3">Menge</th>
+                <th className="px-4 py-3">Richtung</th>
+              </tr>
