@@ -99,13 +99,17 @@ export default function RelationsManager() {
     try {
       setLoadingHsMod(true);
       const res = await fetch('/api/relations/hs-mod', { cache: 'no-store' });
-      const data = await res.json();
+      const data = await res.json().catch(async () => {
+        const text = await res.text();
+        throw new Error(text ? `Antwort ist kein JSON: ${text.slice(0, 120)}` : 'Antwort ist kein JSON');
+      });
       if (!res.ok) {
-        throw new Error(data.error || 'Zuordnungen konnten nicht geladen werden');
+        throw new Error(data?.error || 'Zuordnungen konnten nicht geladen werden');
       }
-      setHsModRelations(Array.isArray(data.relations) ? data.relations : []);
+      setHsModRelations(Array.isArray(data?.relations) ? data.relations : []);
       setError(null);
     } catch (err) {
+      console.error('loadHsModRelations failed', err);
       setError(err instanceof Error ? err.message : 'Unbekannter Fehler beim Laden');
       setHsModRelations([]);
     } finally {

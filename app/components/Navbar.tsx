@@ -4,6 +4,15 @@ import { getCurrentUser, Roles } from '@/lib/auth';
 
 export default async function Navbar() {
   const user = await getCurrentUser();
+  const mainLinks = [
+    { href: '/', label: 'Rohdaten' },
+    { href: '/geraete', label: 'Geräteverwaltung' },
+  ];
+
+  const adminLinks = [
+    { href: '/admin/users', label: 'Userverwaltung' },
+    { href: '/admin/relations', label: 'Zuordnungen' },
+  ];
   return (
     <header className="border-b bg-white/80 backdrop-blur-sm sticky top-0 z-20">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between gap-4">
@@ -25,34 +34,25 @@ export default async function Navbar() {
             <span>Prisma</span>
           </div>
           <nav className="hidden sm:flex items-center gap-2 text-xs sm:text-sm">
-            <Link
-              href="/"
-              className="px-3 py-1 rounded-full text-gray-700 hover:bg-gray-100"
-            >
-              Rohdaten
-            </Link>
-            <Link
-              href="/geraete"
-              className="px-3 py-1 rounded-full text-gray-700 hover:bg-gray-100"
-            >
-              Geräteverwaltung
-            </Link>
-                        {user?.role === Roles.ADMIN && (
-              <>
+            {mainLinks.map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                className="px-3 py-1 rounded-full text-gray-700 hover:bg-gray-100"
+              >
+                {link.label}
+              </Link>
+            ))}
+            {user?.role === Roles.ADMIN &&
+              adminLinks.map((link) => (
                 <Link
-                  href="/admin/users"
+                  key={link.href}
+                  href={link.href}
                   className="px-3 py-1 rounded-full text-gray-700 hover:bg-gray-100"
                 >
-                  Userverwaltung
+                  {link.label}
                 </Link>
-                <Link
-                  href="/admin/relations"
-                  className="px-3 py-1 rounded-full text-gray-700 hover:bg-gray-100"
-                >
-                  Zuordnungen
-                </Link>
-              </>
-            )}
+              ))}
             {user ? (
               <>
                 <span className="mx-1 h-4 w-px bg-gray-200" />
