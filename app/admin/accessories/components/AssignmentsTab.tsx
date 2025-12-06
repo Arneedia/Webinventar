@@ -41,7 +41,7 @@ export default function AssignmentsTab({
     <div className="space-y-6">
       <section className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
         <div className="flex items-center gap-3">
-          <div className="rounded-full bg-blue-50 p-2 text-blue-600">
+          <div className="rounded-full bg-primary/10 p-2 text-primary-dark">
             <Users className="h-5 w-5" />
           </div>
           <div>
@@ -56,7 +56,7 @@ export default function AssignmentsTab({
             <select
               value={form.BenutzerID}
               onChange={(event) => onFormChange("BenutzerID", event.target.value)}
-              className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+              className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-primary focus:outline-none"
             >
               <option value="">Benutzer auswählen</option>
               {userOptions.map((option) => (
@@ -73,7 +73,7 @@ export default function AssignmentsTab({
               required
               value={form.ZubehoerID}
               onChange={(event) => onFormChange("ZubehoerID", event.target.value)}
-              className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+              className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-primary focus:outline-none"
             >
               <option value="">Zubehör auswählen</option>
               {accessoryOptions.map((option) => (
@@ -89,7 +89,7 @@ export default function AssignmentsTab({
             <select
               value={form.GerID}
               onChange={(event) => onFormChange("GerID", event.target.value)}
-              className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+              className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-primary focus:outline-none"
             >
               <option value="">Kein Gerät</option>
               {deviceOptions.map((option) => (
@@ -123,7 +123,7 @@ export default function AssignmentsTab({
           <div className="lg:col-span-4 flex justify-end">
             <button
               type="submit"
-              className="inline-flex items-center gap-2 rounded-full bg-blue-600 px-5 py-2 text-sm font-semibold text-white shadow hover:bg-blue-500"
+              className="inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2 text-sm font-semibold text-white shadow hover:bg-primary/100"
             >
               <UserPlus className="h-4 w-4" /> Zuordnen
             </button>
@@ -141,7 +141,7 @@ export default function AssignmentsTab({
             <select
               value={filters.status}
               onChange={(event) => onFiltersChange("status", event.target.value as AssignmentFilterState["status"])}
-              className="rounded-full border border-gray-200 px-4 py-2 text-sm focus:border-blue-500 focus:outline-none"
+              className="rounded-full border border-gray-200 px-4 py-2 text-sm focus:border-primary focus:outline-none"
             >
               <option value="all">Alle</option>
               <option value="active">Aktiv</option>
@@ -152,7 +152,7 @@ export default function AssignmentsTab({
               value={filters.search}
               onChange={(event) => onFiltersChange("search", event.target.value)}
               placeholder="Suchen nach Benutzer/Zubehör"
-              className="rounded-full border border-gray-200 px-4 py-2 text-sm focus:border-blue-500 focus:outline-none"
+              className="rounded-full border border-gray-200 px-4 py-2 text-sm focus:border-primary focus:outline-none"
             />
           </div>
         </div>
@@ -179,7 +179,7 @@ export default function AssignmentsTab({
                     <button
                       type="button"
                       onClick={() => onReturn(assignment)}
-                      className="inline-flex items-center gap-2 rounded-full border border-gray-200 px-3 py-1 text-xs font-semibold text-gray-700 hover:bg-gray-50"
+                      className="inline-flex items-center gap-2 rounded-full border border-gray-200 px-3 py-1 text-xs font-semibold text-gray-700 hover:bg-primary-dark"
                     >
                       <RefreshCcw className="h-3.5 w-3.5" /> Rückgabe buchen
                     </button>

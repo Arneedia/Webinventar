@@ -19,6 +19,15 @@ export default async function Navbar() {
       label: 'Geräteverwaltung',
       show: !user || user.role === Roles.ADMIN || userHasPermission(user, AvailablePermissions.DEVICES_VIEW),
     },
+    {
+      href: '/admin/accessories',
+      label: 'Zubehörverwaltung',
+      show: !!user && (user.role === Roles.ADMIN || userHasAnyPermission(user, [
+        AvailablePermissions.ACCESSORIES_VIEW,
+        AvailablePermissions.ACCESSORIES_CREATE,
+        AvailablePermissions.ACCESSORIES_EDIT,
+      ])),
+    },
   ];
 
   // Admin-Links nur für Admins
@@ -27,27 +36,17 @@ export default async function Navbar() {
     { href: '/admin/users', label: 'Userverwaltung' },
     { href: '/admin/permission-groups', label: 'Rechtegruppen' },
     { href: '/admin/relations', label: 'Zuordnungen' },
-    { href: '/admin/accessories', label: 'Zubehör' },
+    { href: '/admin/rooms', label: 'Raumverwaltung' },
   ];
   
   // Benutzer-spezifische Links basierend auf Berechtigungen
-  const userLinks: { href: string; label: string; show: boolean }[] = user && user.role !== Roles.ADMIN ? [
-    {
-      href: '/admin/accessories',
-      label: 'Zubehör',
-      show: userHasAnyPermission(user, [
-        AvailablePermissions.ACCESSORIES_VIEW,
-        AvailablePermissions.ACCESSORIES_CREATE,
-        AvailablePermissions.ACCESSORIES_EDIT,
-      ]),
-    },
-  ] : [];
+  const userLinks: { href: string; label: string; show: boolean }[] = [];
   return (
     <header className="border-b bg-white/80 backdrop-blur-sm sticky top-0 z-20">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-blue-600 rounded-lg shadow-sm">
-            <Database className="w-5 h-5 text-white" />
+          <div className="p-2 bg-primary rounded-lg shadow-sm">
+            <Database className="w-5 h-5 text-secondary" />
           </div>
           <div className="flex flex-col">
             <span className="text-sm font-semibold text-gray-900">Inventar-Verwaltung</span>
@@ -89,7 +88,7 @@ export default async function Navbar() {
               <div className="relative group">
                 <button
                   type="button"
-                  className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-gray-700 hover:bg-gray-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                  className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-gray-700 hover:bg-gray-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                 >
                   Administration
                   <ChevronDown className="w-4 h-4" />
@@ -125,7 +124,7 @@ export default async function Navbar() {
             ) : (
               <Link
                 href="/login"
-                className="px-3 py-1 rounded-full text-blue-600 border border-blue-200 hover:bg-blue-50"
+                className="px-3 py-1 rounded-full text-primary-dark border border-primary/30 hover:bg-primary/10"
               >
                 Login
               </Link>

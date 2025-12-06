@@ -63,12 +63,12 @@ export async function GET(req: NextRequest, context: RouteContext) {
       }
 
       // Wenn HSID beim Zubehör hinterlegt ist (> 0), muss sie passen
-      if (acc.HSID > 0 && acc.HSID !== device.HSID) {
+      if (acc.HSID != null && acc.HSID > 0 && acc.HSID !== device.HSID) {
         return false;
       }
 
       // Wenn ModID beim Zubehör hinterlegt ist (> 0), muss sie passen
-      if (acc.ModID > 0 && acc.ModID !== device.MODID) {
+      if (acc.ModID != null && acc.ModID > 0 && acc.ModID !== device.MODID) {
         return false;
       }
 
@@ -96,8 +96,8 @@ export async function GET(req: NextRequest, context: RouteContext) {
         stock,
         type: acc.ZT?.ZTName ?? null,
         hwName: acc.HW?.HWName ?? null,
-        hsName: acc.HSID > 0 ? acc.HS?.HSName ?? null : null,
-        modName: acc.ModID > 0 ? acc.MOD?.ModName ?? null : null,
+        hsName: acc.HSID != null && acc.HSID > 0 ? acc.HS?.HSName ?? null : null,
+        modName: acc.ModID != null && acc.ModID > 0 ? acc.MOD?.ModName ?? null : null,
       };
     });
 

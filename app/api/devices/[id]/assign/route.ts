@@ -39,6 +39,12 @@ export async function POST(req: NextRequest, context: RouteContext) {
       },
     });
 
+    // Gerät erhält keinen eigenen Raum mehr sobald ein Benutzer zugewiesen ist
+    await prisma.gER.update({
+      where: { GerID: deviceId },
+      data: { RaumID: null },
+    });
+
     // Neue Zuordnung erstellen
     await prisma.benutzerGER.create({
       data: {

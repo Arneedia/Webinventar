@@ -71,6 +71,7 @@ export const tables: TableConfig[] = [
     columns: [
       { name: 'HWID', type: 'int', nullable: false, identity: true },
       { name: 'HWName', type: 'varchar', nullable: true, maxLength: 255 },
+      { name: 'HWCode', type: 'varchar', nullable: false, maxLength: 10 },
     ],
   },
   {
@@ -114,6 +115,18 @@ export const tables: TableConfig[] = [
     ],
   },
   {
+    name: 'RAUM',
+    displayName: 'Räume',
+    primaryKey: 'RaumID',
+    model: 'rAUM',
+    columns: [
+      { name: 'RaumID', type: 'int', nullable: false, identity: true },
+      { name: 'RaumName', type: 'varchar', nullable: true, maxLength: 255 },
+      { name: 'Standort', type: 'varchar', nullable: true, maxLength: 255 },
+      { name: 'Notiz', type: 'nvarchar', nullable: true, maxLength: 1000 },
+    ],
+  },
+  {
     name: 'GER',
     displayName: 'Geräte',
     primaryKey: 'GerID',
@@ -123,7 +136,9 @@ export const tables: TableConfig[] = [
       { name: 'HWID', type: 'int', nullable: false },
       { name: 'HSID', type: 'int', nullable: false },
       { name: 'MODID', type: 'int', nullable: false },
+      { name: 'RaumID', type: 'int', nullable: true },
       { name: 'SNO', type: 'varchar', nullable: false, maxLength: 50 },
+      { name: 'InventarCode', type: 'varchar', nullable: false, maxLength: 20 },
       { name: 'Preis', type: 'decimal', nullable: true, precision: 18, scale: 2 },
       { name: 'Zugang', type: 'date', nullable: false },
       { name: 'Abgang', type: 'date', nullable: true },
@@ -137,6 +152,7 @@ export const tables: TableConfig[] = [
       { column: 'HWID', refTable: 'HW', relationName: 'HW', displayColumn: 'HWName' },
       { column: 'HSID', refTable: 'HS', relationName: 'HS', displayColumn: 'HSName' },
       { column: 'MODID', refTable: 'MOD', relationName: 'MOD', displayColumn: 'ModName' },
+      { column: 'RaumID', refTable: 'RAUM', relationName: 'RAUM', displayColumn: 'RaumName' },
     ],
   },
   {

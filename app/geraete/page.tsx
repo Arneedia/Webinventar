@@ -1,14 +1,17 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { Database, MonitorSmartphone, UserRound, History, AlertTriangle, Plus, RefreshCw, Package, Undo2, XCircle, X, ChevronRight } from 'lucide-react';
+import { Database, MonitorSmartphone, UserRound, History, AlertTriangle, Plus, RefreshCw, Package, Undo2, XCircle, X, ChevronRight, QrCode, MapPin } from 'lucide-react';
+import StickerModal from '../components/StickerModal';
 
 interface DeviceListItem {
   id: number;
+  inventarCode: string;
   sno: string;
   zugang: string;
   abgang: string | null;
   hwName: string | null;
+  hwCode: string | null;
   hsName: string | null;
   modelName: string | null;
   preis: number | null;
@@ -19,6 +22,9 @@ interface DeviceListItem {
   testGruppe: number | null;
   currentUserId: number | null;
   currentUserName: string | null;
+  raumId: number | null;
+  raumName: string | null;
+  effectiveRoom: string | null;
 }
 
 interface HistoryEntry {
@@ -56,6 +62,12 @@ interface AccessoryOption {
   id: number;
   label: string;
   stock: number;
+}
+
+interface RoomOption {
+  id: number;
+  name: string;
+  standort: string | null;
 }
 
 interface CurrentUser {
@@ -107,11 +119,21 @@ export default function DeviceManagementPage() {
   const [selectedAccessoryId, setSelectedAccessoryId] = useState<string>('');
   const [accessoryActionLoading, setAccessoryActionLoading] = useState(false);
 
+  // Raum-Stammdaten
+  const [roomOptions, setRoomOptions] = useState<RoomOption[]>([]);
+  const [roomsLoading, setRoomsLoading] = useState(true);
+  const [roomActionLoading, setRoomActionLoading] = useState(false);
+  const [roomActionError, setRoomActionError] = useState<string | null>(null);
+  const [roomSelectValue, setRoomSelectValue] = useState<string>('');
+
   // Berechtigungen
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
   const canEditDevices = currentUser?.permissions?.includes('devices:edit') || currentUser?.role === 'ADMIN';
   const canCreateDevices = currentUser?.permissions?.includes('devices:create') || currentUser?.role === 'ADMIN';
   const canEditAccessories = currentUser?.permissions?.includes('accessories:edit') || currentUser?.role === 'ADMIN';
+
+  // Sticker Modal
+  const [showStickerModal, setShowStickerModal] = useState(false);
 
   const [newDevice, setNewDevice] = useState({
     HWID: '',
@@ -130,6 +152,7 @@ export default function DeviceManagementPage() {
     fetchManufacturers();
     fetchModels();
     fetchHsModRelations();
+    fetchRooms();
   }, []);
 
   const fetchCurrentUser = async () => {
@@ -144,17 +167,62 @@ export default function DeviceManagementPage() {
     }
   };
 
+
+  const handleChangeRoom = async () => {
+    if (!selectedDeviceId) return;
+    setRoomActionError(null);
+    setRoomActionLoading(true);
+    try {
+      const res = await fetch(`/api/devices/${selectedDeviceId}/room`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ raumId: roomSelectValue ? Number(roomSelectValue) : null }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.error || 'Fehler beim Speichern der Raumzuweisung');
+      }
+      await fetchDevices();
+    } catch (err) {
+      setRoomActionError(err instanceof Error ? err.message : 'Fehler beim Speichern der Raumzuweisung');
+    } finally {
+      setRoomActionLoading(false);
+    }
+  };
+
+  const fetchRooms = async () => {
+    try {
+      setRoomsLoading(true);
+      const res = await fetch('/api/tables/RAUM');
+      if (!res.ok) throw new Error('Fehler beim Laden der Räume');
+      const json = await res.json();
+      const options: RoomOption[] = (json.data as any[]).map((row: any) => ({
+        id: row.RaumID,
+        name: row.RaumName || `Raum ${row.RaumID}`,
+        standort: row.Standort || null,
+      }));
+      setRoomOptions(options);
+    } catch {
+      setRoomOptions([]);
+    } finally {
+      setRoomsLoading(false);
+    }
+  };
+
   useEffect(() => {
     if (selectedDeviceId != null) {
       fetchHistory(selectedDeviceId);
       fetchDeviceAccessories(selectedDeviceId);
       fetchCompatibleAccessories(selectedDeviceId);
+      const current = devices.find((d) => d.id === selectedDeviceId);
+      setRoomSelectValue(current?.raumId?.toString() || '');
     } else {
       setHistory([]);
       setDeviceAccessories([]);
       setAccessoryOptions([]);
+      setRoomSelectValue('');
     }
-  }, [selectedDeviceId]);
+  }, [selectedDeviceId, devices]);
 
   const fetchDevices = async () => {
     try {
@@ -471,6 +539,7 @@ export default function DeviceManagementPage() {
     if (deviceSearch) {
       const term = deviceSearch.toLowerCase();
       const haystack = [
+        d.inventarCode,
         d.sno,
         d.hwName,
         d.hsName,
@@ -589,7 +658,7 @@ export default function DeviceManagementPage() {
       <header className="border-b bg-white/80 backdrop-blur-sm">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-blue-600 rounded-lg shadow-sm">
+            <div className="p-2 bg-primary rounded-lg shadow-sm">
               <MonitorSmartphone className="w-5 h-5 text-white" />
             </div>
             <div className="flex flex-col">
@@ -611,13 +680,13 @@ export default function DeviceManagementPage() {
           <section className="flex-1 flex flex-col gap-4">
             <div className="flex items-center justify-between gap-3">
               <h2 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
-                <MonitorSmartphone className="w-4 h-4 text-blue-600" />
+                <MonitorSmartphone className="w-4 h-4 text-primary-dark" />
                 Geräte
               </h2>
               {canCreateDevices && (
                 <button
                   type="button"
-                  className="inline-flex items-center gap-2 rounded-lg border border-blue-600 px-3 py-1.5 text-xs font-medium text-blue-600 hover:bg-blue-50"
+                  className="inline-flex items-center gap-2 rounded-lg border border-primary px-3 py-1.5 text-xs font-medium text-primary-dark hover:bg-primary/10"
                   onClick={() => setCreating((prev) => !prev)}
                 >
                   <Plus className="w-3 h-3" />
@@ -637,12 +706,12 @@ export default function DeviceManagementPage() {
                         placeholder="Hardware-Typ suchen..."
                         value={hwFilter}
                         onChange={(e) => setHwFilter(e.target.value)}
-                        className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-primary"
                       />
                       <select
                         value={newDevice.HWID}
                         onChange={(e) => setNewDevice((prev) => ({ ...prev, HWID: e.target.value }))}
-                        className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-primary"
                         required
                       >
                         <option value="">-- Hardware-Typ wählen --</option>
@@ -662,12 +731,12 @@ export default function DeviceManagementPage() {
                         placeholder="Hersteller suchen..."
                         value={hsFilter}
                         onChange={(e) => setHsFilter(e.target.value)}
-                        className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-primary"
                       />
                       <select
                         value={newDevice.HSID}
                         onChange={(e) => setNewDevice((prev) => ({ ...prev, HSID: e.target.value }))}
-                        className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-primary"
                         required
                       >
                         <option value="">-- Hersteller wählen --</option>
@@ -687,12 +756,12 @@ export default function DeviceManagementPage() {
                         placeholder="Modell suchen..."
                         value={modFilter}
                         onChange={(e) => setModFilter(e.target.value)}
-                        className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-primary"
                       />
                       <select
                         value={newDevice.MODID}
                         onChange={(e) => setNewDevice((prev) => ({ ...prev, MODID: e.target.value }))}
-                        className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-primary"
                         required
                       >
                         <option value="">-- Modell wählen --</option>
@@ -710,7 +779,7 @@ export default function DeviceManagementPage() {
                       type="text"
                       value={newDevice.SNO}
                       onChange={(e) => setNewDevice((prev) => ({ ...prev, SNO: e.target.value }))}
-                      className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-primary"
                       required
                     />
                   </div>
@@ -721,7 +790,7 @@ export default function DeviceManagementPage() {
                       step="0.01"
                       value={newDevice.Preis}
                       onChange={(e) => setNewDevice((prev) => ({ ...prev, Preis: e.target.value }))}
-                      className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-primary"
                     />
                   </div>
                   <div>
@@ -730,7 +799,7 @@ export default function DeviceManagementPage() {
                       type="date"
                       value={newDevice.Zugang}
                       onChange={(e) => setNewDevice((prev) => ({ ...prev, Zugang: e.target.value }))}
-                      className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-primary"
                       required
                     />
                   </div>
@@ -746,7 +815,7 @@ export default function DeviceManagementPage() {
                   </button>
                   <button
                     type="submit"
-                    className="px-3 py-1.5 text-xs rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
+                    className="px-3 py-1.5 text-xs rounded-lg bg-primary text-white hover:bg-primary-dark disabled:opacity-50"
                     disabled={saving}
                   >
                     Speichern
@@ -762,12 +831,12 @@ export default function DeviceManagementPage() {
                   placeholder="Suchen (SNO, EAN, IMEI, Typ, Modell, Benutzer)..."
                   value={deviceSearch}
                   onChange={(e) => setDeviceSearch(e.target.value)}
-                  className="w-full sm:flex-1 px-3 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full sm:flex-1 px-3 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
                 />
                 <select
                   value={filterUserId}
                   onChange={(e) => setFilterUserId(e.target.value)}
-                  className="w-full sm:w-56 px-3 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full sm:w-56 px-3 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
                 >
                   <option value="">Alle Benutzer</option>
                   {users.map((u) => (
@@ -781,13 +850,21 @@ export default function DeviceManagementPage() {
                 <select
                   value={statusFilter}
                   onChange={(e) => setStatusFilter(e.target.value as 'all' | 'active' | 'retired')}
-                  className="px-3 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="px-3 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
                 >
                   <option value="all">Alle Status</option>
                   <option value="active">Nur aktive</option>
                   <option value="retired">Nur ausgebuchte</option>
                 </select>
-
+                <label className="inline-flex items-center gap-2 px-2 py-1.5 border border-gray-200 rounded-lg text-gray-600 text-[11px] font-medium">
+                  <input
+                    type="checkbox"
+                    checked={showUnassignedOnly}
+                    onChange={(e) => setShowUnassignedOnly(e.target.checked)}
+                    className="h-3.5 w-3.5 rounded border-gray-300 text-primary focus:ring-primary"
+                  />
+                  Nur ohne Benutzer
+                </label>
               </div>
             </div>
 
@@ -811,7 +888,7 @@ export default function DeviceManagementPage() {
 
               {loadingDevices ? (
                 <div className="flex items-center justify-center py-8">
-                  <RefreshCw className="w-5 h-5 text-blue-600 animate-spin" />
+                  <RefreshCw className="w-5 h-5 text-primary-dark animate-spin" />
                 </div>
               ) : devicesError ? (
                 <div className="p-4 text-sm text-red-600">{devicesError}</div>
@@ -822,12 +899,14 @@ export default function DeviceManagementPage() {
                     <table className="w-full text-xs">
                       <thead className="bg-gray-50 border-b border-gray-200">
                         <tr>
+                          <th className="px-3 py-2 text-left font-semibold text-gray-600">Inventar-Nr.</th>
                           <th className="px-3 py-2 text-left font-semibold text-gray-600">SNO</th>
                           <th className="px-3 py-2 text-left font-semibold text-gray-600">Typ</th>
                           <th className="px-3 py-2 text-left font-semibold text-gray-600">Hersteller</th>
                           <th className="px-3 py-2 text-left font-semibold text-gray-600">Modell</th>
                           <th className="px-3 py-2 text-left font-semibold text-gray-600">Status</th>
                           <th className="px-3 py-2 text-left font-semibold text-gray-600">Benutzer</th>
+                          <th className="px-3 py-2 text-left font-semibold text-gray-600">Raum</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-100">
@@ -837,9 +916,10 @@ export default function DeviceManagementPage() {
                           return (
                             <tr
                               key={d.id}
-                              className={`cursor-pointer hover:bg-gray-50 ${isSelected ? 'bg-blue-50/60' : ''}`}
+                              className={`cursor-pointer hover:bg-gray-50 ${isSelected ? 'bg-primary/10/60' : ''}`}
                               onClick={() => setSelectedDeviceId(d.id)}
                             >
+                              <td className="px-3 py-2 text-primary-dark font-semibold">{d.inventarCode}</td>
                               <td className="px-3 py-2 text-gray-800 font-medium">{d.sno}</td>
                               <td className="px-3 py-2 text-gray-700">{d.hwName || '-'}</td>
                               <td className="px-3 py-2 text-gray-700">{d.hsName || '-'}</td>
@@ -857,12 +937,13 @@ export default function DeviceManagementPage() {
                                 </span>
                               </td>
                               <td className="px-3 py-2 text-gray-700">{d.currentUserName || '-'}</td>
+                              <td className="px-3 py-2 text-gray-600">{d.effectiveRoom || '-'}</td>
                             </tr>
                           );
                         })}
                         {devices.length === 0 && (
                           <tr>
-                            <td className="px-3 py-4 text-center text-gray-500" colSpan={6}>
+                            <td className="px-3 py-4 text-center text-gray-500" colSpan={8}>
                               Keine Geräte vorhanden
                             </td>
                           </tr>
@@ -879,7 +960,7 @@ export default function DeviceManagementPage() {
                       return (
                         <div
                           key={d.id}
-                          className={`p-3 cursor-pointer active:bg-gray-100 ${isSelected ? 'bg-blue-50/60' : ''}`}
+                          className={`p-3 cursor-pointer active:bg-gray-100 ${isSelected ? 'bg-primary/10/60' : ''}`}
                           onClick={() => {
                             setSelectedDeviceId(d.id);
                             setShowMobileDetail(true);
@@ -888,6 +969,7 @@ export default function DeviceManagementPage() {
                           <div className="flex items-center justify-between gap-2">
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2 mb-1">
+                                <span className="font-semibold text-sm text-primary-dark">{d.inventarCode}</span>
                                 <span className="font-medium text-sm text-gray-900 truncate">{d.sno}</span>
                                 <span
                                   className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium shrink-0 ${
@@ -904,9 +986,15 @@ export default function DeviceManagementPage() {
                                 {[d.hwName, d.hsName, d.modelName].filter(Boolean).join(' · ') || '-'}
                               </div>
                               {d.currentUserName && (
-                                <div className="text-xs text-blue-600 mt-0.5 flex items-center gap-1">
+                                <div className="text-xs text-primary-dark mt-0.5 flex items-center gap-1">
                                   <UserRound className="w-3 h-3" />
                                   {d.currentUserName}
+                                </div>
+                              )}
+                              {d.effectiveRoom && (
+                                <div className="text-xs text-gray-500 mt-0.5 flex items-center gap-1">
+                                  <MapPin className="w-3 h-3" />
+                                  {d.effectiveRoom}
                                 </div>
                               )}
                             </div>
@@ -930,13 +1018,25 @@ export default function DeviceManagementPage() {
           <section className="hidden lg:flex w-full lg:w-80 xl:w-96 flex-col gap-4">
             <div className="bg-white rounded-xl border border-gray-200 p-4">
               <h2 className="text-sm font-semibold text-gray-900 flex items-center gap-2 mb-3">
-                <UserRound className="w-4 h-4 text-blue-600" />
+                <UserRound className="w-4 h-4 text-primary-dark" />
                 Zuordnung & Status
               </h2>
 
               {selectedDevice ? (
                 <>
                   <div className="mb-3 text-xs text-gray-700">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="font-semibold text-primary-dark">{selectedDevice.inventarCode}</span>
+                      <button
+                        type="button"
+                        onClick={() => setShowStickerModal(true)}
+                        className="inline-flex items-center gap-1 px-2 py-1 text-[10px] font-medium text-primary-dark bg-primary/10 rounded-lg hover:bg-primary/20"
+                        title="Inventar-Sticker generieren"
+                      >
+                        <QrCode className="w-3 h-3" />
+                        Sticker
+                      </button>
+                    </div>
                     <div className="font-medium text-gray-900 mb-1">{selectedDevice.sno}</div>
                     <div>{selectedDevice.hwName || '-'}</div>
                     <div>{selectedDevice.hsName || '-'}</div>
@@ -1024,7 +1124,7 @@ export default function DeviceManagementPage() {
                       <select
                         value={assignUserId}
                         onChange={(e) => setAssignUserId(e.target.value)}
-                        className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-primary"
                       >
                         <option value="">-- Benutzer wählen --</option>
                         {users.map((u) => (
@@ -1037,7 +1137,7 @@ export default function DeviceManagementPage() {
                         <button
                           type="button"
                           onClick={handleAssign}
-                          className="flex-1 px-3 py-1.5 rounded-lg bg-blue-600 text-white text-xs hover:bg-blue-700"
+                          className="flex-1 px-3 py-1.5 rounded-lg bg-primary text-white text-xs hover:bg-primary-dark"
                         >
                           Zuweisen
                         </button>
@@ -1079,14 +1179,14 @@ export default function DeviceManagementPage() {
 
             <div className="bg-white rounded-xl border border-gray-200 p-4 flex-1 flex flex-col">
               <h2 className="text-sm font-semibold text-gray-900 flex items-center gap-2 mb-3">
-                <History className="w-4 h-4 text-blue-600" />
+                <History className="w-4 h-4 text-primary-dark" />
                 Verlauf
               </h2>
 
               {selectedDevice ? (
                 historyLoading ? (
                   <div className="flex-1 flex items-center justify-center">
-                    <RefreshCw className="w-5 h-5 text-blue-600 animate-spin" />
+                    <RefreshCw className="w-5 h-5 text-primary-dark animate-spin" />
                   </div>
                 ) : history.length === 0 ? (
                   <p className="text-xs text-gray-500">Für dieses Gerät sind noch keine Zuordnungen vorhanden.</p>
@@ -1120,7 +1220,7 @@ export default function DeviceManagementPage() {
             {/* Zubehör-Sektion */}
             <div className="bg-white rounded-xl border border-gray-200 p-4 flex flex-col">
               <h2 className="text-sm font-semibold text-gray-900 flex items-center gap-2 mb-3">
-                <Package className="w-4 h-4 text-blue-600" />
+                <Package className="w-4 h-4 text-primary-dark" />
                 Zubehör
               </h2>
 
@@ -1133,7 +1233,7 @@ export default function DeviceManagementPage() {
                       <select
                         value={selectedAccessoryId}
                         onChange={(e) => setSelectedAccessoryId(e.target.value)}
-                        className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-primary"
                       >
                         <option value="">-- Zubehör wählen --</option>
                         {accessoryOptions
@@ -1148,7 +1248,7 @@ export default function DeviceManagementPage() {
                         type="button"
                         onClick={handleAssignAccessory}
                         disabled={!selectedAccessoryId || accessoryActionLoading}
-                        className="w-full px-3 py-1.5 rounded-lg bg-blue-600 text-white text-xs hover:bg-blue-700 disabled:bg-blue-300 disabled:cursor-not-allowed"
+                        className="w-full px-3 py-1.5 rounded-lg bg-primary text-white text-xs hover:bg-primary-dark disabled:bg-primary/50 disabled:cursor-not-allowed"
                       >
                         {accessoryActionLoading ? 'Wird zugewiesen...' : 'Zuweisen & vom Lager abbuchen'}
                       </button>
@@ -1160,7 +1260,7 @@ export default function DeviceManagementPage() {
                     <p className="text-xs font-medium text-gray-700 mb-2">Zugewiesenes Zubehör</p>
                     {accessoriesLoading ? (
                       <div className="flex items-center justify-center py-4">
-                        <RefreshCw className="w-4 h-4 text-blue-600 animate-spin" />
+                        <RefreshCw className="w-4 h-4 text-primary-dark animate-spin" />
                       </div>
                     ) : deviceAccessories.filter((a) => a.status === 'ACTIVE').length === 0 ? (
                       <p className="text-[11px] text-gray-500">Kein Zubehör zugewiesen.</p>
@@ -1252,8 +1352,9 @@ export default function DeviceManagementPage() {
             {/* Header */}
             <div className="sticky top-0 bg-white border-b border-gray-100 px-4 py-3 flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <MonitorSmartphone className="w-5 h-5 text-blue-600" />
-                <span className="font-semibold text-gray-900">{selectedDevice.sno}</span>
+                <MonitorSmartphone className="w-5 h-5 text-primary-dark" />
+                <span className="font-semibold text-primary-dark">{selectedDevice.inventarCode}</span>
+                <span className="font-medium text-gray-900">{selectedDevice.sno}</span>
               </div>
               <button
                 type="button"
@@ -1268,10 +1369,20 @@ export default function DeviceManagementPage() {
             <div className="flex-1 overflow-y-auto overscroll-contain">
               {/* Geräte-Info */}
               <div className="p-4 border-b border-gray-100">
-                <div className="text-sm text-gray-700 mb-3">
-                  <div>{selectedDevice.hwName || '-'}</div>
-                  <div>{selectedDevice.hsName || '-'}</div>
-                  <div>{selectedDevice.modelName || '-'}</div>
+                <div className="flex items-center justify-between mb-3">
+                  <div className="text-sm text-gray-700">
+                    <div>{selectedDevice.hwName || '-'}</div>
+                    <div>{selectedDevice.hsName || '-'}</div>
+                    <div>{selectedDevice.modelName || '-'}</div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowStickerModal(true)}
+                    className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-primary-dark bg-primary/10 rounded-lg hover:bg-primary/20"
+                  >
+                    <QrCode className="w-4 h-4" />
+                    Sticker
+                  </button>
                 </div>
 
                 <div className="grid grid-cols-2 gap-3 text-xs">
@@ -1313,7 +1424,7 @@ export default function DeviceManagementPage() {
                   <select
                     value={assignUserId}
                     onChange={(e) => setAssignUserId(e.target.value)}
-                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                   >
                     <option value="">-- Benutzer wählen --</option>
                     {users.map((u) => (
@@ -1326,7 +1437,7 @@ export default function DeviceManagementPage() {
                     <button
                       type="button"
                       onClick={handleAssign}
-                      className="flex-1 px-4 py-2.5 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 active:bg-blue-800"
+                      className="flex-1 px-4 py-2.5 rounded-lg bg-primary text-white text-sm font-medium hover:bg-primary-dark active:bg-primary-dark"
                     >
                       Zuweisen
                     </button>
@@ -1344,12 +1455,12 @@ export default function DeviceManagementPage() {
               {/* Verlauf */}
               <div className="p-4 border-b border-gray-100">
                 <h3 className="text-sm font-medium text-gray-900 flex items-center gap-2 mb-3">
-                  <History className="w-4 h-4 text-blue-600" />
+                  <History className="w-4 h-4 text-primary-dark" />
                   Verlauf
                 </h3>
                 {historyLoading ? (
                   <div className="flex items-center justify-center py-4">
-                    <RefreshCw className="w-5 h-5 text-blue-600 animate-spin" />
+                    <RefreshCw className="w-5 h-5 text-primary-dark animate-spin" />
                   </div>
                 ) : history.length === 0 ? (
                   <p className="text-sm text-gray-500">Keine Zuordnungen vorhanden.</p>
@@ -1375,7 +1486,7 @@ export default function DeviceManagementPage() {
               {/* Zubehör */}
               <div className="p-4">
                 <h3 className="text-sm font-medium text-gray-900 flex items-center gap-2 mb-3">
-                  <Package className="w-4 h-4 text-blue-600" />
+                  <Package className="w-4 h-4 text-primary-dark" />
                   Zubehör
                 </h3>
 
@@ -1385,7 +1496,7 @@ export default function DeviceManagementPage() {
                     <select
                       value={selectedAccessoryId}
                       onChange={(e) => setSelectedAccessoryId(e.target.value)}
-                      className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                     >
                       <option value="">-- Zubehör wählen --</option>
                       {accessoryOptions
@@ -1400,7 +1511,7 @@ export default function DeviceManagementPage() {
                       type="button"
                       onClick={handleAssignAccessory}
                       disabled={!selectedAccessoryId || accessoryActionLoading}
-                      className="w-full mt-2 px-4 py-2.5 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 disabled:bg-blue-300 disabled:cursor-not-allowed"
+                      className="w-full mt-2 px-4 py-2.5 rounded-lg bg-primary text-white text-sm font-medium hover:bg-primary-dark disabled:bg-primary/50 disabled:cursor-not-allowed"
                     >
                       {accessoryActionLoading ? 'Wird zugewiesen...' : 'Zuweisen'}
                     </button>
@@ -1410,7 +1521,7 @@ export default function DeviceManagementPage() {
                 {/* Zugewiesenes Zubehör */}
                 {accessoriesLoading ? (
                   <div className="flex items-center justify-center py-4">
-                    <RefreshCw className="w-4 h-4 text-blue-600 animate-spin" />
+                    <RefreshCw className="w-4 h-4 text-primary-dark animate-spin" />
                   </div>
                 ) : deviceAccessories.filter((a) => a.status === 'ACTIVE').length === 0 ? (
                   <p className="text-sm text-gray-500">Kein Zubehör zugewiesen.</p>
@@ -1484,6 +1595,15 @@ export default function DeviceManagementPage() {
           </div>
         </div>
       )}
+
+      {/* Sticker Modal */}
+      {showStickerModal && selectedDeviceId && (
+        <StickerModal
+          deviceId={selectedDeviceId}
+          onClose={() => setShowStickerModal(false)}
+        />
+      )}
     </div>
   );
 }
+

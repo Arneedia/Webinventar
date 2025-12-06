@@ -34,7 +34,7 @@ interface StatCardProps {
 function StatCard({ icon, label, value, description }: StatCardProps) {
   return (
     <div className="flex items-center gap-3 rounded-xl border border-gray-200 bg-white px-4 py-3 shadow-sm">
-      <div className="p-2 rounded-lg bg-blue-50 text-blue-600">
+      <div className="p-2 rounded-lg bg-primary/10 text-primary-dark">
         {icon}
       </div>
       <div className="flex flex-col">
@@ -85,7 +85,7 @@ function TableSelector({ tables, loading, error, selectedTable, onSelect }: Tabl
               placeholder="Tabellen filtern..."
               value={filter}
               onChange={(e) => setFilter(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
             />
           </div>
         </div>
@@ -109,7 +109,7 @@ function TableSelector({ tables, loading, error, selectedTable, onSelect }: Tabl
                 onClick={() => onSelect(table.name)}
                 className={`flex-shrink-0 px-3 py-2 rounded-lg border text-xs sm:text-sm flex items-center gap-2 transition-colors ${
                   selectedTable === table.name
-                    ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                    ? 'bg-primary text-white border-primary/30 shadow-sm'
                     : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
                 }`}
               >
@@ -148,19 +148,19 @@ function TableHeader({ title, entryCount, searchTerm, onSearchChange, onRefresh,
             placeholder="In Tabelle suchen..."
             value={searchTerm}
             onChange={(e) => onSearchChange(e.target.value)}
-            className="pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
           />
         </div>
         <button
           onClick={onRefresh}
-          className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+          className="p-2 text-gray-600 hover:bg-primary/20 rounded-lg transition-colors"
           title="Aktualisieren"
         >
           <RefreshCw className="w-5 h-5" />
         </button>
         <button
           onClick={onCreate}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors"
         >
           <Plus className="w-4 h-4" />
           Neu
@@ -245,7 +245,7 @@ function TableView({ tableName }: { tableName: string }) {
   if (loading) {
     return (
       <div className="flex-1 flex items-center justify-center">
-        <RefreshCw className="w-8 h-8 text-blue-600 animate-spin" />
+        <RefreshCw className="w-8 h-8 text-primary-dark animate-spin" />
       </div>
     );
   }
@@ -255,7 +255,7 @@ function TableView({ tableName }: { tableName: string }) {
       <div className="flex-1 flex items-center justify-center">
         <div className="text-center">
           <p className="text-red-600 mb-4">{error}</p>
-          <button onClick={fetchData} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+          <button onClick={fetchData} className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark">
             Erneut versuchen
           </button>
         </div>
@@ -328,7 +328,7 @@ function TableView({ tableName }: { tableName: string }) {
                         <td className="px-4 py-3 text-right">
                           <button
                             onClick={() => { setEditingRow(row); setShowForm(true); }}
-                            className="text-blue-600 hover:text-blue-800 text-sm font-medium mr-3"
+                            className="text-primary-dark hover:text-primary-dark text-sm font-medium mr-3"
                           >
                             Bearbeiten
                           </button>
@@ -448,7 +448,7 @@ function RecordForm({ config, initialData, onSave, onCancel }: RecordFormProps) 
                   type="date"
                   value={formData[col.name] ? String(formData[col.name]).split('T')[0] : ''}
                   onChange={(e) => setFormData(prev => ({ ...prev, [col.name]: e.target.value || null }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
                   required={!col.nullable}
                 />
               ) : col.type === 'int' || col.type === 'decimal' ? (
@@ -457,7 +457,7 @@ function RecordForm({ config, initialData, onSave, onCancel }: RecordFormProps) 
                   step={col.type === 'decimal' ? '0.01' : '1'}
                   value={formData[col.name] !== null && formData[col.name] !== undefined ? String(formData[col.name]) : ''}
                   onChange={(e) => setFormData(prev => ({ ...prev, [col.name]: e.target.value || null }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
                   required={!col.nullable}
                 />
               ) : (
@@ -465,7 +465,7 @@ function RecordForm({ config, initialData, onSave, onCancel }: RecordFormProps) 
                   type="text"
                   value={String(formData[col.name] || '')}
                   onChange={(e) => setFormData(prev => ({ ...prev, [col.name]: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
                   required={!col.nullable}
                 />
               )}
@@ -477,7 +477,7 @@ function RecordForm({ config, initialData, onSave, onCancel }: RecordFormProps) 
           <button
             type="submit"
             disabled={saving}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+            className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark disabled:opacity-50 transition-colors"
           >
             {saving ? 'Speichern...' : 'Speichern'}
           </button>
@@ -550,7 +550,7 @@ export default function Home() {
                   placeholder="Tabelle suchen..."
                   value={tableFilter}
                   onChange={(e) => setTableFilter(e.target.value)}
-                  className="w-full pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
                 />
               </div>
             </div>
@@ -573,8 +573,8 @@ export default function Home() {
                         onClick={() => setSelectedTable(table.name)}
                         className={`w-full flex items-center gap-3 px-3 py-2 text-sm rounded-lg transition-colors ${
                           selectedTable === table.name
-                            ? 'bg-blue-50 text-blue-700 font-medium'
-                            : 'text-gray-700 hover:bg-gray-100'
+                            ? 'bg-primary/20 text-primary-dark font-medium'
+                            : 'text-gray-700 hover:bg-primary/20'
                         }`}
                       >
                         <Table className="w-4 h-4 flex-shrink-0" />

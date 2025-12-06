@@ -459,12 +459,12 @@ export default function RelationsManager() {
               placeholder="Suchen (Hersteller, Modell, HW)"
               value={hsModFilterSearch}
               onChange={(e) => setHsModFilterSearch(e.target.value)}
-              className="w-full sm:flex-1 px-3 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full sm:flex-1 px-3 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
             />
             <select
               value={hsModFilterHs}
               onChange={(e) => setHsModFilterHs(e.target.value)}
-              className="w-full sm:w-48 px-3 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full sm:w-48 px-3 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
             >
               <option value="">Alle Hersteller</option>
               {hsOptions.map((opt) => (
@@ -478,7 +478,7 @@ export default function RelationsManager() {
             <select
               value={hsModFilterHw}
               onChange={(e) => setHsModFilterHw(e.target.value)}
-              className="px-3 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="px-3 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
             >
               <option value="">Alle Hardware-Typen</option>
               <option value="none">Ohne Hardwarezuordnung</option>
@@ -512,12 +512,12 @@ export default function RelationsManager() {
             placeholder="Suchen (Benutzer, Zubehör, Datum)"
             value={accessoryFilterSearch}
             onChange={(e) => setAccessoryFilterSearch(e.target.value)}
-            className="w-full sm:flex-1 px-3 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full sm:flex-1 px-3 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
           />
           <select
             value={accessoryFilterUser}
             onChange={(e) => setAccessoryFilterUser(e.target.value)}
-            className="w-full sm:w-48 px-3 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full sm:w-48 px-3 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
           >
             <option value="">Alle Benutzer</option>
             {userOptions.map((opt) => (
@@ -529,7 +529,7 @@ export default function RelationsManager() {
           <select
             value={accessoryFilterAccessory}
             onChange={(e) => setAccessoryFilterAccessory(e.target.value)}
-            className="w-full sm:w-48 px-3 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full sm:w-48 px-3 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
           >
             <option value="">Alle Zubehörteile</option>
             {accessoryOptions.map((opt) => (
@@ -543,7 +543,7 @@ export default function RelationsManager() {
           <select
             value={accessoryStatusFilter}
             onChange={(e) => setAccessoryStatusFilter(e.target.value as 'all' | 'active' | 'returned')}
-            className="px-3 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="px-3 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
           >
             <option value="all">Alle Status</option>
             <option value="active">Nur aktiv</option>
@@ -576,7 +576,7 @@ export default function RelationsManager() {
               required
               value={newHsModRelation.HSID}
               onChange={(e) => setNewHsModRelation((prev) => ({ ...prev, HSID: e.target.value }))}
-              className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+              className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm focus:border-primary focus:outline-none"
             >
               <option value="">Hersteller wählen</option>
               {hsOptions.map((opt) => (
@@ -593,7 +593,7 @@ export default function RelationsManager() {
               required
               value={newHsModRelation.ModID}
               onChange={(e) => setNewHsModRelation((prev) => ({ ...prev, ModID: e.target.value }))}
-              className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+              className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm focus:border-primary focus:outline-none"
             >
               <option value="">Modell wählen</option>
               {modOptions.map((opt) => (
@@ -609,7 +609,7 @@ export default function RelationsManager() {
             <select
               value={newHsModRelation.HWID}
               onChange={(e) => setNewHsModRelation((prev) => ({ ...prev, HWID: e.target.value }))}
-              className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+              className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm focus:border-primary focus:outline-none"
             >
               <option value="">— kein Hardware-Typ —</option>
               {hwOptions.map((opt) => (
@@ -626,7 +626,7 @@ export default function RelationsManager() {
             <button
               type="submit"
               disabled={creatingHsMod}
-              className="inline-flex items-center gap-2 rounded-full bg-blue-600 px-5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-500 disabled:cursor-not-allowed disabled:bg-blue-300"
+              className="inline-flex items-center gap-2 rounded-full bg-gray-900 px-5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-gray-700 disabled:cursor-not-allowed disabled:bg-gray-500"
             >
               <Link2 className="h-4 w-4" />
               {creatingHsMod ? 'Speichert…' : 'Zuordnung erstellen'}
@@ -644,7 +644,7 @@ export default function RelationsManager() {
             required
             value={newAccessoryRelation.BenutzerID}
             onChange={(e) => setNewAccessoryRelation((prev) => ({ ...prev, BenutzerID: e.target.value }))}
-            className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+            className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm focus:border-gray-500 focus:outline-none"
           >
             <option value="">Benutzer wählen</option>
             {userOptions.map((opt) => (
@@ -661,7 +661,7 @@ export default function RelationsManager() {
             required
             value={newAccessoryRelation.ZubehoerID}
             onChange={(e) => setNewAccessoryRelation((prev) => ({ ...prev, ZubehoerID: e.target.value }))}
-            className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+            className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm focus:border-gray-500 focus:outline-none"
           >
             <option value="">Zubehör wählen</option>
             {accessoryOptions.map((opt) => (
@@ -679,7 +679,7 @@ export default function RelationsManager() {
             required
             value={newAccessoryRelation.Start}
             onChange={(e) => setNewAccessoryRelation((prev) => ({ ...prev, Start: e.target.value }))}
-            className="rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+            className="w-full rounded-lg border border-gray-200 px-3 py-1.5 text-sm focus:border-gray-500 focus:outline-none"
           />
         </label>
 
@@ -689,7 +689,7 @@ export default function RelationsManager() {
             type="date"
             value={newAccessoryRelation.Ende}
             onChange={(e) => setNewAccessoryRelation((prev) => ({ ...prev, Ende: e.target.value }))}
-            className="rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+            className="w-full rounded-lg border border-gray-200 px-3 py-1.5 text-sm focus:border-gray-500 focus:outline-none"
           />
         </label>
 
@@ -699,7 +699,7 @@ export default function RelationsManager() {
           <button
             type="submit"
             disabled={creatingAccessory}
-            className="inline-flex items-center gap-2 rounded-full bg-blue-600 px-5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-500 disabled:cursor-not-allowed disabled:bg-blue-300"
+            className="inline-flex items-center gap-2 rounded-full bg-gray-900 px-5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-gray-700 disabled:cursor-not-allowed disabled:bg-gray-500"
           >
             <Link2 className="h-4 w-4" />
             {creatingAccessory ? 'Speichert…' : 'Zuordnung erstellen'}
@@ -758,7 +758,7 @@ export default function RelationsManager() {
                         <select
                           value={editingHwId}
                           onChange={(e) => setEditingHwId(e.target.value)}
-                          className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                          className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm focus:border-gray-500 focus:outline-none"
                         >
                           <option value="">— kein Hardware-Typ —</option>
                           {hwOptions.map((opt) => (
@@ -870,7 +870,7 @@ export default function RelationsManager() {
                         type="date"
                         value={editingAccessoryEnd}
                         onChange={(e) => setEditingAccessoryEnd(e.target.value)}
-                        className="w-full rounded-lg border border-gray-200 px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none"
+                        className="w-full rounded-lg border border-gray-200 px-3 py-1.5 text-sm focus:border-gray-500 focus:outline-none"
                       />
                     ) : (
                       <div className="text-gray-900 font-medium">{formatDate(row.Ende)}</div>
@@ -889,7 +889,7 @@ export default function RelationsManager() {
                         <button
                           type="button"
                           onClick={() => setEditingAccessoryEnd(new Date().toISOString().split('T')[0])}
-                          className="rounded-full border border-blue-200 px-3 py-1.5 font-medium text-blue-700 hover:bg-blue-50"
+                          className="rounded-full border border-primary/30 px-3 py-1.5 font-medium text-primary-dark hover:bg-primary/10"
                         >
                           Heute
                         </button>
@@ -960,7 +960,7 @@ export default function RelationsManager() {
             }}
             className={`px-4 py-2 rounded-full border text-sm font-medium transition ${
               activeTab === tab.key
-                ? 'border-blue-600 bg-blue-50 text-blue-700'
+                ? 'border-gray-900 text-gray-900 bg-gray-100'
                 : 'border-gray-200 text-gray-600 hover:bg-gray-50'
             }`}
           >

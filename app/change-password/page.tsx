@@ -72,7 +72,7 @@ export default function ChangePasswordPage() {
               minLength={6}
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
-              className="rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+              className="rounded-lg border border-gray-200 px-3 py-2 text-sm focus:ring-primary focus:outline-none"
               placeholder="Mindestens 6 Zeichen"
             />
           </label>
@@ -85,7 +85,7 @@ export default function ChangePasswordPage() {
               minLength={6}
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
-              className="rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+              className="rounded-lg border border-gray-200 px-3 py-2 text-sm focus:ring-primary focus:outline-none"
               placeholder="Passwort wiederholen"
             />
           </label>
@@ -95,7 +95,7 @@ export default function ChangePasswordPage() {
           <button
             type="submit"
             disabled={isSubmitting}
-            className="w-full rounded-full bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-500 disabled:cursor-not-allowed disabled:bg-blue-300"
+            className="w-full rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-primary-dark disabled:cursor-not-allowed disabled:bg-primary-dark"
           >
             {isSubmitting ? 'Speichert…' : 'Passwort festlegen'}
           </button>

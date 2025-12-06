@@ -291,44 +291,44 @@ export default function AdminUsersClient({ initialUsers, allPermissionGroups }: 
 
         <form className="grid gap-4 md:grid-cols-2" onSubmit={handleSubmit}>
           <label className="flex flex-col gap-1 text-sm">
-            <span className="text-gray-600">E-Mail *</span>
+            <span className="text-primary-dark">E-Mail *</span>
             <input
               type="email"
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+              className="rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-primary-dark focus:outline-none"
             />
           </label>
 
           <label className="flex flex-col gap-1 text-sm">
-            <span className="text-gray-600">Name</span>
+            <span className="text-primary-dark">Name</span>
             <input
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+              className="rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-primary-dark focus:outline-none"
             />
           </label>
 
           <label className="flex flex-col gap-1 text-sm">
-            <span className="text-gray-600">Passwort *</span>
+            <span className="text-primary-dark">Passwort *</span>
             <input
               type="password"
               required
               minLength={6}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+              className="rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-primary-dark focus:outline-none"
             />
           </label>
 
           <label className="flex flex-col gap-1 text-sm">
-            <span className="text-gray-600">Rolle *</span>
+            <span className="text-primary-dark">Rolle *</span>
             <select
               value={role}
               onChange={(e) => setRole(e.target.value as RoleValue)}
-              className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+              className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm focus:border-primary-dark focus:outline-none"
             >
               {roleOptions.map((opt) => (
                 <option key={opt.value} value={opt.value}>
@@ -356,7 +356,7 @@ export default function AdminUsersClient({ initialUsers, allPermissionGroups }: 
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="inline-flex items-center rounded-full bg-blue-600 px-5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-500 disabled:cursor-not-allowed disabled:bg-blue-300"
+                className="inline-flex items-center rounded-full bg-primary px-5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-primary/100 disabled:cursor-not-allowed disabled:bg-primary/20"
               >
                 {isSubmitting ? 'Speichert…' : 'Benutzer erstellen'}
               </button>
@@ -401,7 +401,7 @@ export default function AdminUsersClient({ initialUsers, allPermissionGroups }: 
                         type="email"
                         value={editEmail}
                         onChange={(e) => setEditEmail(e.target.value)}
-                        className="w-full rounded-lg border border-gray-200 px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none"
+                        className="w-full rounded-lg border border-gray-200 px-3 py-1.5 text-sm focus:border-primary-dark focus:outline-none"
                       />
                     ) : (
                       user.email
@@ -413,7 +413,7 @@ export default function AdminUsersClient({ initialUsers, allPermissionGroups }: 
                         type="text"
                         value={editName}
                         onChange={(e) => setEditName(e.target.value)}
-                        className="w-full rounded-lg border border-gray-200 px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none"
+                        className="w-full rounded-lg border border-gray-200 px-3 py-1.5 text-sm focus:border-primary-dark focus:outline-none"
                       />
                     ) : (
                       user.name ?? '—'
@@ -424,7 +424,7 @@ export default function AdminUsersClient({ initialUsers, allPermissionGroups }: 
                       <select
                         value={editRole}
                         onChange={(e) => setEditRole(e.target.value as RoleValue)}
-                        className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none"
+                        className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm focus:border-primary-dark focus:outline-none"
                       >
                         {roleOptions.map((opt) => (
                           <option key={opt.value} value={opt.value}>
@@ -460,7 +460,7 @@ export default function AdminUsersClient({ initialUsers, allPermissionGroups }: 
                       )}
                     </div>
                   </td>
-                  <td className="px-4 py-3 text-gray-600">{formatDate(user.createdAt)}</td>
+                  <td className="px-4 py-3 text-primary-dark">{formatDate(user.createdAt)}</td>
                   <td className="px-4 py-3">
                     {editingUserId === user.id ? (
                       <div className="flex flex-col gap-2">
@@ -469,7 +469,7 @@ export default function AdminUsersClient({ initialUsers, allPermissionGroups }: 
                           value={editPassword}
                           onChange={(e) => setEditPassword(e.target.value)}
                           placeholder="Neues Passwort (optional)"
-                          className="rounded-lg border border-gray-200 px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none"
+                          className="rounded-lg border border-gray-200 px-3 py-1.5 text-sm focus:border-primary-dark focus:outline-none"
                         />
                         <div className="flex flex-wrap gap-2">
                           <button

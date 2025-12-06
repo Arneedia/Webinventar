@@ -51,7 +51,7 @@ export default function MobileMenu({ mainLinks, userLinks, adminLinks, isAdmin, 
 
         {/* User Info */}
         {user && (
-          <div className="px-4 py-4 border-b border-gray-200 bg-blue-50">
+          <div className="px-4 py-4 border-b border-gray-200 bg-primary/10">
             <div className="text-base font-medium text-gray-900 break-words">{user.name || user.email}</div>
             {user.name && <div className="text-sm text-gray-600 mt-0.5 break-all">{user.email}</div>}
           </div>
@@ -130,7 +130,7 @@ export default function MobileMenu({ mainLinks, userLinks, adminLinks, isAdmin, 
             <Link
               href="/login"
               onClick={() => setIsOpen(false)}
-              className="block w-full px-4 py-3 rounded-xl text-center text-white bg-blue-600 hover:bg-blue-700 active:bg-blue-800 font-medium"
+              className="block w-full px-4 py-3 rounded-xl text-center text-white bg-primary hover:bg-primary-dark active:bg-primary-dark text-secondary font-medium"
             >
               Login
             </Link>

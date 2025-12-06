@@ -30,7 +30,7 @@ export default function InventoryTab({ accessoryOptions, movements, form, onForm
     <div className="space-y-6">
       <section className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
         <div className="flex items-center gap-3">
-          <div className="rounded-full bg-blue-50 p-2 text-blue-600">
+          <div className="rounded-full bg-primary/10 p-2 text-primary-dark">
             <Boxes className="h-5 w-5" />
           </div>
           <div>
@@ -46,7 +46,7 @@ export default function InventoryTab({ accessoryOptions, movements, form, onForm
               required
               value={form.ZubehoerID}
               onChange={(event) => onFormChange("ZubehoerID", event.target.value)}
-              className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+              className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-primary focus:outline-none"
             >
               <option value="">Zubehör auswählen</option>
               {accessoryOptions.map((option) => (
@@ -93,7 +93,7 @@ export default function InventoryTab({ accessoryOptions, movements, form, onForm
           <div className="lg:col-span-4 flex justify-end">
             <button
               type="submit"
-              className="inline-flex items-center gap-2 rounded-full bg-blue-600 px-5 py-2 text-sm font-semibold text-white shadow hover:bg-blue-500"
+              className="inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2 text-sm font-semibold text-white shadow hover:bg-primary-dark"
             >
               <RefreshCw className="h-4 w-4" /> Buchen
             </button>

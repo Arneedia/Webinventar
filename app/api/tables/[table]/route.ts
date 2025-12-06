@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prismaClient';
 import { getTableConfig } from '@/lib/tableConfig';
 import { requireApiUser } from '@/lib/auth';
 import { AvailablePermissions } from '@/lib/permissionGroups';
+import { formatInventarCode } from '@/lib/hardwareCodes';
 
 interface RouteContext {
   params: Promise<{ table: string }>;
@@ -111,6 +112,29 @@ export async function POST(req: NextRequest, context: RouteContext) {
         }
       }
       data[col.name] = value;
+    }
+
+    // Automatische InventarCode-Generierung für GER-Tabelle
+    if (table.toUpperCase() === 'GER' && !data.InventarCode && data.HWID) {
+      const hw = await prisma.hW.findUnique({ where: { HWID: Number(data.HWID) } });
+      const prefix = hw?.HWCode || 'HW';
+
+      // Höchste laufende Nummer für dieses Präfix ermitteln
+      const existing = await prisma.gER.findMany({
+        where: { InventarCode: { startsWith: prefix + '-' } },
+        select: { InventarCode: true },
+      });
+
+      let maxSeq = 0;
+      for (const row of existing) {
+        const match = row.InventarCode?.match(/-(\d+)$/);
+        if (match) {
+          const num = Number(match[1]);
+          if (num > maxSeq) maxSeq = num;
+        }
+      }
+
+      data.InventarCode = formatInventarCode(prefix, maxSeq + 1);
     }
 
     await model.create({ data });

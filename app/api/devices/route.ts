@@ -16,6 +16,7 @@ export async function GET(req: NextRequest) {
         HW: true,
         HS: true,
         MOD: true,
+        RAUM: true,
         BenutzerGER: {
           where: { Ende: null },
           orderBy: { Start: 'desc' },
@@ -27,12 +28,17 @@ export async function GET(req: NextRequest) {
 
     const data = devices.map((d) => {
       const currentAssignment = d.BenutzerGER[0];
+      const currentUser = currentAssignment?.Benutzer;
+      // Raum: Wenn Benutzer zugewiesen -> Benutzer-Raum, sonst Geräte-Raum
+      const effectiveRoom = currentUser?.BenutzerRaum ?? d.RAUM?.RaumName ?? null;
       return {
         id: d.GerID,
+        inventarCode: d.InventarCode,
         sno: d.SNO,
         zugang: d.Zugang,
         abgang: d.Abgang,
         hwName: d.HW?.HWName ?? null,
+        hwCode: d.HW?.HWCode ?? null,
         hsName: d.HS?.HSName ?? null,
         modelName: d.MOD?.ModName ?? null,
         preis: d.Preis ? Number(d.Preis as any) : null,
@@ -42,7 +48,11 @@ export async function GET(req: NextRequest) {
         test: d.Test ?? null,
         testGruppe: d.TestGruppe ?? null,
         currentUserId: currentAssignment?.BenutzerID ?? null,
-        currentUserName: currentAssignment?.Benutzer?.BenutzerName ?? null,
+        currentUserName: currentUser?.BenutzerName ?? null,
+        // Raum-Informationen
+        raumId: d.RaumID,
+        raumName: d.RAUM?.RaumName ?? null,
+        effectiveRoom, // Benutzer-Raum oder Geräte-Raum
       };
     });
 

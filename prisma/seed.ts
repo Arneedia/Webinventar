@@ -42,14 +42,29 @@ async function seedReferenceData() {
     });
   }
 
+  // Räume (Stammdaten für Geräte-Standorte)
+  if ((await prisma.rAUM.count()) === 0) {
+    await prisma.rAUM.createMany({
+      data: [
+        { RaumName: 'IT-Lager', Standort: 'EG', Notiz: 'Hauptlager für IT-Geräte' },
+        { RaumName: 'Serverraum', Standort: 'UG', Notiz: 'Klimatisiert' },
+        { RaumName: 'Empfang', Standort: 'EG', Notiz: 'Leihgeräte' },
+        { RaumName: 'Konferenzraum A', Standort: '1.OG', Notiz: null },
+        { RaumName: 'Konferenzraum B', Standort: '1.OG', Notiz: null },
+        { RaumName: 'Schulungsraum', Standort: '2.OG', Notiz: 'Schulungsgeräte' },
+        { RaumName: 'Werkstatt', Standort: 'EG', Notiz: 'Reparaturgeräte' },
+      ],
+    });
+  }
+
   if ((await prisma.hW.count()) === 0) {
     await prisma.hW.createMany({
       data: [
-        { HWName: 'Laptop' },
-        { HWName: 'Smartphone' },
-        { HWName: 'Tablet' },
-        { HWName: 'Monitor' },
-        { HWName: 'Desktop-PC' },
+        { HWName: 'Laptop', HWCode: 'NB' },
+        { HWName: 'Smartphone', HWCode: 'SP' },
+        { HWName: 'Tablet', HWCode: 'TB' },
+        { HWName: 'Monitor', HWCode: 'MN' },
+        { HWName: 'Desktop-PC', HWCode: 'DT' },
       ],
     });
   }
@@ -301,6 +316,7 @@ async function seedUsersAndAssignments() {
           HSID: hsByName['Lenovo'],
           MODID: modByName['ThinkPad T14'],
           SNO: 'LEN-T14-001',
+          InventarCode: 'NB-0001',
           Preis: 1299.00,
           Zugang: lastYear,
         },
@@ -309,6 +325,7 @@ async function seedUsersAndAssignments() {
           HSID: hsByName['Apple'],
           MODID: modByName['MacBook Pro 14"'],
           SNO: 'APL-MBP-001',
+          InventarCode: 'NB-0002',
           Preis: 2499.00,
           Zugang: lastMonth,
         },
@@ -317,6 +334,7 @@ async function seedUsersAndAssignments() {
           HSID: hsByName['Apple'],
           MODID: modByName['iPhone 15 Pro'],
           SNO: 'APL-IP15-001',
+          InventarCode: 'SP-0001',
           Preis: 1199.00,
           Zugang: lastMonth,
           IMEI1: '123456789012345',
@@ -326,6 +344,7 @@ async function seedUsersAndAssignments() {
           HSID: hsByName['Samsung'],
           MODID: modByName['Galaxy S24 Ultra'],
           SNO: 'SAM-S24U-001',
+          InventarCode: 'SP-0002',
           Preis: 1449.00,
           Zugang: today,
           IMEI1: '987654321098765',
@@ -335,6 +354,7 @@ async function seedUsersAndAssignments() {
           HSID: hsByName['Samsung'],
           MODID: modByName['Galaxy Tab S9'],
           SNO: 'SAM-TAB-001',
+          InventarCode: 'TB-0001',
           Preis: 899.00,
           Zugang: lastYear,
         },
@@ -343,6 +363,7 @@ async function seedUsersAndAssignments() {
           HSID: hsByName['Dell'],
           MODID: modByName['UltraSharp U2723QE'],
           SNO: 'DEL-MON-001',
+          InventarCode: 'MN-0001',
           Preis: 649.00,
           Zugang: lastYear,
         },
@@ -351,6 +372,7 @@ async function seedUsersAndAssignments() {
           HSID: hsByName['Dell'],
           MODID: modByName['XPS 15'],
           SNO: 'DEL-XPS-001',
+          InventarCode: 'NB-0003',
           Preis: 1899.00,
           Zugang: lastMonth,
         },

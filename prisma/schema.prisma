@@ -38,6 +38,7 @@ model GS {
 model HW {
   HWID     Int      @id @default(autoincrement())
   HWName   String?
+  HWCode   String   @unique
   GER      GER[]
   HW_HS    HW_HS[]
   HS_MOD   HS_MOD[]
@@ -80,13 +81,24 @@ model Benutzer {
   ZubehoerBewegung   ZubehoerBewegung[]
 }
 
+// Räume (Stammdaten für Geräte-Standorte)
+model RAUM {
+  RaumID    Int     @id @default(autoincrement())
+  RaumName  String?
+  Standort  String?
+  Notiz     String?
+  GER       GER[]
+}
+
 // Geräte
 model GER {
-  GerID       Int           @id @default(autoincrement())
-  HWID        Int
-  HSID        Int
-  MODID       Int
-  SNO         String
+  GerID        Int      @id @default(autoincrement())
+  HWID         Int
+  HSID         Int
+  MODID        Int
+  RaumID       Int?
+  SNO          String
+  InventarCode String   @unique
   Preis       Decimal?
   Zugang      DateTime
   Abgang      DateTime?
@@ -98,9 +110,10 @@ model GER {
   HW          HW            @relation(fields: [HWID], references: [HWID])
   HS          HS            @relation(fields: [HSID], references: [HSID])
   MOD         MOD           @relation(fields: [MODID], references: [ModID])
-  BenutzerGER        BenutzerGER[]
-  ZubehoerBenutzer   ZubehoerBenutzer[]
-  ZubehoerBewegung   ZubehoerBewegung[]
+  RAUM              RAUM?              @relation(fields: [RaumID], references: [RaumID])
+  BenutzerGER       BenutzerGER[]
+  ZubehoerBenutzer  ZubehoerBenutzer[]
+  ZubehoerBewegung  ZubehoerBewegung[]
 }
 
 // Benutzer-Geräte Zuordnung

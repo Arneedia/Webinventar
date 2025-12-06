@@ -17,7 +17,7 @@ export default function TabsShell<T extends string>({ tabs, activeTab, onTabChan
     <section className="space-y-6">
       <div className="rounded-2xl border border-gray-200 bg-white p-4 sm:flex sm:items-center sm:justify-between">
         <div>
-          <p className="text-xs uppercase tracking-wide text-blue-600">Zubehör</p>
+          <p className="text-xs uppercase tracking-wide text-primary-dark">Zubehör</p>
           <h2 className="text-xl font-semibold text-gray-900">{currentTab?.label ?? ""}</h2>
           <p className="text-sm text-gray-500">{currentTab?.description ?? ""}</p>
         </div>
@@ -27,8 +27,8 @@ export default function TabsShell<T extends string>({ tabs, activeTab, onTabChan
               key={tab.key}
               type="button"
               onClick={() => onTabChange(tab.key)}
-              className={`rounded-full px-4 py-2 text-sm font-medium transition hover:bg-blue-50 ${
-                tab.key === activeTab ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-600"
+              className={`rounded-full px-4 py-2 text-sm font-medium transition hover:bg-primary/10 ${
+                tab.key === activeTab ? "bg-primary text-white" : "bg-gray-100 text-gray-600"
               }`}
             >
               {tab.label}

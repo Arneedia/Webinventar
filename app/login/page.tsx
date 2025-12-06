@@ -48,7 +48,7 @@ export default function LoginPage() {
     <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
       <div className="w-full max-w-md bg-white rounded-2xl shadow-sm border border-gray-200 p-6 space-y-6">
         <div className="flex items-center gap-3">
-          <div className="p-2 rounded-lg bg-blue-600 text-white">
+          <div className="p-2 rounded-lg bg-primary text-secondary">
             <Lock className="w-5 h-5" />
           </div>
           <div>
@@ -66,7 +66,7 @@ export default function LoginPage() {
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
                 autoComplete="username"
                 required
               />
@@ -79,7 +79,7 @@ export default function LoginPage() {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
               autoComplete="current-password"
               required
             />
@@ -92,7 +92,7 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full mt-2 py-2 text-sm font-medium rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
+            className="w-full mt-2 py-2 text-sm font-medium rounded-lg bg-primary text-secondary hover:bg-primary-dark disabled:opacity-50"
           >
             {loading ? 'Wird angemeldet...' : 'Anmelden'}
           </button>

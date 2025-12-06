@@ -7,7 +7,8 @@ export async function POST(req: NextRequest) {
 
     await invalidateSession(token);
 
-    const res = NextResponse.json({ success: true });
+    const redirectUrl = new URL('/', req.url);
+    const res = NextResponse.redirect(redirectUrl);
     res.cookies.set(AuthConstants.SESSION_COOKIE_NAME, '', {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',

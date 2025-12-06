@@ -11,8 +11,8 @@ export interface AccessoryItemSummary {
   description: string | null;
   type: { id: number; name: string | null };
   hardware: { id: number; name: string | null };
-  manufacturer: { id: number; name: string | null };
-  model: { id: number; name: string | null; modellNummer: string | null };
+  manufacturer: { id: number | null; name: string | null };
+  model: { id: number | null; name: string | null; modellNummer: string | null };
   stock: number;
   assignments: { active: number; total: number };
 }
@@ -30,7 +30,7 @@ export interface AccessoryAssignmentSummary {
   id: number;
   accessoryId: number;
   accessoryLabel: string;
-  userId: number;
+  userId: number | null;
   userName: string;
   deviceId: number | null;
   deviceLabel: string | null;

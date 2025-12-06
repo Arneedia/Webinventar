@@ -1,0 +1,26 @@
+{
+  "name": "Inventar-Verwaltung",
+  "short_name": "Inventar",
+  "description": "Inventar- und Asset-Management für IT-Teams.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f8f9f4",
+  "theme_color": "#bacc37",
+  "orientation": "portrait-primary",
+  "lang": "de-DE",
+  "icons": [
+    {
+      "src": "/pwa-icon.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/pwa-icon-maskable.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ]
+}

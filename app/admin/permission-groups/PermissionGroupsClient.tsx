@@ -201,7 +201,7 @@ export default function PermissionGroupsClient({
           <h2 className="text-lg font-semibold text-gray-900">Rechtegruppen</h2>
           <button
             onClick={startCreate}
-            className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+            className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
           >
             Neue Rechtegruppe
           </button>
@@ -237,7 +237,7 @@ export default function PermissionGroupsClient({
                   </button>
                   <button
                     onClick={() => startEdit(group)}
-                    className="rounded px-3 py-1.5 text-sm text-blue-600 hover:bg-blue-50"
+                    className="rounded px-3 py-1.5 text-sm text-primary-dark hover:bg-primary/10"
                   >
                     Bearbeiten
                   </button>
@@ -274,7 +274,7 @@ export default function PermissionGroupsClient({
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   required
-                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
                   placeholder="z.B. Geräte-Verwalter"
                 />
               </div>
@@ -287,7 +287,7 @@ export default function PermissionGroupsClient({
                   id="description"
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
                   placeholder="Optionale Beschreibung"
                 />
               </div>
@@ -319,7 +319,7 @@ export default function PermissionGroupsClient({
                             if (el) el.indeterminate = someSelected && !allSelected;
                           }}
                           onChange={() => toggleCategory(categoryPerms)}
-                          className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                          className="h-4 w-4 rounded border-gray-300 text-primary-dark focus:ring-primary"
                         />
                         <label
                           htmlFor={`cat-${category.name}`}
@@ -338,7 +338,7 @@ export default function PermissionGroupsClient({
                               type="checkbox"
                               checked={selectedPermissions.includes(perm.key)}
                               onChange={() => togglePermission(perm.key)}
-                              className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                              className="h-4 w-4 rounded border-gray-300 text-primary-dark focus:ring-primary"
                             />
                             {perm.label}
                           </label>
@@ -354,7 +354,7 @@ export default function PermissionGroupsClient({
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50"
+                className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 disabled:opacity-50"
               >
                 {isSubmitting
                   ? 'Speichern...'
@@ -365,7 +365,7 @@ export default function PermissionGroupsClient({
               <button
                 type="button"
                 onClick={resetForm}
-                className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
               >
                 Abbrechen
               </button>
@@ -415,7 +415,7 @@ export default function PermissionGroupsClient({
                   return (
                     <span
                       key={perm}
-                      className="rounded-full bg-blue-100 px-3 py-1 text-xs font-medium text-blue-800"
+                      className="rounded-full bg-primary/20 px-3 py-1 text-xs font-medium text-primary-dark"
                     >
                       {label}
                     </span>

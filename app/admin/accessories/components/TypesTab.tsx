@@ -13,7 +13,7 @@ export default function TypesTab({ types, newTypeName, onTypeNameChange, onCreat
     <section className="space-y-6 rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
       <div>
         <h2 className="flex items-center gap-2 text-lg font-semibold text-gray-900">
-          <ClipboardList className="h-5 w-5 text-blue-500" /> Zubehör-Typen
+          <ClipboardList className="h-5 w-5 text-primary-dark" /> Zubehör-Typen
         </h2>
         <p className="text-sm text-gray-500">Pflege der Stammdaten für Zubehör-Kategorien.</p>
       </div>
@@ -24,11 +24,11 @@ export default function TypesTab({ types, newTypeName, onTypeNameChange, onCreat
           value={newTypeName}
           onChange={(event) => onTypeNameChange(event.target.value)}
           placeholder="Neuen Zubehör-Typ eingeben"
-          className="flex-1 rounded-xl border border-gray-200 px-4 py-2 text-sm focus:border-blue-500 focus:outline-none"
+          className="flex-1 rounded-xl border border-gray-200 px-4 py-2 text-sm focus:border-primary focus:outline-none"
         />
         <button
           type="submit"
-          className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-blue-500"
+          className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-white shadow hover:bg-primary-dark"
         >
           <PackagePlus className="h-4 w-4" /> Hinzufügen
         </button>
