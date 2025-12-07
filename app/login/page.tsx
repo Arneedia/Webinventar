@@ -1,10 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Lock, Mail } from 'lucide-react';
 
-export default function LoginPage() {
+function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirectTo = searchParams.get('redirectTo') || '/geraete';
@@ -104,5 +104,24 @@ export default function LoginPage() {
         </p>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
+        <div className="w-full max-w-md bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+          <div className="animate-pulse space-y-4">
+            <div className="h-8 bg-gray-200 rounded w-1/3"></div>
+            <div className="h-10 bg-gray-200 rounded"></div>
+            <div className="h-10 bg-gray-200 rounded"></div>
+            <div className="h-10 bg-gray-200 rounded"></div>
+          </div>
+        </div>
+      </div>
+    }>
+      <LoginForm />
+    </Suspense>
   );
 }
