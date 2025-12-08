@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { MonitorSmartphone, ArrowLeft, Loader2, UserRound, History, Package, QrCode, Building2, MapPin, Briefcase, UserPlus, UserMinus, Undo2, Plus, X, Archive } from 'lucide-react';
+import { MonitorSmartphone, ArrowLeft, Loader2, UserRound, History, Package, QrCode, Building2, MapPin, Briefcase, UserPlus, UserMinus, Undo2, Plus, X, Archive, ScanLine } from 'lucide-react';
 import StickerModal from '../../components/StickerModal';
+import QRScanner from '../../components/QRScanner';
 
 interface CurrentUser {
   id: number;
@@ -76,6 +77,7 @@ export default function DeviceDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showStickerModal, setShowStickerModal] = useState(false);
+  const [showScanner, setShowScanner] = useState(false);
 
   // Bearbeitungs-States
   const [users, setUsers] = useState<{ id: number; name: string }[]>([]);
@@ -408,6 +410,29 @@ export default function DeviceDetailPage() {
     setActionError(null);
   };
 
+  const handleScanResult = (result: string) => {
+    setShowScanner(false);
+    
+    // Parse the scanned URL/code to extract inventory code
+    let inventarCode = result;
+    
+    try {
+      if (result.startsWith('http://') || result.startsWith('https://')) {
+        const url = new URL(result);
+        const pathname = url.pathname;
+        
+        if (pathname.startsWith('/geraete/')) {
+          inventarCode = decodeURIComponent(pathname.replace('/geraete/', ''));
+        }
+      }
+    } catch {
+      // Use result as-is
+    }
+    
+    // Navigate to the scanned device
+    router.push(`/geraete/${encodeURIComponent(inventarCode)}`);
+  };
+
   const formatDate = (dateStr: string | null) => {
     if (!dateStr) return '—';
     return new Date(dateStr).toLocaleDateString('de-DE');
@@ -475,13 +500,22 @@ export default function DeviceDetailPage() {
               </div>
             </div>
           </div>
-          <button
-            onClick={() => setShowStickerModal(true)}
-            className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-primary-dark bg-primary/10 rounded-lg hover:bg-primary/20"
-          >
-            <QrCode className="w-4 h-4" />
-            Sticker
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowScanner(true)}
+              className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
+              title="Weiteres Gerät scannen"
+            >
+              <ScanLine className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => setShowStickerModal(true)}
+              className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-primary-dark bg-primary/10 rounded-lg hover:bg-primary/20"
+            >
+              <QrCode className="w-4 h-4" />
+              Sticker
+            </button>
+          </div>
         </div>
       </header>
 
@@ -1073,6 +1107,16 @@ export default function DeviceDetailPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* QR Scanner Modal */}
+      {showScanner && (
+        <QRScanner
+          onScan={handleScanResult}
+          onClose={() => setShowScanner(false)}
+          title="Weiteres Gerät scannen"
+          description="Scanne einen Inventar-Sticker, um zu einem anderen Gerät zu wechseln."
+        />
       )}
     </div>
   );

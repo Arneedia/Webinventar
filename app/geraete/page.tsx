@@ -1,8 +1,9 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { Database, MonitorSmartphone, UserRound, History, AlertTriangle, Plus, RefreshCw, Package, Undo2, XCircle, X, ChevronRight, QrCode, MapPin } from 'lucide-react';
+import { Database, MonitorSmartphone, UserRound, History, AlertTriangle, Plus, RefreshCw, Package, Undo2, XCircle, X, ChevronRight, QrCode, MapPin, ScanLine } from 'lucide-react';
 import StickerModal from '../components/StickerModal';
+import QRScanner from '../components/QRScanner';
 
 interface DeviceListItem {
   id: number;
@@ -134,6 +135,9 @@ export default function DeviceManagementPage() {
 
   // Sticker Modal
   const [showStickerModal, setShowStickerModal] = useState(false);
+
+  // QR Scanner
+  const [showScanner, setShowScanner] = useState(false);
 
   const [newDevice, setNewDevice] = useState({
     HWID: '',
@@ -514,6 +518,41 @@ export default function DeviceManagementPage() {
 
   const selectedDevice = devices.find((d) => d.id === selectedDeviceId) || null;
 
+  const handleScanResult = (result: string) => {
+    setShowScanner(false);
+    
+    // Parse the scanned URL/code to extract inventory code
+    let inventarCode = result;
+    
+    try {
+      if (result.startsWith('http://') || result.startsWith('https://')) {
+        const url = new URL(result);
+        const pathname = url.pathname;
+        
+        if (pathname.startsWith('/geraete/')) {
+          inventarCode = decodeURIComponent(pathname.replace('/geraete/', ''));
+        }
+      }
+    } catch {
+      // Use result as-is
+    }
+    
+    // Find device by inventory code or SNO
+    const device = devices.find(
+      (d) => d.inventarCode.toLowerCase() === inventarCode.toLowerCase() || 
+             d.sno.toLowerCase() === inventarCode.toLowerCase()
+    );
+    
+    if (device) {
+      setSelectedDeviceId(device.id);
+      setDeviceSearch(inventarCode);
+      setShowMobileDetail(true);
+    } else {
+      // Set search term to show "not found" state
+      setDeviceSearch(inventarCode);
+    }
+  };
+
   const filteredDevices = devices.filter((d) => {
     if (filterUserId) {
       const userIdNum = Number(filterUserId);
@@ -826,13 +865,24 @@ export default function DeviceManagementPage() {
 
             <div className="bg-white rounded-xl border border-gray-200 p-3 flex flex-col sm:flex-row gap-3 text-xs">
               <div className="flex-1 flex flex-col sm:flex-row gap-2">
-                <input
-                  type="text"
-                  placeholder="Suchen (SNO, EAN, IMEI, Typ, Modell, Benutzer)..."
-                  value={deviceSearch}
-                  onChange={(e) => setDeviceSearch(e.target.value)}
-                  className="w-full sm:flex-1 px-3 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
-                />
+                <div className="flex-1 flex gap-2">
+                  <input
+                    type="text"
+                    placeholder="Suchen (SNO, EAN, IMEI, Typ, Modell, Benutzer)..."
+                    value={deviceSearch}
+                    onChange={(e) => setDeviceSearch(e.target.value)}
+                    className="flex-1 px-3 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowScanner(true)}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-primary text-primary-dark hover:bg-primary/10 font-medium shrink-0"
+                    title="QR-Code scannen"
+                  >
+                    <ScanLine className="w-4 h-4" />
+                    <span className="hidden sm:inline">Scannen</span>
+                  </button>
+                </div>
                 <select
                   value={filterUserId}
                   onChange={(e) => setFilterUserId(e.target.value)}
@@ -1601,6 +1651,16 @@ export default function DeviceManagementPage() {
         <StickerModal
           deviceId={selectedDeviceId}
           onClose={() => setShowStickerModal(false)}
+        />
+      )}
+
+      {/* QR Scanner Modal */}
+      {showScanner && (
+        <QRScanner
+          onScan={handleScanResult}
+          onClose={() => setShowScanner(false)}
+          title="Gerät scannen"
+          description="Scanne einen Inventar-Sticker, um das Gerät direkt auszuwählen."
         />
       )}
     </div>

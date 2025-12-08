@@ -3,7 +3,9 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { createPortal } from 'react-dom';
-import { Menu, X } from 'lucide-react';
+import { Menu, X, ScanLine } from 'lucide-react';
+import QRScanner from './QRScanner';
+import { useRouter } from 'next/navigation';
 
 interface NavLink {
   href: string;
@@ -22,10 +24,44 @@ interface MobileMenuProps {
 export default function MobileMenu({ mainLinks, userLinks, adminLinks, isAdmin, user }: MobileMenuProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [showScanner, setShowScanner] = useState(false);
+  const router = useRouter();
 
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  const handleScan = (result: string) => {
+    setShowScanner(false);
+    setIsOpen(false);
+    
+    try {
+      if (result.startsWith('http://') || result.startsWith('https://')) {
+        const url = new URL(result);
+        const pathname = url.pathname;
+        
+        if (pathname.startsWith('/geraete/')) {
+          const code = pathname.replace('/geraete/', '');
+          router.push(`/geraete/${encodeURIComponent(code)}`);
+          return;
+        }
+        
+        if (url.hostname === window.location.hostname || url.hostname === 'localhost') {
+          router.push(pathname);
+          return;
+        }
+      }
+      
+      if (/^[A-Z]{2,4}-\d{3,}(-\d+)?$/i.test(result)) {
+        router.push(`/geraete/${encodeURIComponent(result)}`);
+        return;
+      }
+      
+      router.push(`/geraete/${encodeURIComponent(result)}`);
+    } catch {
+      router.push(`/geraete/${encodeURIComponent(result)}`);
+    }
+  };
 
   const menu = (
     <div className="fixed inset-0 z-[1000]">
@@ -59,6 +95,18 @@ export default function MobileMenu({ mainLinks, userLinks, adminLinks, isAdmin, 
 
         {/* Navigation Links - Scrollbar mit viel Platz */}
         <nav className="flex-1 overflow-y-auto overscroll-contain py-4 bg-white min-h-0">
+          {/* QR-Scanner Button */}
+          <div className="px-4 mb-4">
+            <button
+              type="button"
+              onClick={() => setShowScanner(true)}
+              className="w-full flex items-center gap-3 px-4 py-4 rounded-xl text-base font-medium text-white bg-primary hover:bg-primary-dark active:bg-primary-dark"
+            >
+              <ScanLine className="w-5 h-5" />
+              QR-Code scannen
+            </button>
+          </div>
+
           {/* Main Links */}
           <div className="px-4">
             <div className="px-2 py-2 text-xs font-semibold text-gray-400 uppercase tracking-wider">
@@ -153,6 +201,16 @@ export default function MobileMenu({ mainLinks, userLinks, adminLinks, isAdmin, 
       </button>
 
       {mounted && isOpen ? createPortal(menu, document.body) : null}
+      
+      {/* QR Scanner Modal */}
+      {showScanner && (
+        <QRScanner
+          onScan={handleScan}
+          onClose={() => setShowScanner(false)}
+          title="Inventar-Sticker scannen"
+          description="Scanne einen Inventar-Sticker, um direkt zur Gerätedetailseite zu gelangen."
+        />
+      )}
     </>
   );
 }
