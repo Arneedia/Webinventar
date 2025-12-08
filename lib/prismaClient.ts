@@ -1,6 +1,4 @@
 import 'dotenv/config';
-import Database from 'better-sqlite3';
-import { PrismaBetterSqlite3 } from '@prisma/adapter-better-sqlite3';
 import { PrismaClient } from './generated/prisma/client';
 import path from 'path';
 
@@ -10,6 +8,27 @@ const globalForPrisma = globalThis as unknown as {
 };
 
 function createPrismaClient(): PrismaClient {
+  // Prüfe ob Prisma Postgres URL vorhanden (Vercel Produktion)
+  const prismaDbUrl = process.env.PRISMA_DATABASE_URL;
+  
+  if (prismaDbUrl && prismaDbUrl.startsWith('prisma+postgres://')) {
+    // Vercel Prisma Postgres - nutze den libSQL/Prisma Postgres Adapter
+    const { PrismaPg } = require('@prisma/adapter-pg');
+    const { Pool } = require('pg');
+    
+    // Extrahiere die echte Postgres URL aus der Prisma URL
+    const postgresUrl = process.env.POSTGRES_URL;
+    if (!postgresUrl) {
+      throw new Error('POSTGRES_URL muss für Prisma Postgres gesetzt sein');
+    }
+    
+    const pool = new Pool({ connectionString: postgresUrl, ssl: { rejectUnauthorized: false } });
+    const adapter = new PrismaPg(pool);
+    return new PrismaClient({ adapter });
+  }
+  
+  // Lokale Entwicklung mit SQLite
+  const { PrismaBetterSqlite3 } = require('@prisma/adapter-better-sqlite3');
   const url = process.env.DATABASE_URL || 'file:./prisma/dev.db';
   
   let filePath: string;
