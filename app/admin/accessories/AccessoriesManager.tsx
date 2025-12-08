@@ -25,7 +25,7 @@ import type {
 } from "@/lib/accessories";
 
 interface TableResponse<T> {
-  data: T[];
+  data: T[]; 
 }
 
 interface HWRow {
