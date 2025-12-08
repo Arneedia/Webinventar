@@ -3,7 +3,6 @@ import { Database, ChevronDown } from 'lucide-react';
 import { getCurrentUser, Roles, userHasPermission, userHasAnyPermission } from '@/lib/auth';
 import { AvailablePermissions } from '@/lib/permissionGroups';
 import MobileMenu from './MobileMenu';
-import ScanButton from './ScanButton';
 
 export default async function Navbar() {
   const user = await getCurrentUser();
@@ -62,9 +61,6 @@ export default async function Navbar() {
             <span className="text-gray-400">·</span>
             <span>Prisma</span>
           </div>
-          
-          {/* QR-Scanner Button */}
-          <ScanButton />
           
           {/* Desktop Navigation */}
           <nav className="hidden sm:flex items-center gap-2 text-xs sm:text-sm">
