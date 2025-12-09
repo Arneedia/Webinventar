@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { Camera, StopCircle, Image as ImageIcon, RefreshCcw, QrCode, AlertCircle, CheckCircle2, Loader2 } from 'lucide-react';
 
 type ScanStatus = 'idle' | 'starting' | 'scanning' | 'stopped' | 'error';
@@ -21,11 +21,14 @@ export default function ScanPage() {
   const [device, setDevice] = useState<DeviceInfo | null>(null);
   const [loadingDevice, setLoadingDevice] = useState(false);
   const [supportsCamera, setSupportsCamera] = useState<boolean>(false);
-  const previewId = useRef(`qr-preview-${Math.random().toString(36).slice(2)}`);
+  // useId stellt sicher, dass die ID zwischen SSR und Client stabil bleibt
+  const previewIdBase = useId();
+  const previewId = useRef(`qr-preview-${previewIdBase}`);
   const html5qrcodeRef = useRef<any>(null);
 
   // Lazy load html5-qrcode only on client
   const loadScannerLib = async () => {
+    // Prefers torch support and mobile-friendly constraints
     const mod = await import('html5-qrcode');
     return mod;
   };
@@ -68,16 +71,36 @@ export default function ScanPage() {
       setMessage('Kamera-Zugriff nicht verfügbar (HTTPS erforderlich).');
       return;
     }
+    const previewEl = typeof document !== 'undefined' ? document.getElementById(previewId.current) : null;
+    if (!previewEl) {
+      setStatus('error');
+      setMessage('Scanner konnte nicht initialisiert werden (Preview fehlt).');
+      return;
+    }
     setStatus('starting');
     setMessage(null);
     setLastCode(null);
     try {
-      const { Html5Qrcode } = await loadScannerLib();
+      const mod = await loadScannerLib();
+      const { Html5Qrcode, Html5QrcodeSupportedFormats } = mod;
       if (!html5qrcodeRef.current) {
         html5qrcodeRef.current = new Html5Qrcode(previewId.current);
       }
-      const configs = { fps: 10, qrbox: { width: 250, height: 250 }, aspectRatio: 1.0 };
-      await html5qrcodeRef.current.start({ facingMode: 'environment' }, configs, handleCodeFound);
+      const configs = {
+        fps: 10,
+        qrbox: { width: 250, height: 250 },
+        aspectRatio: 1.0,
+        experimentalFeatures: {
+          useBarCodeDetectorIfSupported: true,
+        },
+        formatsToSupport: [Html5QrcodeSupportedFormats.QR_CODE, Html5QrcodeSupportedFormats.AZTEC],
+        videoConstraints: {
+          facingMode: { ideal: 'environment' },
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+        },
+      };
+      await html5qrcodeRef.current.start({ facingMode: { ideal: 'environment' } }, configs, handleCodeFound);
       setStatus('scanning');
     } catch (err) {
       setStatus('error');
@@ -89,9 +112,8 @@ export default function ScanPage() {
     if (html5qrcodeRef.current) {
       try {
         await html5qrcodeRef.current.stop();
-        await html5qrcodeRef.current.clear();
       } catch {
-        // ignore
+        // ignore stop errors (better than throwing removeChild on mobile)
       }
     }
     setStatus('stopped');
