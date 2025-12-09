@@ -24,12 +24,16 @@ function LoginForm() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
+        credentials: 'include', // Wichtig für Cookies
       });
 
       const data = await res.json();
       if (!res.ok) {
         throw new Error(data.error || 'Login fehlgeschlagen');
       }
+
+      // Router cache invalidieren damit Server-Komponenten neu geladen werden
+      router.refresh();
 
       // Prüfen ob Passwort geändert werden muss
       if (data.mustChangePassword) {

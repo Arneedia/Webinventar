@@ -37,11 +37,14 @@ export async function POST(req: NextRequest) {
       name: authed.name,
       role: authed.role,
       mustChangePassword: authed.mustChangePassword,
+      success: true,
     });
 
+    // Cookie setzen - secure nur auf Vercel/Production (HTTPS)
+    const isProduction = process.env.NODE_ENV === 'production' || process.env.VERCEL === '1';
     res.cookies.set(AuthConstants.SESSION_COOKIE_NAME, token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: isProduction,
       sameSite: 'lax',
       path: '/',
       expires: expiresAt,
