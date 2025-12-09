@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Database, ChevronDown } from 'lucide-react';
+import { Database, ChevronDown, QrCode } from 'lucide-react';
 import { getCurrentUser, Roles, userHasPermission, userHasAnyPermission } from '@/lib/auth';
 import { AvailablePermissions } from '@/lib/permissionGroups';
 import MobileMenu from './MobileMenu';
@@ -18,6 +18,11 @@ export default async function Navbar() {
       href: '/geraete', 
       label: 'Geräteverwaltung',
       show: !user || user.role === Roles.ADMIN || userHasPermission(user, AvailablePermissions.DEVICES_VIEW),
+    },
+    {
+      href: '/scan',
+      label: 'Scannen',
+      show: true,
     },
     {
       href: '/admin/accessories',
@@ -70,7 +75,11 @@ export default async function Navbar() {
                 href={link.href}
                 className="px-3 py-1 rounded-full text-gray-700 hover:bg-gray-100"
               >
-                {link.label}
+                {link.href === '/scan' ? (
+                  <span className="inline-flex items-center gap-1">
+                    <QrCode className="w-4 h-4" /> {link.label}
+                  </span>
+                ) : link.label}
               </Link>
             ))}
             {/* Benutzer-spezifische Links basierend auf Berechtigungen */}
