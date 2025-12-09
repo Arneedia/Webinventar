@@ -25,6 +25,8 @@ export default function ScanPage() {
   const previewIdBase = useId();
   const previewId = useRef(`qr-preview-${previewIdBase}`);
   const html5qrcodeRef = useRef<any>(null);
+  const isMountedRef = useRef(true);
+  const startingRef = useRef(false);
 
   // Lazy load html5-qrcode only on client
   const loadScannerLib = async () => {
@@ -36,6 +38,7 @@ export default function ScanPage() {
   useEffect(() => {
     setSupportsCamera(typeof navigator !== 'undefined' && !!navigator.mediaDevices?.getUserMedia);
     return () => {
+      isMountedRef.current = false;
       stopScanner();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -67,7 +70,7 @@ export default function ScanPage() {
   };
 
   const startScanner = async () => {
-    if (!supportsCamera) {
+    if (!supportsCamera || startingRef.current) {
       setMessage('Kamera-Zugriff nicht verfügbar (HTTPS erforderlich).');
       return;
     }
@@ -78,6 +81,7 @@ export default function ScanPage() {
       return;
     }
     setStatus('starting');
+    startingRef.current = true;
     setMessage(null);
     setLastCode(null);
     try {
@@ -112,13 +116,24 @@ export default function ScanPage() {
       await html5qrcodeRef.current.start({ facingMode: { ideal: 'environment' } }, configs, handleCodeFound);
       setStatus('scanning');
     } catch (err) {
-      setStatus('error');
-      setMessage(err instanceof Error ? err.message : 'Kamera konnte nicht gestartet werden');
+      if (isMountedRef.current) {
+        setStatus('error');
+        setMessage(err instanceof Error ? err.message : 'Kamera konnte nicht gestartet werden');
+      }
+    } finally {
+      startingRef.current = false;
     }
   };
 
   const stopScanner = async () => {
     if (!html5qrcodeRef.current) {
+      setStatus('stopped');
+      return;
+    }
+    const containerExists = typeof document !== 'undefined' ? document.getElementById(previewId.current) : null;
+    // Wenn das DOM-Element bereits entfernt wurde, nicht mehr stop() aufrufen (vermeidet removeChild)
+    if (!containerExists) {
+      html5qrcodeRef.current = null;
       setStatus('stopped');
       return;
     }
