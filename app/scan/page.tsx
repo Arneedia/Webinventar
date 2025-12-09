@@ -12,7 +12,7 @@ type DeviceInfo = {
   HW?: { HWName?: string | null };
   HS?: { HSName?: string | null };
   MOD?: { ModName?: string | null };
-};
+}; 
 
 export default function ScanPage() {
   const [status, setStatus] = useState<ScanStatus>('idle');
