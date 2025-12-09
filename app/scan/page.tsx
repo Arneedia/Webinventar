@@ -81,6 +81,15 @@ export default function ScanPage() {
     setMessage(null);
     setLastCode(null);
     try {
+      // Falls noch ein alter Scanner läuft, vorher stoppen
+      if (html5qrcodeRef.current && status === 'scanning') {
+        try {
+          await html5qrcodeRef.current.stop();
+        } catch {
+          /* ignore */
+        }
+        html5qrcodeRef.current = null;
+      }
       const mod = await loadScannerLib();
       const { Html5Qrcode, Html5QrcodeSupportedFormats } = mod;
       if (!html5qrcodeRef.current) {
@@ -109,12 +118,17 @@ export default function ScanPage() {
   };
 
   const stopScanner = async () => {
-    if (html5qrcodeRef.current) {
-      try {
-        await html5qrcodeRef.current.stop();
-      } catch {
-        // ignore stop errors (better than throwing removeChild on mobile)
-      }
+    if (!html5qrcodeRef.current) {
+      setStatus('stopped');
+      return;
+    }
+    try {
+      await html5qrcodeRef.current.stop();
+      // kein clear(): vermeidet removeChild-Probleme auf Mobile
+    } catch {
+      /* ignore stop errors */
+    } finally {
+      html5qrcodeRef.current = null;
     }
     setStatus('stopped');
   };
