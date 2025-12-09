@@ -1,13 +1,12 @@
 import 'dotenv/config';
 import { PrismaClient } from './generated/prisma/client';
-import { withAccelerate } from '@prisma/extension-accelerate';
 
 // PrismaClient als Singleton, um Verbindungsprobleme in Next.js (Hot Reload) zu vermeiden
 const globalForPrisma = globalThis as unknown as {
-  prisma?: ReturnType<typeof createPrismaClient>;
+  prisma?: PrismaClient;
 };
 
-function createPrismaClient() {
+function createPrismaClient(): PrismaClient {
   // Auf Vercel: Verwende Prisma Accelerate mit der prisma+postgres URL
   // Lokal: Verwende direkte Postgres-Verbindung
   const isVercel = process.env.VERCEL === '1';
@@ -15,12 +14,11 @@ function createPrismaClient() {
   const postgresUrl = process.env.POSTGRES_URL || process.env.DATABASE_URL;
   
   if (isVercel && prismaUrl) {
-    // Vercel Production: Prisma Accelerate
+    // Vercel Production: Prisma Accelerate mit datasourceUrl
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const client = new PrismaClient({
+    return new PrismaClient({
       datasourceUrl: prismaUrl,
-    } as any).$extends(withAccelerate());
-    return client;
+    } as any);
   }
   
   // Lokale Entwicklung oder Fallback: Direkter Postgres-Adapter
