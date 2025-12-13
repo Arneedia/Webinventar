@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { MonitorSmartphone, ArrowLeft, Loader2, UserRound, History, Package, QrCode, Building2, MapPin, Briefcase, UserPlus, UserMinus, Undo2, Plus, X, Archive } from 'lucide-react';
+import { MonitorSmartphone, ArrowLeft, Loader2, UserRound, History, Package, QrCode, Building2, MapPin, Briefcase, UserPlus, UserMinus, Undo2, Plus, X, Archive, ClipboardList, ArrowUpRight, ArrowDownLeft, Repeat } from 'lucide-react';
+import Link from 'next/link';
 import StickerModal from '../../components/StickerModal';
 
 interface CurrentUser {
@@ -37,6 +38,16 @@ interface AccessoryEntry {
   status: 'ACTIVE' | 'RETURNED';
 }
 
+interface DeviceProtocol {
+  id: number;
+  protokollNr: string;
+  typ: string;
+  status: string;
+  erstelltAm: string;
+  benutzerName: string | null;
+  erstellerName: string | null;
+}
+
 interface DeviceDetail {
   // Basis-Felder (gleich wie DeviceListItem in Geräteverwaltung)
   id: number;
@@ -52,8 +63,6 @@ interface DeviceDetail {
   ean: string | null;
   imei1: string | null;
   imei2: string | null;
-  test: number | null;
-  testGruppe: number | null;
   currentUserId: number | null;
   currentUserName: string | null;
   // Raum-Informationen
@@ -94,6 +103,11 @@ export default function DeviceDetailPage() {
   const [currentUserPermissions, setCurrentUserPermissions] = useState<{ permissions: string[]; role: string } | null>(null);
   const canEdit = currentUserPermissions?.permissions?.includes('devices:edit') || currentUserPermissions?.role === 'ADMIN';
   const canEditAccessories = currentUserPermissions?.permissions?.includes('accessories:edit') || currentUserPermissions?.role === 'ADMIN';
+  const canViewProtocols = currentUserPermissions?.permissions?.includes('protocols:view') || currentUserPermissions?.role === 'ADMIN';
+
+  // Protokolle
+  const [deviceProtocols, setDeviceProtocols] = useState<DeviceProtocol[]>([]);
+  const [protocolsLoading, setProtocolsLoading] = useState(false);
 
   useEffect(() => {
     if (!code) return;
@@ -136,6 +150,29 @@ export default function DeviceDetailPage() {
       setCurrentUserPermissions(null);
     }
   };
+
+  // Protokolle für dieses Gerät laden
+  const fetchDeviceProtocols = async (deviceId: number) => {
+    try {
+      setProtocolsLoading(true);
+      const res = await fetch(`/api/devices/${deviceId}/protocols`);
+      if (res.ok) {
+        const data = await res.json();
+        setDeviceProtocols(data);
+      }
+    } catch {
+      console.error('Fehler beim Laden der Protokolle');
+    } finally {
+      setProtocolsLoading(false);
+    }
+  };
+
+  // Protokolle laden wenn Gerät geladen wurde
+  useEffect(() => {
+    if (device?.id && canViewProtocols) {
+      fetchDeviceProtocols(device.id);
+    }
+  }, [device?.id, canViewProtocols]);
 
   // Benutzer laden
   const fetchUsers = async () => {
@@ -533,14 +570,6 @@ export default function DeviceDetailPage() {
                 <div className="text-gray-500 text-xs mb-1">IMEI 2</div>
                 <div className="font-medium text-gray-900">{device.imei2 || '—'}</div>
               </div>
-              <div>
-                <div className="text-gray-500 text-xs mb-1">Test</div>
-                <div className="font-medium text-gray-900">{device.test ?? '—'}</div>
-              </div>
-              <div>
-                <div className="text-gray-500 text-xs mb-1">Testgruppe</div>
-                <div className="font-medium text-gray-900">{device.testGruppe ?? '—'}</div>
-              </div>
             </div>
 
             {/* Status & Aktionen */}
@@ -850,6 +879,75 @@ export default function DeviceDetailPage() {
             )}
           </div>
         </div>
+
+        {/* Übergabeprotokolle */}
+        {canViewProtocols && (
+          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+            <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <ClipboardList className="w-4 h-4 text-primary-dark" />
+                <span className="text-sm font-semibold text-gray-900">Übergabeprotokolle</span>
+              </div>
+              <Link
+                href={`/protokolle/neu?geraet=${device?.id}`}
+                className="text-xs text-primary-dark hover:underline"
+              >
+                Neues Protokoll
+              </Link>
+            </div>
+
+            <div className="p-4">
+              {protocolsLoading ? (
+                <div className="flex items-center justify-center py-4">
+                  <Loader2 className="w-5 h-5 text-primary animate-spin" />
+                </div>
+              ) : deviceProtocols.length === 0 ? (
+                <p className="text-sm text-gray-500">Keine Protokolle für dieses Gerät vorhanden.</p>
+              ) : (
+                <div className="space-y-2">
+                  {deviceProtocols.slice(0, 5).map((protocol) => (
+                    <Link
+                      key={protocol.id}
+                      href={`/protokolle/${protocol.id}`}
+                      className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                    >
+                      <div className="p-1.5 bg-white rounded-lg border border-gray-200">
+                        {protocol.typ === 'AUSGABE' && <ArrowUpRight className="w-4 h-4 text-emerald-600" />}
+                        {protocol.typ === 'RUECKGABE' && <ArrowDownLeft className="w-4 h-4 text-amber-600" />}
+                        {protocol.typ === 'TAUSCH' && <Repeat className="w-4 h-4 text-blue-600" />}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="font-medium text-sm text-primary-dark">
+                          {protocol.protokollNr}
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          {protocol.benutzerName || 'Unbekannt'} • {new Date(protocol.erstelltAm).toLocaleDateString('de-DE')}
+                        </div>
+                      </div>
+                      <span className={`px-2 py-0.5 text-[10px] font-medium rounded-full ${
+                        protocol.status === 'UNTERSCHRIEBEN' 
+                          ? 'bg-emerald-100 text-emerald-700'
+                          : protocol.status === 'OFFEN'
+                          ? 'bg-amber-100 text-amber-700'
+                          : 'bg-gray-100 text-gray-600'
+                      }`}>
+                        {protocol.status === 'UNTERSCHRIEBEN' ? 'Signiert' : protocol.status === 'OFFEN' ? 'Offen' : 'Entwurf'}
+                      </span>
+                    </Link>
+                  ))}
+                  {deviceProtocols.length > 5 && (
+                    <Link
+                      href={`/protokolle?geraet=${device?.id}`}
+                      className="block text-center text-xs text-primary-dark hover:underline py-2"
+                    >
+                      Alle {deviceProtocols.length} Protokolle anzeigen
+                    </Link>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </main>
 
       {/* Sticker Modal */}

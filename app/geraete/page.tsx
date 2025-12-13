@@ -18,8 +18,6 @@ interface DeviceListItem {
   ean: string | null;
   imei1: string | null;
   imei2: string | null;
-  test: number | null;
-  testGruppe: number | null;
   currentUserId: number | null;
   currentUserName: string | null;
   raumId: number | null;
@@ -142,6 +140,9 @@ export default function DeviceManagementPage() {
     SNO: '',
     Preis: '',
     Zugang: '',
+    EAN: '',
+    IMEI1: '',
+    IMEI2: '',
   });
 
   useEffect(() => {
@@ -489,6 +490,9 @@ export default function DeviceManagementPage() {
         SNO: newDevice.SNO || null,
         Preis: newDevice.Preis ? Number(newDevice.Preis) : null,
         Zugang: newDevice.Zugang || null,
+        EAN: newDevice.EAN || null,
+        IMEI1: newDevice.IMEI1 || null,
+        IMEI2: newDevice.IMEI2 || null,
       };
 
       const res = await fetch('/api/tables/GER', {
@@ -502,7 +506,7 @@ export default function DeviceManagementPage() {
         throw new Error(data.details || data.error || 'Fehler beim Erstellen des Geräts');
       }
 
-      setNewDevice({ HWID: '', HSID: '', MODID: '', SNO: '', Preis: '', Zugang: '' });
+      setNewDevice({ HWID: '', HSID: '', MODID: '', SNO: '', Preis: '', Zugang: '', EAN: '', IMEI1: '', IMEI2: '' });
       await fetchDevices();
       setCreating(false);
     } catch (err) {
@@ -803,6 +807,36 @@ export default function DeviceManagementPage() {
                       required
                     />
                   </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">EAN (optional)</label>
+                    <input
+                      type="text"
+                      value={newDevice.EAN}
+                      onChange={(e) => setNewDevice((prev) => ({ ...prev, EAN: e.target.value }))}
+                      placeholder="z.B. 4012345678901"
+                      className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-primary"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">IMEI 1 (optional)</label>
+                    <input
+                      type="text"
+                      value={newDevice.IMEI1}
+                      onChange={(e) => setNewDevice((prev) => ({ ...prev, IMEI1: e.target.value }))}
+                      placeholder="z.B. 353456789012345"
+                      className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-primary"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">IMEI 2 (optional)</label>
+                    <input
+                      type="text"
+                      value={newDevice.IMEI2}
+                      onChange={(e) => setNewDevice((prev) => ({ ...prev, IMEI2: e.target.value }))}
+                      placeholder="z.B. 353456789012346"
+                      className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-primary"
+                    />
+                  </div>
                 </div>
 
                 <div className="flex items-center justify-end gap-2 pt-2">
@@ -1087,18 +1121,6 @@ export default function DeviceManagementPage() {
                       <div className="text-gray-500">IMEI 2</div>
                       <div className="font-medium text-gray-900 truncate">
                         {(selectedDevice as any).imei2 || '—'}
-                      </div>
-                    </div>
-                    <div>
-                      <div className="text-gray-500">Test</div>
-                      <div className="font-medium text-gray-900">
-                        {(selectedDevice as any).test ?? '—'}
-                      </div>
-                    </div>
-                    <div>
-                      <div className="text-gray-500">Testgruppe</div>
-                      <div className="font-medium text-gray-900">
-                        {(selectedDevice as any).testGruppe ?? '—'}
                       </div>
                     </div>
                   </div>

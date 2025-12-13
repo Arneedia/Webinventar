@@ -45,8 +45,6 @@ export async function GET(req: NextRequest) {
         ean: d.EAN ?? null,
         imei1: d.IMEI1 ?? null,
         imei2: d.IMEI2 ?? null,
-        test: d.Test ?? null,
-        testGruppe: d.TestGruppe ?? null,
         currentUserId: currentAssignment?.BenutzerID ?? null,
         currentUserName: currentUser?.BenutzerName ?? null,
         // Raum-Informationen

@@ -79,6 +79,7 @@ model Benutzer {
   BenutzerGER        BenutzerGER[]
   ZubehoerBenutzer   ZubehoerBenutzer[]
   ZubehoerBewegung   ZubehoerBewegung[]
+  UebergabeProtokolle UebergabeProtokoll[]
 }
 
 // Räume (Stammdaten für Geräte-Standorte)
@@ -105,8 +106,6 @@ model GER {
   EAN         String?
   IMEI1       String?
   IMEI2       String?
-  Test        Int?
-  TestGruppe  Int?
   HW          HW            @relation(fields: [HWID], references: [HWID])
   HS          HS            @relation(fields: [HSID], references: [HSID])
   MOD         MOD           @relation(fields: [MODID], references: [ModID])
@@ -114,6 +113,7 @@ model GER {
   BenutzerGER       BenutzerGER[]
   ZubehoerBenutzer  ZubehoerBenutzer[]
   ZubehoerBewegung  ZubehoerBewegung[]
+  UebergabePositionen UebergabePosition[]
 }
 
 // Benutzer-Geräte Zuordnung
@@ -149,6 +149,7 @@ model Zubehoer {
   ZubehoerBenutzer  ZubehoerBenutzer[]
   ZubehoerInventar  ZubehoerInventar[]
   ZubehoerBewegung  ZubehoerBewegung[]
+  UebergabePositionen UebergabePosition[]
 
   @@map("Zubehör")
 }
@@ -229,6 +230,7 @@ model WebUser {
   mustChangePassword Boolean                   @default(false)
   sessions           Session[]
   permissionGroups   WebUserPermissionGroup[]
+  erstellteProtokolle UebergabeProtokoll[]
   createdAt          DateTime                  @default(now())
   updatedAt          DateTime                  @updatedAt
 }
@@ -263,4 +265,52 @@ model Session {
   user      WebUser  @relation(fields: [userId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())
   expiresAt DateTime
+}
+
+// Übergabeprotokolle für Geräte-Ausgabe und -Rücknahme
+model UebergabeProtokoll {
+  ID              Int       @id @default(autoincrement())
+  ProtokollNr     String    @unique  // z.B. "UP-2024-00042"
+  Typ             String    // AUSGABE, RUECKGABE, TAUSCH
+  BenutzerID      Int
+  ErstelltAm      DateTime  @default(now())
+  ErstelltVon     Int       // WebUser ID (IT-Mitarbeiter)
+  
+  // Unterschriften (Base64 Signatur-Bild)
+  UnterschriftMitarbeiter   String?   @db.Text
+  UnterschriftIT            String?   @db.Text
+  UnterschriftDatum         DateTime?
+  
+  // Status: ENTWURF, OFFEN, UNTERSCHRIEBEN, ARCHIVIERT
+  Status          String    @default("ENTWURF")
+  
+  // Optionale Felder
+  Bemerkung       String?   @db.Text
+  
+  // Relationen
+  Benutzer        Benutzer  @relation(fields: [BenutzerID], references: [BenutzerID])
+  Ersteller       WebUser   @relation(fields: [ErstelltVon], references: [id])
+  Positionen      UebergabePosition[]
+}
+
+// Einzelne Positionen im Protokoll (Geräte + Zubehör)
+model UebergabePosition {
+  ID              Int       @id @default(autoincrement())
+  ProtokollID     Int
+  
+  // Entweder Gerät ODER Zubehör (eines von beiden muss gesetzt sein)
+  GerID           Int?
+  ZubehoerID      Int?
+  
+  // Zustand bei Übergabe: NEU, GUT, GEBRAUCHSSPUREN, BESCHAEDIGT
+  Zustand         String    @default("GUT")
+  ZustandNotiz    String?
+  
+  // Bei Rückgabe: Vollständigkeit
+  Vollstaendig    Boolean   @default(true)
+  FehlendTeile    String?   // z.B. "Ladekabel fehlt"
+  
+  Protokoll       UebergabeProtokoll @relation(fields: [ProtokollID], references: [ID], onDelete: Cascade)
+  GER             GER?      @relation(fields: [GerID], references: [GerID])
+  Zubehoer        Zubehoer? @relation(fields: [ZubehoerID], references: [ZubehoerID])
 }

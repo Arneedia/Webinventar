@@ -27,6 +27,12 @@ export const AvailablePermissions = {
   // Berichte
   REPORTS_VIEW: 'reports:view',
   REPORTS_EXPORT: 'reports:export',
+  
+  // Übergabeprotokolle
+  PROTOCOLS_VIEW: 'protocols:view',
+  PROTOCOLS_CREATE: 'protocols:create',
+  PROTOCOLS_EDIT: 'protocols:edit',
+  PROTOCOLS_SIGN: 'protocols:sign',
 } as const;
 
 export type Permission = (typeof AvailablePermissions)[keyof typeof AvailablePermissions];
@@ -72,6 +78,15 @@ export const PermissionCategories = [
     permissions: [
       { key: AvailablePermissions.REPORTS_VIEW, label: 'Berichte anzeigen' },
       { key: AvailablePermissions.REPORTS_EXPORT, label: 'Berichte exportieren' },
+    ],
+  },
+  {
+    name: 'Übergabeprotokolle',
+    permissions: [
+      { key: AvailablePermissions.PROTOCOLS_VIEW, label: 'Protokolle anzeigen' },
+      { key: AvailablePermissions.PROTOCOLS_CREATE, label: 'Protokolle erstellen' },
+      { key: AvailablePermissions.PROTOCOLS_EDIT, label: 'Protokolle bearbeiten' },
+      { key: AvailablePermissions.PROTOCOLS_SIGN, label: 'Protokolle unterschreiben' },
     ],
   },
 ] as const;
@@ -153,6 +168,15 @@ const PermissionImplications: Record<string, string[]> = {
   
   // Berichte exportieren → kann auch anzeigen
   [AvailablePermissions.REPORTS_EXPORT]: [AvailablePermissions.REPORTS_VIEW],
+  
+  // Protokolle bearbeiten → kann auch erstellen, unterschreiben und anzeigen
+  [AvailablePermissions.PROTOCOLS_EDIT]: [
+    AvailablePermissions.PROTOCOLS_CREATE,
+    AvailablePermissions.PROTOCOLS_SIGN,
+    AvailablePermissions.PROTOCOLS_VIEW,
+  ],
+  [AvailablePermissions.PROTOCOLS_CREATE]: [AvailablePermissions.PROTOCOLS_VIEW],
+  [AvailablePermissions.PROTOCOLS_SIGN]: [AvailablePermissions.PROTOCOLS_VIEW],
 };
 
 // Erweitert Berechtigungen um implizierte Berechtigungen

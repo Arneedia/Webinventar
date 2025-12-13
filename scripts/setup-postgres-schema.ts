@@ -98,9 +98,7 @@ CREATE TABLE IF NOT EXISTS "GER" (
   "Abgang" TIMESTAMP,
   "EAN" TEXT,
   "IMEI1" TEXT,
-  "IMEI2" TEXT,
-  "Test" INTEGER,
-  "TestGruppe" INTEGER
+  "IMEI2" TEXT
 );
 
 -- Hardware-Hersteller Zuordnung
@@ -206,6 +204,33 @@ CREATE TABLE IF NOT EXISTS "Session" (
   "userId" INTEGER NOT NULL REFERENCES "WebUser"("id") ON DELETE CASCADE,
   "createdAt" TIMESTAMP NOT NULL DEFAULT NOW(),
   "expiresAt" TIMESTAMP NOT NULL
+);
+
+-- Übergabeprotokolle
+CREATE TABLE IF NOT EXISTS "UebergabeProtokoll" (
+  "ID" SERIAL PRIMARY KEY,
+  "ProtokollNr" TEXT UNIQUE NOT NULL,
+  "Typ" TEXT NOT NULL,
+  "BenutzerID" INTEGER NOT NULL REFERENCES "Benutzer"("BenutzerID"),
+  "ErstelltAm" TIMESTAMP NOT NULL DEFAULT NOW(),
+  "ErstelltVon" INTEGER NOT NULL REFERENCES "WebUser"("id"),
+  "UnterschriftMitarbeiter" TEXT,
+  "UnterschriftIT" TEXT,
+  "UnterschriftDatum" TIMESTAMP,
+  "Status" TEXT NOT NULL DEFAULT 'ENTWURF',
+  "Bemerkung" TEXT
+);
+
+-- Übergabe-Positionen
+CREATE TABLE IF NOT EXISTS "UebergabePosition" (
+  "ID" SERIAL PRIMARY KEY,
+  "ProtokollID" INTEGER NOT NULL REFERENCES "UebergabeProtokoll"("ID") ON DELETE CASCADE,
+  "GerID" INTEGER REFERENCES "GER"("GerID"),
+  "ZubehoerID" INTEGER REFERENCES "Zubehör"("ZubehoerID"),
+  "Zustand" TEXT NOT NULL DEFAULT 'GUT',
+  "ZustandNotiz" TEXT,
+  "Vollstaendig" BOOLEAN NOT NULL DEFAULT TRUE,
+  "FehlendTeile" TEXT
 );
 `;
 

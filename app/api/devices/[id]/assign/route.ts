@@ -46,13 +46,24 @@ export async function POST(req: NextRequest, context: RouteContext) {
     });
 
     // Neue Zuordnung erstellen
-    await prisma.benutzerGER.create({
-      data: {
-        BenutzerID: benutzerId,
-        GERID: deviceId,
-        Start: now,
-      },
-    });
+    try {
+      await prisma.benutzerGER.create({
+        data: {
+          BenutzerID: benutzerId,
+          GERID: deviceId,
+          Start: now,
+        },
+      });
+    } catch (err: unknown) {
+      // Häufiger Fall bei nicht synchronisierter Sequence (P2002 auf ID)
+      if (typeof err === 'object' && err !== null && (err as { code?: string }).code === 'P2002') {
+        return NextResponse.json(
+          { error: 'Gerät konnte nicht zugewiesen werden (Konflikt). Bitte DB-Sequenz prüfen und erneut versuchen.' },
+          { status: 409 },
+        );
+      }
+      throw err;
+    }
 
     return NextResponse.json({ success: true });
   } catch (error) {

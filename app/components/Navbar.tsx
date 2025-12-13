@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Database, ChevronDown, QrCode } from 'lucide-react';
+import { Database, ChevronDown, QrCode, ClipboardList } from 'lucide-react';
 import { getCurrentUser, Roles, userHasPermission, userHasAnyPermission } from '@/lib/auth';
 import { AvailablePermissions } from '@/lib/permissionGroups';
 import MobileMenu from './MobileMenu';
@@ -31,6 +31,14 @@ export default async function Navbar() {
         AvailablePermissions.ACCESSORIES_VIEW,
         AvailablePermissions.ACCESSORIES_CREATE,
         AvailablePermissions.ACCESSORIES_EDIT,
+      ])),
+    },
+    {
+      href: '/protokolle',
+      label: 'Protokolle',
+      show: !!user && (user.role === Roles.ADMIN || userHasAnyPermission(user, [
+        AvailablePermissions.PROTOCOLS_VIEW,
+        AvailablePermissions.PROTOCOLS_CREATE,
       ])),
     },
   ];
@@ -78,6 +86,10 @@ export default async function Navbar() {
                 {link.href === '/scan' ? (
                   <span className="inline-flex items-center gap-1">
                     <QrCode className="w-4 h-4" /> {link.label}
+                  </span>
+                ) : link.href === '/protokolle' ? (
+                  <span className="inline-flex items-center gap-1">
+                    <ClipboardList className="w-4 h-4" /> {link.label}
                   </span>
                 ) : link.label}
               </Link>

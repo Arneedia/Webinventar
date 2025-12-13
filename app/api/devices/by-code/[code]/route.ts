@@ -98,8 +98,6 @@ export async function GET(req: NextRequest, context: RouteContext) {
       ean: device.EAN ?? null,
       imei1: device.IMEI1 ?? null,
       imei2: device.IMEI2 ?? null,
-      test: device.Test ?? null,
-      testGruppe: device.TestGruppe ?? null,
       // Gleiche Felder wie DeviceListItem
       currentUserId: currentUser?.BenutzerID ?? null,
       currentUserName: currentUser?.BenutzerName ?? null,

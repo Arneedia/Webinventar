@@ -145,8 +145,6 @@ export const tables: TableConfig[] = [
       { name: 'EAN', type: 'varchar', nullable: true, maxLength: 50 },
       { name: 'IMEI1', type: 'varchar', nullable: true, maxLength: 50 },
       { name: 'IMEI2', type: 'varchar', nullable: true, maxLength: 50 },
-      { name: 'Test', type: 'int', nullable: true },
-      { name: 'TestGruppe', type: 'int', nullable: true },
     ],
     foreignKeys: [
       { column: 'HWID', refTable: 'HW', relationName: 'HW', displayColumn: 'HWName' },

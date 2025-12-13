@@ -107,17 +107,16 @@ export async function POST(req: NextRequest, context: RouteContext) {
     }
 
     const now = new Date();
-    const nowIso = now.toISOString();
-
-    // Zuordnung erstellen (Raw-Insert wegen optionalem BenutzerID)
-    await prisma.$executeRawUnsafe(
-      'INSERT INTO "ZubehörBenutzer" ("BenutzerID", "ZubehoerID", "GerID", "Start", "Ende") VALUES (?, ?, ?, ?, ?)',
-      userId,
-      accessoryId,
-      deviceId,
-      nowIso,
-      null,
-    );
+    // Zuordnung erstellen (Prisma kümmert sich um Sequenz/ID)
+    await prisma.zubehoerBenutzer.create({
+      data: {
+        BenutzerID: userId,
+        ZubehoerID: accessoryId,
+        GerID: deviceId,
+        Start: now,
+        Ende: null,
+      },
+    });
 
     // Menge im bestehenden Inventar-Eintrag um 1 reduzieren
     await prisma.zubehoerInventar.update({
