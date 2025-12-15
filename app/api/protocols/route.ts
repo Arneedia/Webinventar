@@ -66,11 +66,12 @@ export async function GET(req: NextRequest) {
             },
           },
         },
-      },
+        Aufgaben: true,
+      } as any,
       orderBy: { ErstelltAm: 'desc' },
-    });
+    }) as any[];
 
-    const data = protocols.map((p) => ({
+    const data = protocols.map((p: any) => ({
       id: p.ID,
       protokollNr: p.ProtokollNr,
       typ: p.Typ,
@@ -78,6 +79,13 @@ export async function GET(req: NextRequest) {
       erstelltAm: p.ErstelltAm.toISOString(),
       unterschriftDatum: p.UnterschriftDatum?.toISOString() ?? null,
       bemerkung: p.Bemerkung,
+      aufgaben: p.Aufgaben?.map((t: any) => ({
+        id: t.ID,
+        titel: t.Titel,
+        beschreibung: t.Beschreibung,
+        faelligAm: t.FaelligAm?.toISOString() ?? null,
+        status: t.Status,
+      })) ?? [],
       benutzer: {
         id: p.Benutzer.BenutzerID,
         name: p.Benutzer.BenutzerName,
@@ -90,7 +98,7 @@ export async function GET(req: NextRequest) {
         name: p.Ersteller.name,
         email: p.Ersteller.email,
       },
-      positionen: p.Positionen.map((pos) => ({
+      positionen: p.Positionen.map((pos: any) => ({
         id: pos.ID,
         zustand: pos.Zustand,
         zustandNotiz: pos.ZustandNotiz,
@@ -136,7 +144,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json();
-    const { typ, benutzerId, bemerkung, positionen } = body;
+    const { typ, benutzerId, bemerkung, positionen, aufgaben } = body;
 
     // Validierung
     if (!typ || !['AUSGABE', 'RUECKGABE', 'TAUSCH'].includes(typ)) {
@@ -160,7 +168,7 @@ export async function POST(req: NextRequest) {
     // Protokoll-Nummer generieren
     const protokollNr = await generateProtokollNr();
 
-    // Protokoll mit Positionen erstellen
+    // Protokoll mit Positionen und Aufgaben erstellen
     const protocol = await prisma.uebergabeProtokoll.create({
       data: {
         ProtokollNr: protokollNr,
@@ -179,13 +187,22 @@ export async function POST(req: NextRequest) {
             FehlendTeile: pos.fehlendTeile || null,
           })),
         },
+        Aufgaben: aufgaben && Array.isArray(aufgaben) ? {
+          create: aufgaben.map((t: any) => ({
+            Titel: t.titel,
+            Beschreibung: t.beschreibung || null,
+            FaelligAm: t.faelligAm ? new Date(t.faelligAm) : null,
+            Status: t.status || 'OFFEN',
+          })),
+        } : undefined,
       },
       include: {
         Benutzer: true,
         Ersteller: { select: { id: true, name: true, email: true } },
         Positionen: true,
+        Aufgaben: true,
       },
-    });
+    } as any);
 
     return NextResponse.json({
       id: protocol.ID,

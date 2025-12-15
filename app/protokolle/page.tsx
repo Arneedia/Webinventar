@@ -67,6 +67,8 @@ export default function ProtokolleOverviewPage() {
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
   const canCreate =
     currentUser?.permissions?.includes('protocols:create') || currentUser?.role === 'ADMIN';
+  const canEdit =
+    currentUser?.permissions?.includes('protocols:edit') || currentUser?.role === 'ADMIN';
 
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('');
@@ -220,16 +222,28 @@ export default function ProtokolleOverviewPage() {
               </p>
             </div>
           </div>
-          {canCreate && (
-            <button
-              type="button"
-              onClick={() => router.push('/protokolle/neu')}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary-dark"
-            >
-              <Plus className="w-4 h-4" />
-              Neues Protokoll
-            </button>
-          )}
+          <div className="flex items-center gap-2">
+            {canEdit && (
+              <button
+                type="button"
+                onClick={() => router.push('/protokolle/aufgaben')}
+                className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 text-sm text-gray-700 hover:bg-gray-50"
+              >
+                <ClipboardList className="w-4 h-4" />
+                Aufgaben-Vorlagen
+              </button>
+            )}
+            {canCreate && (
+              <button
+                type="button"
+                onClick={() => router.push('/protokolle/neu')}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary-dark"
+              >
+                <Plus className="w-4 h-4" />
+                Neues Protokoll
+              </button>
+            )}
+          </div>
         </div>
       </header>
 

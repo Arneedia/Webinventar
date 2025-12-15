@@ -291,6 +291,7 @@ model UebergabeProtokoll {
   Benutzer        Benutzer  @relation(fields: [BenutzerID], references: [BenutzerID])
   Ersteller       WebUser   @relation(fields: [ErstelltVon], references: [id])
   Positionen      UebergabePosition[]
+  Aufgaben        UebergabeAufgabe[]
 }
 
 // Einzelne Positionen im Protokoll (Geräte + Zubehör)
@@ -313,4 +314,31 @@ model UebergabePosition {
   Protokoll       UebergabeProtokoll @relation(fields: [ProtokollID], references: [ID], onDelete: Cascade)
   GER             GER?      @relation(fields: [GerID], references: [GerID])
   Zubehoer        Zubehoer? @relation(fields: [ZubehoerID], references: [ZubehoerID])
+}
+
+model UebergabeAufgabe {
+  ID           Int                @id @default(autoincrement())
+  ProtokollID  Int
+  Titel        String
+  Beschreibung String?
+  FaelligAm    DateTime?
+  Status       String             @default("OFFEN") // OFFEN, ERLEDIGT
+  ErstelltAm   DateTime           @default(now())
+  ErledigtAm   DateTime?
+
+  Protokoll    UebergabeProtokoll @relation(fields: [ProtokollID], references: [ID])
+}
+
+model UebergabeAufgabeVorlage {
+  ID             Int      @id @default(autoincrement())
+  Typ            String   // AUSGABE (Onboarding), RUECKGABE (Offboarding), optional TAUSCH
+  Titel          String
+  Beschreibung   String?
+  FaelligInTagen Int?
+  Sortierung     Int      @default(0)
+  Aktiv          Boolean  @default(true)
+  ErstelltAm     DateTime @default(now())
+  AktualisiertAm DateTime @updatedAt
+
+  @@index([Typ, Sortierung])
 }

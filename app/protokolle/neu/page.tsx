@@ -26,14 +26,23 @@ interface BenutzerOption {
   raum: string | null;
 }
 
-interface DeviceOption {
+interface DeviceProtocol {
   id: number;
-  inventarCode: string;
-  sno: string;
-  hwName: string | null;
-  hsName: string | null;
-  modName: string | null;
-  isAssigned: boolean;
+  protokollNr: string;
+  typ: string;
+  status: string;
+  erstelltAm: string;
+  benutzerName: string | null;
+  erstellerName: string | null;
+}
+
+interface TaskInput {
+  titel: string;
+  beschreibung: string;
+  faelligAm: string | null;
+}
+
+interface DeviceDetail {
 }
 
 interface ZubehoerOption {
@@ -42,6 +51,16 @@ interface ZubehoerOption {
   hersteller: string | null;
   modell: string | null;
   beschreibung: string | null;
+}
+
+interface DeviceOption {
+  id: number;
+  inventarCode: string;
+  sno: string;
+  hwName: string | null;
+  hsName: string | null;
+  modName: string | null;
+  isAssigned: boolean;
 }
 
 interface SelectedPosition {
@@ -83,6 +102,61 @@ export default function NeuesProtokollPage() {
   const [bemerkung, setBemerkung] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [tasks, setTasks] = useState<TaskInput[]>([]);
+
+  const defaultTasks: Record<ProtocolTyp, TaskInput[]> = {
+    AUSGABE: [
+      { titel: 'User-Account anlegen', beschreibung: 'AD/Email/SSO', faelligAm: null },
+      { titel: 'Notebook vorbereiten', beschreibung: 'Updates, Basis-Software', faelligAm: null },
+      { titel: 'Zugänge & Rechte setzen', beschreibung: 'Teams, DMS, Fachanwendungen', faelligAm: null },
+    ],
+    RUECKGABE: [
+      { titel: 'Geräte zurücknehmen', beschreibung: 'Notebook, Zubehör prüfen', faelligAm: null },
+      { titel: 'Accounts sperren', beschreibung: 'AD/Email/SSO', faelligAm: null },
+      { titel: 'Daten sichern/übergeben', beschreibung: 'Projekt- und Personaldaten', faelligAm: null },
+    ],
+    TAUSCH: [
+      { titel: 'Altgerät sichern', beschreibung: 'Daten übertragen/Backup', faelligAm: null },
+      { titel: 'Neues Gerät einrichten', beschreibung: 'Software & Rechte', faelligAm: null },
+    ],
+  };
+
+  const loadTasksForTyp = async (t: ProtocolTyp) => {
+    try {
+      const res = await fetch(`/api/protocol-task-templates?typ=${encodeURIComponent(t)}`);
+      if (!res.ok) throw new Error('Fehler beim Laden der Aufgaben-Vorlagen');
+      const json = await res.json();
+      const templates = (json.templates as any[]) || [];
+
+      const activeTemplates = templates.filter((x) => x.Aktiv !== false);
+      if (activeTemplates.length === 0) {
+        setTasks(defaultTasks[t]);
+        return;
+      }
+
+      const now = new Date();
+      const mapped: TaskInput[] = activeTemplates
+        .slice()
+        .sort((a, b) => (a.Sortierung ?? 0) - (b.Sortierung ?? 0))
+        .map((x) => {
+          let faelligAm: string | null = null;
+          if (typeof x.FaelligInTagen === 'number') {
+            const d = new Date(now);
+            d.setDate(d.getDate() + x.FaelligInTagen);
+            faelligAm = d.toISOString().slice(0, 10);
+          }
+          return {
+            titel: x.Titel,
+            beschreibung: x.Beschreibung || '',
+            faelligAm,
+          };
+        });
+
+      setTasks(mapped);
+    } catch {
+      setTasks(defaultTasks[t]);
+    }
+  };
 
   useEffect(() => {
     fetchBenutzer();
@@ -91,7 +165,10 @@ export default function NeuesProtokollPage() {
   useEffect(() => {
     if (benutzerId && typ) {
       fetchDevices();
-      fetchAvailableAccessories();
+      // Zubehör wird jetzt nur gerätespezifisch geladen, sobald ein Gerät gewählt ist
+    }
+    if (typ) {
+      loadTasksForTyp(typ);
     }
   }, [benutzerId, typ]);
 
@@ -141,27 +218,6 @@ export default function NeuesProtokollPage() {
     }
   };
 
-  const fetchAvailableAccessories = async () => {
-    try {
-      setLoadingZubehoer(true);
-      const res = await fetch('/api/accessories/available');
-      if (!res.ok) throw new Error('Fehler beim Laden');
-      const json = await res.json();
-      const options: ZubehoerOption[] = (json as any[]).map((row) => ({
-        id: row.id,
-        typ: row.typ,
-        hersteller: row.hersteller,
-        modell: row.modell,
-        beschreibung: row.beschreibung,
-      }));
-      setZubehoerOptions(options);
-    } catch {
-      setZubehoerOptions([]);
-    } finally {
-      setLoadingZubehoer(false);
-    }
-  };
-
   const fetchAccessoriesForDevice = async (deviceId: number) => {
     try {
       setLoadingZubehoer(true);
@@ -177,6 +233,7 @@ export default function NeuesProtokollPage() {
           modell: null,
           beschreibung: a.accessoryLabel,
         }));
+      setZubehoerOptions(activeAccessories);
       setDeviceAccessories(activeAccessories);
 
       // Vorauswahl dieser Zubehörteile (Zustand standard GUT)
@@ -241,6 +298,7 @@ export default function NeuesProtokollPage() {
       setSelectedPositions((prev) => prev.filter((p) => !(p.type === 'geraet' && p.id === device.id)));
       setSelectedDeviceForAccessories(null);
       setDeviceAccessories([]);
+      setZubehoerOptions([]);
     } else {
       setSelectedPositions((prev) => [
         ...prev,
@@ -285,28 +343,36 @@ export default function NeuesProtokollPage() {
     );
   };
 
-  const canProceedStep1 = typ && benutzerId;
+  const canProceedStep1 = typ !== '' && benutzerId !== null;
   const canProceedStep2 = selectedPositions.length > 0;
 
   const handleSubmit = async () => {
-    if (!typ || !benutzerId || selectedPositions.length === 0) return;
-
+    if (!canProceedStep1 || !canProceedStep2) return;
     setSaving(true);
     setError(null);
-
     try {
       const payload = {
         typ,
         benutzerId,
-        bemerkung: bemerkung || null,
-        positionen: selectedPositions.map((pos) => ({
-          gerID: pos.type === 'geraet' ? pos.id : null,
-          zubehoerID: pos.type === 'zubehoer' ? pos.id : null,
-          zustand: pos.zustand,
-          zustandNotiz: pos.zustandNotiz || null,
-          vollstaendig: pos.vollstaendig,
-          fehlendTeile: pos.fehlendTeile || null,
-        })),
+        bemerkung,
+        positionen: selectedPositions.map((p) =>
+          p.type === 'geraet'
+            ? {
+                gerID: p.id,
+                zustand: p.zustand,
+                zustandNotiz: p.zustandNotiz,
+                vollstaendig: p.vollstaendig,
+                fehlendTeile: p.fehlendTeile,
+              }
+            : {
+                zubehoerID: p.id,
+                zustand: p.zustand,
+                zustandNotiz: p.zustandNotiz,
+                vollstaendig: p.vollstaendig,
+                fehlendTeile: p.fehlendTeile,
+              }
+        ),
+        aufgaben: tasks,
       };
 
       const res = await fetch('/api/protocols', {
@@ -316,434 +382,382 @@ export default function NeuesProtokollPage() {
       });
 
       if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || 'Fehler beim Erstellen');
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || 'Fehler beim Erstellen des Protokolls');
       }
 
-      const result = await res.json();
-      router.push(`/protokolle/${result.id}`);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unbekannter Fehler');
+      const data = await res.json();
+      router.push(`/protokolle/${data.id}`);
+    } catch (err: any) {
+      setError(err.message || 'Fehler beim Speichern');
     } finally {
       setSaving(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
-      {/* Header */}
-      <header className="border-b bg-white/80 backdrop-blur-sm sticky top-0 z-10">
-        <div className="mx-auto max-w-3xl px-4 py-4 flex items-center gap-4">
-          <button
-            onClick={() => router.push('/protokolle')}
-            className="p-2 -ml-2 rounded-lg hover:bg-gray-100"
-          >
-            <ArrowLeft className="w-5 h-5 text-gray-600" />
-          </button>
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-primary rounded-lg">
-              <ClipboardList className="w-5 h-5 text-white" />
-            </div>
-            <div>
-              <h1 className="text-sm font-semibold text-gray-900">Neues Übergabeprotokoll</h1>
-              <p className="text-xs text-gray-500">Schritt {step} von 3</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Progress */}
-        <div className="mx-auto max-w-3xl px-4 pb-4">
-          <div className="flex gap-2">
-            {[1, 2, 3].map((s) => (
-              <div
-                key={s}
-                className={`flex-1 h-1 rounded-full ${
-                  s <= step ? 'bg-primary' : 'bg-gray-200'
-                }`}
-              />
-            ))}
+    <div className="min-h-screen bg-gray-50">
+      <header className="border-b bg-white">
+        <div className="mx-auto max-w-3xl px-4 py-6 flex items-center gap-3">
+          <ClipboardList className="w-8 h-8 text-primary" />
+          <div>
+            <p className="text-sm text-gray-500">Neues Übergabeprotokoll</p>
+            <h1 className="text-xl font-semibold text-gray-900">Onboarding / Offboarding</h1>
           </div>
         </div>
       </header>
 
-      {/* Content */}
-      <main className="flex-1">
-        <div className="mx-auto max-w-3xl px-4 py-6">
-          {/* Schritt 1: Typ & Benutzer */}
-          {step === 1 && (
-            <div className="space-y-6">
-              <div className="bg-white rounded-xl border border-gray-200 p-6">
-                <h2 className="text-lg font-semibold text-gray-900 mb-4">
-                  Was möchten Sie dokumentieren?
-                </h2>
-
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setTyp('AUSGABE')}
-                    className={`p-4 border-2 rounded-xl text-left transition-colors ${
-                      typ === 'AUSGABE'
-                        ? 'border-emerald-500 bg-emerald-50'
-                        : 'border-gray-200 hover:border-gray-300'
-                    }`}
-                  >
-                    <ArrowUpRight
-                      className={`w-6 h-6 mb-2 ${
-                        typ === 'AUSGABE' ? 'text-emerald-600' : 'text-gray-400'
-                      }`}
-                    />
-                    <div className="font-medium text-gray-900">Ausgabe</div>
-                    <div className="text-xs text-gray-500">Geräte an Mitarbeiter übergeben</div>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setTyp('RUECKGABE')}
-                    className={`p-4 border-2 rounded-xl text-left transition-colors ${
-                      typ === 'RUECKGABE'
-                        ? 'border-amber-500 bg-amber-50'
-                        : 'border-gray-200 hover:border-gray-300'
-                    }`}
-                  >
-                    <ArrowDownLeft
-                      className={`w-6 h-6 mb-2 ${
-                        typ === 'RUECKGABE' ? 'text-amber-600' : 'text-gray-400'
-                      }`}
-                    />
-                    <div className="font-medium text-gray-900">Rückgabe</div>
-                    <div className="text-xs text-gray-500">Geräte vom Mitarbeiter zurücknehmen</div>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setTyp('TAUSCH')}
-                    className={`p-4 border-2 rounded-xl text-left transition-colors ${
-                      typ === 'TAUSCH'
-                        ? 'border-blue-500 bg-blue-50'
-                        : 'border-gray-200 hover:border-gray-300'
-                    }`}
-                  >
-                    <Repeat
-                      className={`w-6 h-6 mb-2 ${
-                        typ === 'TAUSCH' ? 'text-blue-600' : 'text-gray-400'
-                      }`}
-                    />
-                    <div className="font-medium text-gray-900">Tausch</div>
-                    <div className="text-xs text-gray-500">Gerät austauschen</div>
-                  </button>
-                </div>
+      <main className="mx-auto max-w-3xl px-4 py-6 space-y-6">
+        {/* Stepper */}
+        <div className="grid grid-cols-3 gap-3">
+          {[
+            { id: 1, label: 'Typ & Benutzer' },
+            { id: 2, label: 'Geräte & Zubehör' },
+            { id: 3, label: 'Aufgaben & Abschluss' },
+          ].map((s) => {
+            const active = step === s.id;
+            const done = step > s.id;
+            return (
+              <div
+                key={s.id}
+                className={`rounded-lg border px-3 py-2 text-sm ${
+                  active ? 'border-primary bg-primary/5 text-primary' : 'border-gray-200 text-gray-600'
+                } ${done ? 'bg-green-50 border-green-200 text-green-700' : ''}`}
+              >
+                <div className="font-semibold">Schritt {s.id}</div>
+                <div>{s.label}</div>
               </div>
+            );
+          })}
+        </div>
 
-              <div className="bg-white rounded-xl border border-gray-200 p-6">
-                <h2 className="text-lg font-semibold text-gray-900 mb-4">Mitarbeiter auswählen</h2>
+        {/* Step 1 */}
+        {step === 1 && (
+          <section className="bg-white border border-gray-200 rounded-lg p-4 space-y-4">
+            <h2 className="text-lg font-semibold flex items-center gap-2">
+              <Repeat className="w-5 h-5 text-primary" />
+              Protokoll-Typ wählen
+            </h2>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {(
+                [
+                  { key: 'AUSGABE', label: 'Ausgabe', icon: ArrowUpRight },
+                  { key: 'RUECKGABE', label: 'Rückgabe', icon: ArrowDownLeft },
+                  { key: 'TAUSCH', label: 'Tausch', icon: MonitorSmartphone },
+                ] as { key: ProtocolTyp; label: string; icon: any }[]
+              ).map(({ key, label, icon: Icon }) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => setTyp(key)}
+                  className={`border rounded-lg p-3 flex items-center gap-2 justify-center ${
+                    typ === key ? 'border-primary bg-primary/10 text-primary' : 'border-gray-200 hover:bg-gray-50'
+                  }`}
+                >
+                  <Icon className="w-4 h-4" />
+                  {label}
+                </button>
+              ))}
+            </div>
 
-                <div className="relative mb-4">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <div className="pt-2 space-y-3">
+              <label className="text-sm font-semibold flex items-center gap-2">
+                <User className="w-4 h-4" />
+                Mitarbeiter wählen
+              </label>
+              <div className="flex items-center gap-2">
+                <div className="relative flex-1">
+                  <Search className="w-4 h-4 text-gray-400 absolute left-3 top-3" />
                   <input
-                    type="text"
-                    placeholder="Mitarbeiter suchen..."
                     value={benutzerSearch}
                     onChange={(e) => setBenutzerSearch(e.target.value)}
-                    className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                    placeholder="Suche nach Name, Abteilung, Geschäftsstelle"
+                    className="w-full rounded-lg border border-gray-200 pl-10 pr-3 py-2 text-sm"
                   />
                 </div>
-
+              </div>
+              <div className="max-h-56 overflow-auto border border-gray-200 rounded-lg divide-y">
                 {loadingBenutzer ? (
-                  <div className="flex items-center justify-center py-8">
-                    <Loader2 className="w-6 h-6 text-primary animate-spin" />
-                  </div>
+                  <div className="p-3 text-sm text-gray-500">Lade...</div>
                 ) : (
-                  <div className="max-h-64 overflow-y-auto border border-gray-200 rounded-lg divide-y divide-gray-100">
-                    {filteredBenutzer.map((b) => (
-                      <button
-                        key={b.id}
-                        type="button"
-                        onClick={() => setBenutzerId(b.id)}
-                        className={`w-full p-3 text-left flex items-center gap-3 hover:bg-gray-50 ${
-                          benutzerId === b.id ? 'bg-primary/10' : ''
-                        }`}
-                      >
-                        <div
-                          className={`p-2 rounded-full ${
-                            benutzerId === b.id ? 'bg-primary text-white' : 'bg-gray-100 text-gray-600'
-                          }`}
-                        >
-                          {benutzerId === b.id ? (
-                            <Check className="w-4 h-4" />
-                          ) : (
-                            <User className="w-4 h-4" />
-                          )}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="font-medium text-gray-900">{b.name}</div>
-                          <div className="text-xs text-gray-500 truncate">
-                            {[b.abteilung, b.geschaeftsstelle, b.raum].filter(Boolean).join(' • ')}
-                          </div>
-                        </div>
-                      </button>
-                    ))}
-                    {filteredBenutzer.length === 0 && (
-                      <div className="p-4 text-center text-gray-500 text-sm">
-                        Keine Mitarbeiter gefunden
+                  filteredBenutzer.map((b) => (
+                    <button
+                      type="button"
+                      key={b.id}
+                      onClick={() => setBenutzerId(b.id)}
+                      className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-50 ${
+                        benutzerId === b.id ? 'bg-primary/5 text-primary' : ''
+                      }`}
+                    >
+                      <div className="font-medium">{b.name}</div>
+                      <div className="text-xs text-gray-600">
+                        {[b.abteilung, b.geschaeftsstelle, b.raum].filter(Boolean).join(' • ')}
                       </div>
-                    )}
-                  </div>
+                    </button>
+                  ))
                 )}
               </div>
             </div>
-          )}
+          </section>
+        )}
 
-          {/* Schritt 2: Positionen */}
-          {step === 2 && (
-            <div className="space-y-6">
-              {/* Ausgewählte Positionen */}
-              {selectedPositions.length > 0 && (
-                <div className="bg-white rounded-xl border border-gray-200 p-6">
-                  <h2 className="text-lg font-semibold text-gray-900 mb-4">
-                    Ausgewählte Positionen ({selectedPositions.length})
-                  </h2>
-                  <div className="space-y-3">
-                    {selectedPositions.map((pos, index) => (
-                      <div
-                        key={`${pos.type}-${pos.id}`}
-                        className="p-3 border border-gray-200 rounded-lg bg-gray-50"
-                      >
-                        <div className="flex items-center gap-2 mb-2">
-                          {pos.type === 'geraet' ? (
-                            <MonitorSmartphone className="w-4 h-4 text-primary" />
-                          ) : (
-                            <Package className="w-4 h-4 text-amber-600" />
-                          )}
-                          <span className="font-medium text-gray-900 text-sm">{pos.label}</span>
-                        </div>
-                        <div className="grid grid-cols-2 gap-2 text-xs">
-                          <div>
-                            <label className="text-gray-500">Zustand</label>
-                            <select
-                              value={pos.zustand}
-                              onChange={(e) => updatePosition(index, 'zustand', e.target.value)}
-                              className="w-full mt-1 px-2 py-1 border border-gray-300 rounded text-xs"
-                            >
-                              <option value="NEU">Neu</option>
-                              <option value="GUT">Gut</option>
-                              <option value="GEBRAUCHSSPUREN">Gebrauchsspuren</option>
-                              <option value="BESCHAEDIGT">Beschädigt</option>
-                            </select>
-                          </div>
-                          {typ === 'RUECKGABE' && (
-                            <div>
-                              <label className="text-gray-500">Vollständig</label>
-                              <select
-                                value={pos.vollstaendig ? 'ja' : 'nein'}
-                                onChange={(e) =>
-                                  updatePosition(index, 'vollstaendig', e.target.value === 'ja')
-                                }
-                                className="w-full mt-1 px-2 py-1 border border-gray-300 rounded text-xs"
-                              >
-                                <option value="ja">Ja</option>
-                                <option value="nein">Nein</option>
-                              </select>
-                            </div>
-                          )}
-                        </div>
-                        {!pos.vollstaendig && (
-                          <input
-                            type="text"
-                            placeholder="Was fehlt?"
-                            value={pos.fehlendTeile}
-                            onChange={(e) => updatePosition(index, 'fehlendTeile', e.target.value)}
-                            className="w-full mt-2 px-2 py-1 border border-gray-300 rounded text-xs"
-                          />
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
+        {/* Step 2 */}
+        {step === 2 && (
+          <section className="bg-white border border-gray-200 rounded-lg p-4 space-y-4">
+            <h2 className="text-lg font-semibold flex items-center gap-2">
+              <Package className="w-5 h-5 text-primary" />
+              Geräte & Zubehör auswählen
+            </h2>
 
-              {/* Geräte auswählen */}
-              <div className="bg-white rounded-xl border border-gray-200 p-6">
-                <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                  <MonitorSmartphone className="w-5 h-5 text-primary" />
-                  Geräte auswählen
-                </h2>
-
-                <div className="relative mb-4">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                  <input
-                    type="text"
-                    placeholder="Gerät suchen..."
-                    value={deviceSearch}
-                    onChange={(e) => setDeviceSearch(e.target.value)}
-                    className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                  />
-                </div>
-
-                {loadingDevices ? (
-                  <div className="flex items-center justify-center py-8">
-                    <Loader2 className="w-6 h-6 text-primary animate-spin" />
-                  </div>
-                ) : (
-                  <div className="max-h-48 overflow-y-auto border border-gray-200 rounded-lg divide-y divide-gray-100">
-                    {relevantDevices.slice(0, 50).map((d) => {
-                      const isSelected = selectedPositions.some(
-                        (p) => p.type === 'geraet' && p.id === d.id
-                      );
-                      return (
-                        <button
-                          key={d.id}
-                          type="button"
-                          onClick={() => toggleDevice(d)}
-                          className={`w-full p-3 text-left flex items-center gap-3 hover:bg-gray-50 ${
-                            isSelected ? 'bg-primary/10' : ''
-                          }`}
-                        >
-                          <div
-                            className={`w-5 h-5 rounded border-2 flex items-center justify-center ${
-                              isSelected ? 'bg-primary border-primary' : 'border-gray-300'
-                            }`}
-                          >
-                            {isSelected && <Check className="w-3 h-3 text-white" />}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="font-medium text-gray-900 text-sm">
-                              {d.inventarCode}
-                            </div>
-                            <div className="text-xs text-gray-500 truncate">
-                              {[d.hwName, d.hsName, d.modName].filter(Boolean).join(' ')} • {d.sno}
-                            </div>
-                          </div>
-                        </button>
-                      );
-                    })}
-                    {relevantDevices.length === 0 && (
-                      <div className="p-4 text-center text-gray-500 text-sm">
-                        {typ === 'RUECKGABE'
-                          ? 'Keine Geräte diesem Mitarbeiter zugewiesen'
-                          : 'Keine Geräte gefunden'}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              {/* Zubehör auswählen */}
-              <div className="bg-white rounded-xl border border-gray-200 p-6">
-                <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                  <Package className="w-5 h-5 text-amber-600" />
-                  Zubehör auswählen (optional)
-                </h2>
-
-                {loadingZubehoer ? (
-                  <div className="flex items-center justify-center py-8">
-                    <Loader2 className="w-6 h-6 text-primary animate-spin" />
-                  </div>
-                ) : (
-                  <div className="max-h-48 overflow-y-auto border border-gray-200 rounded-lg divide-y divide-gray-100">
-                    {zubehoerOptions.slice(0, 30).map((z) => {
-                      const isSelected = selectedPositions.some(
-                        (p) => p.type === 'zubehoer' && p.id === z.id
-                      );
-                      const label = [z.typ, z.hersteller, z.modell, z.beschreibung]
-                        .filter(Boolean)
-                        .join(' ');
-                      return (
-                        <button
-                          key={z.id}
-                          type="button"
-                          onClick={() => toggleZubehoer(z)}
-                          className={`w-full p-3 text-left flex items-center gap-3 hover:bg-gray-50 ${
-                            isSelected ? 'bg-primary/10' : ''
-                          }`}
-                        >
-                          <div
-                            className={`w-5 h-5 rounded border-2 flex items-center justify-center ${
-                              isSelected ? 'bg-primary border-primary' : 'border-gray-300'
-                            }`}
-                          >
-                            {isSelected && <Check className="w-3 h-3 text-white" />}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="font-medium text-gray-900 text-sm truncate">
-                              {label || `Zubehör #${z.id}`}
-                            </div>
-                          </div>
-                        </button>
-                      );
-                    })}
-                    {zubehoerOptions.length === 0 && (
-                      <div className="p-4 text-center text-gray-500 text-sm">
-                        Kein Zubehör vorhanden
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Schritt 3: Bemerkungen & Abschluss */}
-          {step === 3 && (
-            <div className="space-y-6">
-              <div className="bg-white rounded-xl border border-gray-200 p-6">
-                <h2 className="text-lg font-semibold text-gray-900 mb-4">Zusammenfassung</h2>
-
-                <div className="space-y-4 text-sm">
-                  <div className="flex items-center justify-between py-2 border-b border-gray-100">
-                    <span className="text-gray-600">Typ</span>
-                    <span className="font-medium">
-                      {typ === 'AUSGABE' && 'Geräteausgabe'}
-                      {typ === 'RUECKGABE' && 'Geräterückgabe'}
-                      {typ === 'TAUSCH' && 'Gerätetausch'}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between py-2 border-b border-gray-100">
-                    <span className="text-gray-600">Mitarbeiter</span>
-                    <span className="font-medium">{selectedBenutzer?.name}</span>
-                  </div>
-                  <div className="flex items-center justify-between py-2 border-b border-gray-100">
-                    <span className="text-gray-600">Positionen</span>
-                    <span className="font-medium">{selectedPositions.length}</span>
-                  </div>
-                </div>
-
-                <div className="mt-4">
-                  <h3 className="font-medium text-gray-900 mb-2">Positionen:</h3>
-                  <ul className="space-y-1 text-sm text-gray-600">
-                    {selectedPositions.map((pos) => (
-                      <li key={`${pos.type}-${pos.id}`} className="flex items-center gap-2">
-                        {pos.type === 'geraet' ? (
-                          <MonitorSmartphone className="w-4 h-4 text-primary" />
-                        ) : (
-                          <Package className="w-4 h-4 text-amber-600" />
-                        )}
-                        {pos.label}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              </div>
-
-              <div className="bg-white rounded-xl border border-gray-200 p-6">
-                <h2 className="text-lg font-semibold text-gray-900 mb-4">Bemerkungen (optional)</h2>
-                <textarea
-                  value={bemerkung}
-                  onChange={(e) => setBemerkung(e.target.value)}
-                  placeholder="Zusätzliche Bemerkungen zum Protokoll..."
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary resize-none"
-                  rows={4}
+            <div className="space-y-3">
+              <div className="relative">
+                <Search className="w-4 h-4 text-gray-400 absolute left-3 top-3" />
+                <input
+                  value={deviceSearch}
+                  onChange={(e) => setDeviceSearch(e.target.value)}
+                  placeholder="Gerät suchen (Inventarcode, S/N, Modell)"
+                  className="w-full rounded-lg border border-gray-200 pl-10 pr-3 py-2 text-sm"
                 />
               </div>
-
-              {error && (
-                <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-center gap-3 text-red-700">
-                  <AlertCircle className="w-5 h-5 shrink-0" />
-                  <span className="text-sm">{error}</span>
-                </div>
-              )}
+              <div className="grid gap-2">
+                {loadingDevices ? (
+                  <div className="p-3 text-sm text-gray-500">Lade Geräte...</div>
+                ) : (
+                  relevantDevices.map((d) => {
+                    const active = selectedPositions.some((p) => p.type === 'geraet' && p.id === d.id);
+                    return (
+                      <label
+                        key={d.id}
+                        className={`border rounded-lg px-3 py-2 text-sm flex items-center justify-between ${
+                          active ? 'border-primary bg-primary/5' : 'border-gray-200'
+                        }`}
+                      >
+                        <div>
+                          <div className="font-medium">{d.inventarCode}</div>
+                          <div className="text-xs text-gray-600">
+                            {[d.hwName, d.hsName, d.modName, d.sno].filter(Boolean).join(' • ')}
+                          </div>
+                        </div>
+                        <input
+                          type="checkbox"
+                          checked={active}
+                          onChange={() => toggleDevice(d)}
+                          className="w-4 h-4"
+                        />
+                      </label>
+                    );
+                  })
+                )}
+              </div>
             </div>
-          )}
-        </div>
+
+            {/* Zubehör des selektierten Geräts */}
+            {selectedDeviceForAccessories && (
+              <div className="space-y-2">
+                <div className="text-sm font-semibold">Zubehör des Geräts</div>
+                <div className="grid gap-2">
+                  {loadingZubehoer ? (
+                    <div className="p-3 text-sm text-gray-500">Lade Zubehör...</div>
+                  ) : (
+                    zubehoerOptions.map((z) => {
+                      const active = selectedPositions.some((p) => p.type === 'zubehoer' && p.id === z.id);
+                      return (
+                        <label
+                          key={z.id}
+                          className={`border rounded-lg px-3 py-2 text-sm flex items-center justify-between ${
+                            active ? 'border-primary bg-primary/5' : 'border-gray-200'
+                          }`}
+                        >
+                          <div>
+                            <div className="font-medium">{z.typ || 'Zubehör'}</div>
+                            <div className="text-xs text-gray-600">{z.beschreibung}</div>
+                          </div>
+                          <input
+                            type="checkbox"
+                            checked={active}
+                            onChange={() => toggleZubehoer(z)}
+                            className="w-4 h-4"
+                          />
+                        </label>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Ausgewählte Positionen */}
+            <div className="space-y-3">
+              <div className="text-sm font-semibold">Ausgewählte Positionen</div>
+              {selectedPositions.length === 0 && (
+                <div className="text-sm text-gray-500">Noch keine Positionen ausgewählt.</div>
+              )}
+              <div className="space-y-3">
+                {selectedPositions.map((p, idx) => (
+                  <div key={`${p.type}-${p.id}`} className="border border-gray-200 rounded-lg p-3 space-y-2">
+                    <div className="flex items-center justify-between text-sm font-medium">
+                      <span>
+                        {p.type === 'geraet' ? 'Gerät' : 'Zubehör'}: {p.label}
+                      </span>
+                      <button
+                        type="button"
+                        className="text-red-600 text-xs"
+                        onClick={() =>
+                          setSelectedPositions((prev) => prev.filter((x) => !(x.type === p.type && x.id === p.id)))
+                        }
+                      >
+                        Entfernen
+                      </button>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-sm">
+                      <label className="flex flex-col gap-1">
+                        <span className="text-xs text-gray-600">Zustand</span>
+                        <select
+                          value={p.zustand}
+                          onChange={(e) => updatePosition(idx, 'zustand', e.target.value)}
+                          className="rounded border border-gray-200 px-2 py-1"
+                        >
+                          <option value="GUT">GUT</option>
+                          <option value="OK">OK</option>
+                          <option value="BESCHAEDIGT">BESCHÄDIGT</option>
+                        </select>
+                      </label>
+                      <label className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={p.vollstaendig}
+                          onChange={(e) => updatePosition(idx, 'vollstaendig', e.target.checked)}
+                        />
+                        <span className="text-xs text-gray-600">Vollständig</span>
+                      </label>
+                      <label className="flex flex-col gap-1 sm:col-span-3">
+                        <span className="text-xs text-gray-600">Fehlende Teile</span>
+                        <input
+                          type="text"
+                          value={p.fehlendTeile}
+                          onChange={(e) => updatePosition(idx, 'fehlendTeile', e.target.value)}
+                          className="rounded border border-gray-200 px-2 py-1"
+                        />
+                      </label>
+                      <label className="flex flex-col gap-1 sm:col-span-3">
+                        <span className="text-xs text-gray-600">Notiz</span>
+                        <textarea
+                          value={p.zustandNotiz}
+                          onChange={(e) => updatePosition(idx, 'zustandNotiz', e.target.value)}
+                          className="rounded border border-gray-200 px-2 py-1"
+                          rows={2}
+                        />
+                      </label>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
+        )}
+
+        {/* Step 3 */}
+        {step === 3 && (
+          <section className="bg-white border border-gray-200 rounded-lg p-4 space-y-4">
+            <h2 className="text-lg font-semibold flex items-center gap-2">
+              <ClipboardList className="w-5 h-5 text-primary" />
+              Aufgaben & Abschluss
+            </h2>
+
+            <div className="space-y-2">
+              <label className="text-sm font-semibold">Bemerkungen</label>
+              <textarea
+                value={bemerkung}
+                onChange={(e) => setBemerkung(e.target.value)}
+                rows={3}
+                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
+                placeholder="Optionaler Kommentar"
+              />
+            </div>
+
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-sm font-semibold">Aufgabenliste</div>
+                <p className="text-xs text-gray-600">
+                  Onboarding/Offboarding-Tasks können angepasst, ergänzt oder entfernt werden.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() =>
+                  setTasks((prev) => [...prev, { titel: 'Neue Aufgabe', beschreibung: '', faelligAm: null }])
+                }
+                className="text-sm px-3 py-2 rounded-lg border border-gray-200 hover:bg-gray-50"
+              >
+                Aufgabe hinzufügen
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              {tasks.length === 0 && <div className="text-sm text-gray-500">Keine Aufgaben hinzugefügt.</div>}
+              {tasks.map((task, idx) => (
+                <div key={idx} className="border border-gray-200 rounded-lg p-4 space-y-3 bg-gray-50">
+                  <div className="flex flex-col sm:flex-row gap-3">
+                    <div className="flex-1">
+                      <label className="block text-xs font-medium text-gray-600 mb-1">Titel</label>
+                      <input
+                        type="text"
+                        value={task.titel}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setTasks((prev) => prev.map((t, i) => (i === idx ? { ...t, titel: val } : t)));
+                        }}
+                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                        placeholder="z.B. Account anlegen"
+                      />
+                    </div>
+                    <div className="w-full sm:w-48">
+                      <label className="block text-xs font-medium text-gray-600 mb-1">Fällig am</label>
+                      <input
+                        type="date"
+                        value={task.faelligAm ?? ''}
+                        onChange={(e) => {
+                          const val = e.target.value || null;
+                          setTasks((prev) => prev.map((t, i) => (i === idx ? { ...t, faelligAm: val } : t)));
+                        }}
+                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex gap-3">
+                    <div className="flex-1">
+                      <label className="block text-xs font-medium text-gray-600 mb-1">Beschreibung</label>
+                      <textarea
+                        value={task.beschreibung ?? ''}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setTasks((prev) => prev.map((t, i) => (i === idx ? { ...t, beschreibung: val } : t)));
+                        }}
+                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                        rows={2}
+                        placeholder="Details oder Checkliste"
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setTasks((prev) => prev.filter((_, i) => i !== idx))}
+                      className="text-sm text-red-600 underline self-start"
+                    >
+                      Entfernen
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {error && (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-700 flex gap-2 items-start">
+                <AlertCircle className="w-4 h-4 mt-0.5" />
+                <span>{error}</span>
+              </div>
+            )}
+          </section>
+        )}
       </main>
 
       {/* Footer Navigation */}

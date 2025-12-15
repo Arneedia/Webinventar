@@ -45,8 +45,9 @@ export async function GET(req: NextRequest, context: RouteContext) {
             },
           },
         },
-      },
-    });
+        Aufgaben: true,
+      } as any,
+    }) as any;
 
     if (!protocol) {
       return NextResponse.json({ error: 'Protokoll nicht gefunden' }, { status: 404 });
@@ -62,6 +63,13 @@ export async function GET(req: NextRequest, context: RouteContext) {
       unterschriftIT: protocol.UnterschriftIT,
       unterschriftDatum: protocol.UnterschriftDatum?.toISOString() ?? null,
       bemerkung: protocol.Bemerkung,
+      aufgaben: (protocol.Aufgaben || []).map((t: any) => ({
+        id: t.ID,
+        titel: t.Titel,
+        beschreibung: t.Beschreibung,
+        faelligAm: t.FaelligAm?.toISOString() ?? null,
+        status: t.Status,
+      })),
       benutzer: {
         id: protocol.Benutzer.BenutzerID,
         name: protocol.Benutzer.BenutzerName,
@@ -75,7 +83,7 @@ export async function GET(req: NextRequest, context: RouteContext) {
         name: protocol.Ersteller.name,
         email: protocol.Ersteller.email,
       },
-      positionen: protocol.Positionen.map((pos) => ({
+      positionen: protocol.Positionen.map((pos: any) => ({
         id: pos.ID,
         zustand: pos.Zustand,
         zustandNotiz: pos.ZustandNotiz,
@@ -143,7 +151,7 @@ export async function PUT(req: NextRequest, context: RouteContext) {
     }
 
     const body = await req.json();
-    const { bemerkung, status, positionen } = body;
+    const { bemerkung, status, positionen, aufgaben } = body;
 
     // Protokoll aktualisieren
     const updateData: any = {};
@@ -171,6 +179,22 @@ export async function PUT(req: NextRequest, context: RouteContext) {
           ZustandNotiz: pos.zustandNotiz || null,
           Vollstaendig: pos.vollstaendig !== false,
           FehlendTeile: pos.fehlendTeile || null,
+        })),
+      });
+    }
+
+    // Aufgaben aktualisieren
+    if (aufgaben && Array.isArray(aufgaben)) {
+      await (prisma as any).uebergabeAufgabe.deleteMany({
+        where: { ProtokollID: protocolId },
+      });
+      await (prisma as any).uebergabeAufgabe.createMany({
+        data: aufgaben.map((t: any) => ({
+          ProtokollID: protocolId,
+          Titel: t.titel,
+          Beschreibung: t.beschreibung || null,
+          FaelligAm: t.faelligAm ? new Date(t.faelligAm) : null,
+          Status: t.status || 'OFFEN',
         })),
       });
     }

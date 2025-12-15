@@ -8,6 +8,83 @@ interface RouteContext {
 }
 
 // POST: Unterschrift hinzufügen
+async function applyProtocolEffects(protocolId: number) {
+  const protocol = await prisma.uebergabeProtokoll.findUnique({
+    where: { ID: protocolId },
+    include: {
+      Positionen: true,
+    },
+  });
+
+  if (!protocol) return;
+
+  const now = new Date();
+
+  // Geräte-Handling
+  const deviceIds = protocol.Positionen.filter((p) => p.GerID !== null).map((p) => p.GerID!) ;
+  // Zubehör-Handling
+  const accessoryIds = protocol.Positionen.filter((p) => p.ZubehoerID !== null).map((p) => p.ZubehoerID!);
+
+  await prisma.$transaction(async (tx) => {
+    if (protocol.Typ === 'AUSGABE' || protocol.Typ === 'TAUSCH') {
+      // Geräte neuen Benutzer zuordnen
+      for (const gerId of deviceIds) {
+        // offene Zuordnungen beenden
+        await tx.benutzerGER.updateMany({
+          where: { GERID: gerId, Ende: null },
+          data: { Ende: now },
+        });
+        // Raum leeren, wenn Benutzerzuweisung erfolgt
+        await tx.gER.update({
+          where: { GerID: gerId },
+          data: { RaumID: null },
+        });
+        // neue Zuordnung erstellen
+        await tx.benutzerGER.create({
+          data: {
+            BenutzerID: protocol.BenutzerID,
+            GERID: gerId,
+            Start: now,
+          },
+        });
+      }
+
+      // Zubehör dem Benutzer (und ggf. Gerät) zuordnen
+      for (const zId of accessoryIds) {
+        // offene Zuordnungen beenden
+        await tx.zubehoerBenutzer.updateMany({
+          where: { ZubehoerID: zId, Ende: null },
+          data: { Ende: now },
+        });
+        await tx.zubehoerBenutzer.create({
+          data: {
+            BenutzerID: protocol.BenutzerID,
+            ZubehoerID: zId,
+            GerID: deviceIds[0] ?? null, // falls Gerät vorhanden, verknüpfen
+            Start: now,
+            Ende: null,
+          },
+        });
+      }
+    } else if (protocol.Typ === 'RUECKGABE') {
+      // Geräte-Zuordnung beenden
+      for (const gerId of deviceIds) {
+        await tx.benutzerGER.updateMany({
+          where: { GERID: gerId, Ende: null },
+          data: { Ende: now },
+        });
+      }
+      // Zubehör-Zuordnung beenden
+      for (const zId of accessoryIds) {
+        await tx.zubehoerBenutzer.updateMany({
+          where: { ZubehoerID: zId, Ende: null },
+          data: { Ende: now },
+        });
+      }
+    }
+  });
+}
+
 export async function POST(req: NextRequest, context: RouteContext) {
   const auth = await requireApiUser(req, AvailablePermissions.PROTOCOLS_SIGN);
   if (!auth.authorized) {
@@ -75,10 +152,15 @@ export async function POST(req: NextRequest, context: RouteContext) {
       updateData.Status = 'OFFEN';
     }
 
-    await prisma.uebergabeProtokoll.update({
+    const updated = await prisma.uebergabeProtokoll.update({
       where: { ID: protocolId },
       data: updateData,
     });
+
+    // Wenn vollständig unterschrieben -> Aktionen anwenden (Zuordnen/Rückgabe)
+    if (updateData.Status === 'UNTERSCHRIEBEN' && updated.Status === 'UNTERSCHRIEBEN') {
+      await applyProtocolEffects(protocolId);
+    }
 
     return NextResponse.json({
       success: true,

@@ -108,7 +108,18 @@ export default function ProtokollDetailPage() {
   const canEdit =
     currentUser?.permissions?.includes('protocols:edit') || currentUser?.role === 'ADMIN';
 
+  const protocolIdNumber = Number(protocolId);
+  const isValidProtocolId = Number.isInteger(protocolIdNumber) && protocolIdNumber > 0;
+
   useEffect(() => {
+    if (!isValidProtocolId) {
+      if (protocolId === 'aufgaben') {
+        router.replace('/protokolle/aufgaben');
+      } else {
+        router.replace('/protokolle');
+      }
+      return;
+    }
     fetchCurrentUser();
     fetchProtocol();
   }, [protocolId]);
@@ -128,6 +139,7 @@ export default function ProtokollDetailPage() {
   const fetchProtocol = async () => {
     try {
       setLoading(true);
+      if (!isValidProtocolId) return;
       const res = await fetch(`/api/protocols/${protocolId}`);
       if (!res.ok) {
         if (res.status === 404) throw new Error('Protokoll nicht gefunden');

@@ -135,35 +135,35 @@ interface TableHeaderProps {
 
 function TableHeader({ title, entryCount, searchTerm, onSearchChange, onRefresh, onCreate }: TableHeaderProps) {
   return (
-    <header className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between gap-4">
-      <div>
-        <h2 className="text-2xl font-bold text-gray-900">{title}</h2>
-        <p className="text-sm text-gray-500">{entryCount} Einträge</p>
+    <header className="bg-white border-b border-gray-200 px-4 sm:px-6 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 sticky top-14 z-10">
+      <div className="w-full">
+        <h2 className="text-lg sm:text-2xl font-bold text-gray-900 leading-tight">{title}</h2>
+        <p className="text-xs sm:text-sm text-gray-500">{entryCount} Einträge</p>
       </div>
-      <div className="flex items-center gap-3">
-        <div className="relative">
+      <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto">
+        <div className="relative flex-1 sm:flex-initial">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
           <input
             type="text"
             placeholder="In Tabelle suchen..."
             value={searchTerm}
             onChange={(e) => onSearchChange(e.target.value)}
-            className="pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+            className="w-full pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
           />
         </div>
         <button
           onClick={onRefresh}
-          className="p-2 text-gray-600 hover:bg-primary/20 rounded-lg transition-colors"
+          className="p-2 text-gray-600 hover:bg-primary/20 rounded-lg transition-colors shrink-0"
           title="Aktualisieren"
         >
           <RefreshCw className="w-5 h-5" />
         </button>
         <button
           onClick={onCreate}
-          className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors"
+          className="flex items-center justify-center gap-2 px-3 sm:px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors shrink-0 text-sm"
         >
           <Plus className="w-4 h-4" />
-          Neu
+          <span className="hidden sm:inline">Neu</span>
         </button>
       </div>
     </header>
@@ -276,7 +276,7 @@ function TableView({ tableName }: { tableName: string }) {
         onCreate={() => { setShowForm(true); setEditingRow(null); }}
       />
 
-      <div className="flex-1 overflow-auto p-6">
+      <div className="flex-1 overflow-auto p-4 sm:p-6">
         {showForm ? (
           <RecordForm
             config={config}
@@ -286,7 +286,55 @@ function TableView({ tableName }: { tableName: string }) {
           />
         ) : (
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-            <div className="overflow-x-auto">
+            {/* Mobile Card-Ansicht */}
+            <div className="space-y-3 p-3 sm:hidden">
+              {filteredData.map((row, idx) => {
+                const pkColumns = config.primaryKey.split(',');
+                const rowKey = pkColumns.map(pk => row[pk.trim()]).join('-');
+                return (
+                  <div key={rowKey || idx} className="rounded-lg border border-gray-200 bg-white p-3 shadow-xs">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="text-sm font-semibold text-gray-900 break-words">
+                        {config.displayName} #{rowKey || idx + 1}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => { setEditingRow(row); setShowForm(true); }}
+                          className="text-primary-dark text-xs font-semibold"
+                        >
+                          Bearbeiten
+                        </button>
+                        <button
+                          onClick={() => handleDelete(row)}
+                          className="text-red-600 text-xs font-semibold"
+                        >
+                          Löschen
+                        </button>
+                      </div>
+                    </div>
+                    <div className="mt-2 space-y-1">
+                      {config.columns.map((col) => {
+                        const displayKey = `${col.name}_Display`;
+                        const displayValue = row[displayKey];
+                        const value = row[col.name];
+                        return (
+                          <div key={col.name} className="text-xs text-gray-700 flex justify-between gap-2">
+                            <span className="font-medium text-gray-500">{col.name}</span>
+                            <span className="text-right">{displayValue !== undefined ? String(displayValue || '-') : formatValue(value, col.type)}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+              {filteredData.length === 0 && (
+                <div className="text-center text-sm text-gray-500 py-4">Keine Daten gefunden</div>
+              )}
+            </div>
+
+            {/* Desktop Tabelle */}
+            <div className="hidden sm:block overflow-x-auto">
               <table className="w-full">
                 <thead>
                   <tr className="bg-gray-50 border-b border-gray-200">
