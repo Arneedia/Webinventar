@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { createPortal } from 'react-dom';
-import { Menu, X } from 'lucide-react';
+import { Menu, X, ClipboardList, ArrowUpRight, ArrowDownLeft, QrCode } from 'lucide-react';
 
 interface NavLink {
   href: string;
@@ -14,7 +14,7 @@ interface NavLink {
 interface MobileMenuProps {
   mainLinks: NavLink[];
   userLinks: NavLink[];
-  adminLinks: { href: string; label: string }[];
+  adminLinks: { href: string; label: string; show: boolean }[];
   isAdmin: boolean;
   user: { name: string | null; email: string } | null;
 }
@@ -22,6 +22,15 @@ interface MobileMenuProps {
 export default function MobileMenu({ mainLinks, userLinks, adminLinks, isAdmin, user }: MobileMenuProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
+
+  const homeLink = mainLinks.find((l) => l.href === '/');
+  const inventoryLinks = mainLinks.filter(
+    (l) => l.href !== '/' && l.href !== '/scan' && l.href !== '/protokolle' && l.href !== '/onboarding' && l.href !== '/offboarding'
+  );
+  const processLinks = mainLinks.filter(
+    (l) => l.href === '/protokolle' || l.href === '/onboarding' || l.href === '/offboarding'
+  );
+  const scanLink = mainLinks.find((l) => l.href === '/scan');
 
   useEffect(() => {
     setMounted(true);
@@ -64,16 +73,88 @@ export default function MobileMenu({ mainLinks, userLinks, adminLinks, isAdmin, 
             <div className="px-2 py-2 text-xs font-semibold text-gray-400 uppercase tracking-wider">
               Navigation
             </div>
-            {mainLinks.filter(link => link.show).map((link) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                onClick={() => setIsOpen(false)}
-                className="flex items-center px-4 py-4 rounded-xl text-base font-medium text-gray-800 hover:bg-gray-100 active:bg-gray-200 mb-2"
-              >
-                {link.label}
-              </Link>
-            ))}
+
+            {homeLink?.show && (
+              <>
+                <div className="px-2 pt-3 pb-2 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
+                  Start
+                </div>
+                <Link
+                  href={homeLink.href}
+                  onClick={() => setIsOpen(false)}
+                  className="flex items-center px-4 py-4 rounded-xl text-base font-medium text-gray-800 hover:bg-gray-100 active:bg-gray-200 mb-2"
+                >
+                  {homeLink.label}
+                </Link>
+              </>
+            )}
+
+            {inventoryLinks.filter((l) => l.show).length > 0 && (
+              <>
+                <div className="px-2 pt-3 pb-2 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
+                  Inventar
+                </div>
+                {inventoryLinks
+                  .filter((l) => l.show)
+                  .map((link) => (
+                    <Link
+                      key={link.href}
+                      href={link.href}
+                      onClick={() => setIsOpen(false)}
+                      className="flex items-center px-4 py-4 rounded-xl text-base font-medium text-gray-800 hover:bg-gray-100 active:bg-gray-200 mb-2"
+                    >
+                      {link.label}
+                    </Link>
+                  ))}
+              </>
+            )}
+
+            {scanLink?.show && (
+              <>
+                <div className="px-2 pt-3 pb-2 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
+                  Scannen
+                </div>
+                <Link
+                  href={scanLink.href}
+                  onClick={() => setIsOpen(false)}
+                  className="flex items-center px-4 py-4 rounded-xl text-base font-medium text-gray-800 hover:bg-gray-100 active:bg-gray-200 mb-2"
+                >
+                  <span className="inline-flex items-center gap-2">
+                    <QrCode className="w-5 h-5 text-gray-600" />
+                    {scanLink.label}
+                  </span>
+                </Link>
+              </>
+            )}
+
+            {processLinks.filter((l) => l.show).length > 0 && (
+              <>
+                <div className="px-2 pt-3 pb-2 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
+                  Prozesse
+                </div>
+                {processLinks
+                  .filter((l) => l.show)
+                  .map((link) => (
+                    <Link
+                      key={link.href}
+                      href={link.href}
+                      onClick={() => setIsOpen(false)}
+                      className="flex items-center px-4 py-4 rounded-xl text-base font-medium text-gray-800 hover:bg-gray-100 active:bg-gray-200 mb-2"
+                    >
+                      <span className="inline-flex items-center gap-2">
+                        {link.href === '/protokolle' ? (
+                          <ClipboardList className="w-5 h-5 text-gray-600" />
+                        ) : link.href === '/onboarding' ? (
+                          <ArrowUpRight className="w-5 h-5 text-emerald-600" />
+                        ) : link.href === '/offboarding' ? (
+                          <ArrowDownLeft className="w-5 h-5 text-amber-600" />
+                        ) : null}
+                        {link.label}
+                      </span>
+                    </Link>
+                  ))}
+              </>
+            )}
           </div>
 
           {/* User-specific Links */}
@@ -93,12 +174,12 @@ export default function MobileMenu({ mainLinks, userLinks, adminLinks, isAdmin, 
           )}
 
           {/* Admin Links */}
-          {isAdmin && (
+          {isAdmin && adminLinks.some((l) => l.show) && (
             <div className="px-4 mt-4 pt-4 border-t border-gray-200">
               <div className="px-2 py-2 text-xs font-semibold text-gray-400 uppercase tracking-wider">
                 Administration
               </div>
-              {adminLinks.map((link) => (
+              {adminLinks.filter((l) => l.show).map((link) => (
                 <Link
                   key={link.href}
                   href={link.href}

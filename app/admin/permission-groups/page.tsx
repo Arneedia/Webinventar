@@ -1,8 +1,9 @@
 import { redirect } from 'next/navigation';
 import PermissionGroupsClient from './PermissionGroupsClient';
-import { getCurrentUser, Roles } from '@/lib/auth';
+import { getCurrentUser, Roles, userHasPermission } from '@/lib/auth';
 import { prisma } from '@/lib/prismaClient';
 import { serializePermissionGroups } from '@/lib/permissionGroups';
+import { AvailablePermissions } from '@/lib/permissionGroups';
 
 export const dynamic = 'force-dynamic';
 
@@ -13,7 +14,10 @@ export default async function PermissionGroupsPage() {
     redirect('/login?redirectTo=/admin/permission-groups');
   }
 
-  if (currentUser.role !== Roles.ADMIN) {
+  if (
+    currentUser.role !== Roles.ADMIN &&
+    !userHasPermission(currentUser, AvailablePermissions.ADMIN_PERMISSION_GROUPS_MANAGE)
+  ) {
     redirect('/');
   }
 

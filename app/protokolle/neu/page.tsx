@@ -6,12 +6,8 @@ import {
   ClipboardList,
   ArrowLeft,
   ArrowRight,
-  ArrowUpRight,
-  ArrowDownLeft,
-  Repeat,
   User,
   Check,
-  MonitorSmartphone,
   Package,
   Loader2,
   AlertCircle,
@@ -75,14 +71,21 @@ interface SelectedPosition {
 
 type ProtocolTyp = 'AUSGABE' | 'RUECKGABE' | 'TAUSCH';
 
-export default function NeuesProtokollPage() {
+export function ProtocolWizard({
+  typ,
+  title,
+  subtitle,
+}: {
+  typ: ProtocolTyp;
+  title: string;
+  subtitle: string;
+}) {
   const router = useRouter();
 
   // Wizard-Schritt
   const [step, setStep] = useState(1);
 
-  // Schritt 1: Typ & Benutzer
-  const [typ, setTyp] = useState<ProtocolTyp | ''>('');
+  // Schritt 1: Benutzer
   const [benutzerId, setBenutzerId] = useState<number | null>(null);
   const [benutzerSearch, setBenutzerSearch] = useState('');
   const [benutzerOptions, setBenutzerOptions] = useState<BenutzerOption[]>([]);
@@ -343,7 +346,7 @@ export default function NeuesProtokollPage() {
     );
   };
 
-  const canProceedStep1 = typ !== '' && benutzerId !== null;
+  const canProceedStep1 = benutzerId !== null;
   const canProceedStep2 = selectedPositions.length > 0;
 
   const handleSubmit = async () => {
@@ -401,8 +404,8 @@ export default function NeuesProtokollPage() {
         <div className="mx-auto max-w-3xl px-4 py-6 flex items-center gap-3">
           <ClipboardList className="w-8 h-8 text-primary" />
           <div>
-            <p className="text-sm text-gray-500">Neues Übergabeprotokoll</p>
-            <h1 className="text-xl font-semibold text-gray-900">Onboarding / Offboarding</h1>
+            <p className="text-sm text-gray-500">{subtitle}</p>
+            <h1 className="text-xl font-semibold text-gray-900">{title}</h1>
           </div>
         </div>
       </header>
@@ -411,7 +414,7 @@ export default function NeuesProtokollPage() {
         {/* Stepper */}
         <div className="grid grid-cols-3 gap-3">
           {[
-            { id: 1, label: 'Typ & Benutzer' },
+            { id: 1, label: 'Mitarbeiter' },
             { id: 2, label: 'Geräte & Zubehör' },
             { id: 3, label: 'Aufgaben & Abschluss' },
           ].map((s) => {
@@ -434,33 +437,7 @@ export default function NeuesProtokollPage() {
         {/* Step 1 */}
         {step === 1 && (
           <section className="bg-white border border-gray-200 rounded-lg p-4 space-y-4">
-            <h2 className="text-lg font-semibold flex items-center gap-2">
-              <Repeat className="w-5 h-5 text-primary" />
-              Protokoll-Typ wählen
-            </h2>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              {(
-                [
-                  { key: 'AUSGABE', label: 'Ausgabe', icon: ArrowUpRight },
-                  { key: 'RUECKGABE', label: 'Rückgabe', icon: ArrowDownLeft },
-                  { key: 'TAUSCH', label: 'Tausch', icon: MonitorSmartphone },
-                ] as { key: ProtocolTyp; label: string; icon: any }[]
-              ).map(({ key, label, icon: Icon }) => (
-                <button
-                  key={key}
-                  type="button"
-                  onClick={() => setTyp(key)}
-                  className={`border rounded-lg p-3 flex items-center gap-2 justify-center ${
-                    typ === key ? 'border-primary bg-primary/10 text-primary' : 'border-gray-200 hover:bg-gray-50'
-                  }`}
-                >
-                  <Icon className="w-4 h-4" />
-                  {label}
-                </button>
-              ))}
-            </div>
-
-            <div className="pt-2 space-y-3">
+            <div className="space-y-3">
               <label className="text-sm font-semibold flex items-center gap-2">
                 <User className="w-4 h-4" />
                 Mitarbeiter wählen
@@ -679,7 +656,7 @@ export default function NeuesProtokollPage() {
               <div>
                 <div className="text-sm font-semibold">Aufgabenliste</div>
                 <p className="text-xs text-gray-600">
-                  Onboarding/Offboarding-Tasks können angepasst, ergänzt oder entfernt werden.
+                  Aufgaben können angepasst, ergänzt oder entfernt werden.
                 </p>
               </div>
               <button
@@ -807,4 +784,8 @@ export default function NeuesProtokollPage() {
       </footer>
     </div>
   );
+}
+
+export default function NeuesProtokollPage() {
+  return <ProtocolWizard typ="TAUSCH" title="Neues Protokoll" subtitle="Tausch" />;
 }

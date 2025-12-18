@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prismaClient';
-import { requireApiUser, Roles } from '@/lib/auth';
+import { requireApiUser } from '@/lib/auth';
 import {
   serializePermissionGroup,
   stringifyPermissions,
@@ -38,7 +38,7 @@ async function ensureGroupExists(groupId: number) {
 }
 
 export async function GET(req: NextRequest, context: RouteContext) {
-  const auth = await requireApiUser(req, Roles.ADMIN);
+  const auth = await requireApiUser(req, AvailablePermissions.ADMIN_PERMISSION_GROUPS_MANAGE);
   if (!auth.authorized) {
     return NextResponse.json({ error: auth.message }, { status: auth.status });
   }
@@ -65,7 +65,7 @@ export async function GET(req: NextRequest, context: RouteContext) {
 }
 
 export async function PUT(req: NextRequest, context: RouteContext) {
-  const auth = await requireApiUser(req, Roles.ADMIN);
+  const auth = await requireApiUser(req, AvailablePermissions.ADMIN_PERMISSION_GROUPS_MANAGE);
   if (!auth.authorized) {
     return NextResponse.json({ error: auth.message }, { status: auth.status });
   }
@@ -147,7 +147,7 @@ export async function PUT(req: NextRequest, context: RouteContext) {
 }
 
 export async function DELETE(req: NextRequest, context: RouteContext) {
-  const auth = await requireApiUser(req, Roles.ADMIN);
+  const auth = await requireApiUser(req, AvailablePermissions.ADMIN_PERMISSION_GROUPS_MANAGE);
   if (!auth.authorized) {
     return NextResponse.json({ error: auth.message }, { status: auth.status });
   }

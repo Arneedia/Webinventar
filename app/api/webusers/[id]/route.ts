@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prismaClient';
 import { hashPassword, requireApiUser, Roles } from '@/lib/auth';
 import { serializeWebUser } from '@/lib/webUsers';
+import { AvailablePermissions } from '@/lib/permissionGroups';
 
 interface RouteContext {
   params: Promise<{ id: string }>;
@@ -34,7 +35,7 @@ async function assertOtherAdminsRemain(userId: number) {
 }
 
 export async function PUT(req: NextRequest, context: RouteContext) {
-  const auth = await requireApiUser(req, Roles.ADMIN);
+  const auth = await requireApiUser(req, AvailablePermissions.ADMIN_USERS_MANAGE);
   if (!auth.authorized) {
     return NextResponse.json({ error: auth.message }, { status: auth.status });
   }
@@ -120,7 +121,7 @@ export async function PUT(req: NextRequest, context: RouteContext) {
 }
 
 export async function DELETE(req: NextRequest, context: RouteContext) {
-  const auth = await requireApiUser(req, Roles.ADMIN);
+  const auth = await requireApiUser(req, AvailablePermissions.ADMIN_USERS_MANAGE);
   if (!auth.authorized) {
     return NextResponse.json({ error: auth.message }, { status: auth.status });
   }

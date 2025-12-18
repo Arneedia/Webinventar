@@ -2,12 +2,13 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prismaClient';
 import { hashPassword, requireApiUser, Roles } from '@/lib/auth';
 import { serializeWebUser, serializeWebUsers } from '@/lib/webUsers';
+import { AvailablePermissions } from '@/lib/permissionGroups';
 
 const isValidRole = (value: unknown): value is (typeof Roles)[keyof typeof Roles] =>
   typeof value === 'string' && Object.values(Roles).includes(value as any);
 
 export async function GET(req: NextRequest) {
-  const auth = await requireApiUser(req, Roles.ADMIN);
+  const auth = await requireApiUser(req, AvailablePermissions.ADMIN_USERS_MANAGE);
   if (!auth.authorized) {
     return NextResponse.json({ error: auth.message }, { status: auth.status });
   }
@@ -22,7 +23,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const auth = await requireApiUser(req, Roles.ADMIN);
+  const auth = await requireApiUser(req, AvailablePermissions.ADMIN_USERS_MANAGE);
   if (!auth.authorized) {
     return NextResponse.json({ error: auth.message }, { status: auth.status });
   }

@@ -1,9 +1,10 @@
 import { redirect } from 'next/navigation';
 import AdminUsersClient from './AdminUsersClient';
-import { getCurrentUser, Roles } from '@/lib/auth';
+import { getCurrentUser, Roles, userHasPermission } from '@/lib/auth';
 import { prisma } from '@/lib/prismaClient';
 import { serializeWebUsersWithGroups } from '@/lib/webUsers';
 import { serializePermissionGroups } from '@/lib/permissionGroups';
+import { AvailablePermissions } from '@/lib/permissionGroups';
 
 export const dynamic = 'force-dynamic';
 
@@ -14,7 +15,7 @@ export default async function AdminUsersPage() {
     redirect('/login?redirectTo=/admin/users');
   }
 
-  if (currentUser.role !== Roles.ADMIN) {
+  if (currentUser.role !== Roles.ADMIN && !userHasPermission(currentUser, AvailablePermissions.ADMIN_USERS_MANAGE)) {
     redirect('/');
   }
 

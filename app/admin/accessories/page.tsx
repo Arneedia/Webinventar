@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation';
-import { getCurrentUser, Roles } from '@/lib/auth';
+import { getCurrentUser, Roles, userHasAnyPermission } from '@/lib/auth';
 import AccessoriesManager from './AccessoriesManager';
+import { AvailablePermissions } from '@/lib/permissionGroups';
 
 export const dynamic = 'force-dynamic';
 
@@ -11,7 +12,14 @@ export default async function AccessoriesPage() {
     redirect('/login?redirectTo=/admin/accessories');
   }
 
-  if (currentUser.role !== Roles.ADMIN) {
+  if (
+    currentUser.role !== Roles.ADMIN &&
+    !userHasAnyPermission(currentUser, [
+      AvailablePermissions.ACCESSORIES_VIEW,
+      AvailablePermissions.ACCESSORIES_CREATE,
+      AvailablePermissions.ACCESSORIES_EDIT,
+    ])
+  ) {
     redirect('/');
   }
 

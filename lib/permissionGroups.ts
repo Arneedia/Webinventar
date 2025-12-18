@@ -33,6 +33,10 @@ export const AvailablePermissions = {
   PROTOCOLS_CREATE: 'protocols:create',
   PROTOCOLS_EDIT: 'protocols:edit',
   PROTOCOLS_SIGN: 'protocols:sign',
+
+  // Administration
+  ADMIN_USERS_MANAGE: 'admin_users:manage',
+  ADMIN_PERMISSION_GROUPS_MANAGE: 'admin_permission_groups:manage',
 } as const;
 
 export type Permission = (typeof AvailablePermissions)[keyof typeof AvailablePermissions];
@@ -87,6 +91,14 @@ export const PermissionCategories = [
       { key: AvailablePermissions.PROTOCOLS_CREATE, label: 'Protokolle erstellen' },
       { key: AvailablePermissions.PROTOCOLS_EDIT, label: 'Protokolle bearbeiten' },
       { key: AvailablePermissions.PROTOCOLS_SIGN, label: 'Protokolle unterschreiben' },
+    ],
+  },
+
+  {
+    name: 'Administration',
+    permissions: [
+      { key: AvailablePermissions.ADMIN_USERS_MANAGE, label: 'Web-User verwalten' },
+      { key: AvailablePermissions.ADMIN_PERMISSION_GROUPS_MANAGE, label: 'Rechtegruppen verwalten' },
     ],
   },
 ] as const;

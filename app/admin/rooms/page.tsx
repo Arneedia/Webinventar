@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation';
-import { getCurrentUser, Roles } from '@/lib/auth';
+import { getCurrentUser, Roles, userHasPermission } from '@/lib/auth';
 import RoomsManager from './RoomsManager';
+import { AvailablePermissions } from '@/lib/permissionGroups';
 
 export const dynamic = 'force-dynamic';
 
@@ -11,7 +12,7 @@ export default async function RoomsPage() {
     redirect('/login?redirectTo=/admin/rooms');
   }
 
-  if (currentUser.role !== Roles.ADMIN) {
+  if (currentUser.role !== Roles.ADMIN && !userHasPermission(currentUser, AvailablePermissions.MASTER_DATA_EDIT)) {
     redirect('/');
   }
 

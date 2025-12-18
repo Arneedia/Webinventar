@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prismaClient';
-import { requireApiUser, Roles } from '@/lib/auth';
+import { requireApiUser } from '@/lib/auth';
+import { AvailablePermissions } from '@/lib/permissionGroups';
 
 interface RouteContext {
   params: Promise<{ id: string }>;
@@ -8,7 +9,7 @@ interface RouteContext {
 
 // Benutzer zu einer Rechtegruppe hinzufügen
 export async function POST(req: NextRequest, context: RouteContext) {
-  const auth = await requireApiUser(req, Roles.ADMIN);
+  const auth = await requireApiUser(req, AvailablePermissions.ADMIN_PERMISSION_GROUPS_MANAGE);
   if (!auth.authorized) {
     return NextResponse.json({ error: auth.message }, { status: auth.status });
   }
@@ -84,7 +85,7 @@ export async function POST(req: NextRequest, context: RouteContext) {
 
 // Benutzer aus einer Rechtegruppe entfernen
 export async function DELETE(req: NextRequest, context: RouteContext) {
-  const auth = await requireApiUser(req, Roles.ADMIN);
+  const auth = await requireApiUser(req, AvailablePermissions.ADMIN_PERMISSION_GROUPS_MANAGE);
   if (!auth.authorized) {
     return NextResponse.json({ error: auth.message }, { status: auth.status });
   }

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prismaClient';
-import { requireApiUser, Roles } from '@/lib/auth';
+import { requireApiUser } from '@/lib/auth';
 import {
   serializePermissionGroups,
   serializePermissionGroup,
@@ -21,7 +21,7 @@ function validatePermissions(permissions: unknown): string[] | null {
 }
 
 export async function GET(req: NextRequest) {
-  const auth = await requireApiUser(req, Roles.ADMIN);
+  const auth = await requireApiUser(req, AvailablePermissions.ADMIN_PERMISSION_GROUPS_MANAGE);
   if (!auth.authorized) {
     return NextResponse.json({ error: auth.message }, { status: auth.status });
   }
@@ -43,7 +43,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const auth = await requireApiUser(req, Roles.ADMIN);
+  const auth = await requireApiUser(req, AvailablePermissions.ADMIN_PERMISSION_GROUPS_MANAGE);
   if (!auth.authorized) {
     return NextResponse.json({ error: auth.message }, { status: auth.status });
   }
