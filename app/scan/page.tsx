@@ -42,6 +42,8 @@ export default function ScanPage() {
   const isStoppingRef = useRef(false);
   const isRunningRef = useRef(false);
   const mountedRef = useRef(true);
+  const hasNavigatedRef = useRef(false);
+  const lastDecodedRef = useRef<string | null>(null);
 
   const [manualCode, setManualCode] = useState('');
   const [status, setStatus] = useState<'idle' | 'starting' | 'running' | 'stopping'>('idle');
@@ -85,6 +87,10 @@ export default function ScanPage() {
   }, []);
 
   const handleResult = async (text: string) => {
+    if (hasNavigatedRef.current) return;
+    if (text && lastDecodedRef.current === text) return;
+    lastDecodedRef.current = text;
+
     const code = parseInventarCode(text);
     setLastResult(text);
     if (!code) {
@@ -92,6 +98,7 @@ export default function ScanPage() {
       return;
     }
 
+    hasNavigatedRef.current = true;
     await stopScan();
     router.push(`/geraete/${encodeURIComponent(code)}`);
   };
@@ -104,6 +111,8 @@ export default function ScanPage() {
     if (isStartingRef.current || isRunningRef.current) return;
     setError(null);
     setLastResult(null);
+    hasNavigatedRef.current = false;
+    lastDecodedRef.current = null;
 
     isStartingRef.current = true;
     setStatus('starting');
@@ -129,7 +138,13 @@ export default function ScanPage() {
         disableFlip: true,
       };
 
-      const cameraConfig = cameraId ? cameraId : { facingMode: 'environment' };
+      const cameraConfig = cameraId
+        ? cameraId
+        : ({
+            facingMode: 'environment',
+            width: { ideal: 1920 },
+            height: { ideal: 1080 },
+          } as any);
 
       await html5Ref.current.start(
         cameraConfig,
@@ -140,6 +155,14 @@ export default function ScanPage() {
         },
         () => undefined
       );
+
+      // Try to improve autofocus on supported browsers/devices.
+      // This is best-effort only - not all browsers expose focus controls.
+      if (typeof html5Ref.current?.applyVideoConstraints === 'function') {
+        await html5Ref.current
+          .applyVideoConstraints({ advanced: [{ focusMode: 'continuous' }] } as any)
+          .catch(() => undefined);
+      }
 
       isRunningRef.current = true;
       if (mountedRef.current) setStatus('running');
