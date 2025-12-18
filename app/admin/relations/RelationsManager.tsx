@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link2, RefreshCw } from 'lucide-react';
+import { Link2, Plus, RefreshCw, X } from 'lucide-react';
 
 interface HsModRelation {
   HSID: number;
@@ -84,6 +84,8 @@ export default function RelationsManager() {
   const [creatingHsMod, setCreatingHsMod] = useState(false);
   const [newAccessoryRelation, setNewAccessoryRelation] = useState(createAccessoryFormDefaults());
   const [creatingAccessory, setCreatingAccessory] = useState(false);
+
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
   const [editingHsModKey, setEditingHsModKey] = useState<string | null>(null);
   const [editingHwId, setEditingHwId] = useState('');
@@ -184,6 +186,16 @@ export default function RelationsManager() {
   const resetFeedback = () => {
     setError(null);
     setSuccess(null);
+  };
+
+  const closeCreateModal = () => {
+    setIsCreateModalOpen(false);
+    resetFeedback();
+  };
+
+  const openCreateModal = () => {
+    resetFeedback();
+    setIsCreateModalOpen(true);
   };
 
   const handleCreateHsMod = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -626,7 +638,7 @@ export default function RelationsManager() {
             <button
               type="submit"
               disabled={creatingHsMod}
-              className="inline-flex items-center gap-2 rounded-full bg-gray-900 px-5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-gray-700 disabled:cursor-not-allowed disabled:bg-gray-500"
+              className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary-dark disabled:cursor-not-allowed disabled:opacity-50"
             >
               <Link2 className="h-4 w-4" />
               {creatingHsMod ? 'Speichert…' : 'Zuordnung erstellen'}
@@ -699,7 +711,7 @@ export default function RelationsManager() {
           <button
             type="submit"
             disabled={creatingAccessory}
-            className="inline-flex items-center gap-2 rounded-full bg-gray-900 px-5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-gray-700 disabled:cursor-not-allowed disabled:bg-gray-500"
+            className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary-dark disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Link2 className="h-4 w-4" />
             {creatingAccessory ? 'Speichert…' : 'Zuordnung erstellen'}
@@ -955,6 +967,7 @@ export default function RelationsManager() {
             type="button"
             onClick={() => {
               setActiveTab(tab.key);
+              setIsCreateModalOpen(false);
               setError(null);
               setSuccess(null);
             }}
@@ -980,7 +993,7 @@ export default function RelationsManager() {
         </div>
       </div>
 
-      <section className="rounded-2xl border border-gray-200 bg-white/80 p-6 shadow-sm backdrop-blur space-y-4">
+      <section className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm space-y-4">
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div>
             <h2 className="text-lg font-semibold text-gray-900">
@@ -988,24 +1001,28 @@ export default function RelationsManager() {
             </h2>
             <p className="text-sm text-gray-500">{tabs.find((t) => t.key === activeTab)?.description}</p>
           </div>
-          <button
-            type="button"
-            onClick={handleRefresh}
-            className="inline-flex items-center gap-2 rounded-full border border-gray-200 px-4 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
-          >
-            <RefreshCw className="h-4 w-4" /> Neu laden
-          </button>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={handleRefresh}
+              className="inline-flex items-center gap-2 rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            >
+              <RefreshCw className="h-4 w-4" /> Neu laden
+            </button>
+            <button
+              type="button"
+              onClick={openCreateModal}
+              className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary-dark"
+            >
+              <Plus className="h-4 w-4" /> Neue Zuordnung anlegen
+            </button>
+          </div>
         </div>
 
         {renderFilterBar()}
       </section>
 
-      <section className="rounded-2xl border border-gray-200 bg-white/80 p-6 shadow-sm backdrop-blur space-y-4">
-        <h2 className="text-lg font-semibold text-gray-900">Neue Zuordnung anlegen</h2>
-        {renderCreateForm()}
-      </section>
-
-      <section className="rounded-2xl border border-gray-200 bg-white/80 p-6 shadow-sm backdrop-blur space-y-4">
+      <section className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm space-y-4">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold text-gray-900">Bestehende Zuordnungen</h2>
           <span className="text-xs text-gray-500">{currentStats.filtered} Einträge sichtbar</span>
@@ -1017,6 +1034,37 @@ export default function RelationsManager() {
           </p>
         )}
       </section>
+
+      {isCreateModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <button
+            type="button"
+            aria-label="Schließen"
+            onClick={closeCreateModal}
+            className="absolute inset-0 bg-black/40"
+          />
+          <div className="relative w-full max-w-4xl rounded-xl border border-gray-200 bg-white shadow-xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-gray-200">
+              <div className="min-w-0">
+                <h2 className="text-lg font-semibold text-gray-900">Neue Zuordnung anlegen</h2>
+                <p className="text-sm text-gray-500">Die Zuordnung wird nach dem Speichern direkt in der Liste sichtbar.</p>
+              </div>
+              <button
+                type="button"
+                onClick={closeCreateModal}
+                className="inline-flex items-center justify-center rounded-lg p-2 text-gray-500 hover:bg-gray-100"
+                aria-label="Schließen"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="p-5">
+              {renderCreateForm()}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -210,8 +210,8 @@ export default function ProtokolleOverviewPage() {
     <div className="min-h-screen bg-gray-50 flex flex-col">
       {/* Header */}
       <header className="border-b bg-white/80 backdrop-blur-sm">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div className="flex items-center gap-3 min-w-0">
             <div className="p-2 bg-primary rounded-lg shadow-sm">
               <ClipboardList className="w-5 h-5 text-white" />
             </div>
@@ -222,7 +222,7 @@ export default function ProtokolleOverviewPage() {
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto sm:justify-end">
             {canEdit && (
               <button
                 type="button"

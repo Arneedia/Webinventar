@@ -15,6 +15,7 @@ export default function PermissionGroupsClient({
   const [isCreating, setIsCreating] = useState(false);
   const [editingGroupId, setEditingGroupId] = useState<number | null>(null);
   const [viewingGroupId, setViewingGroupId] = useState<number | null>(null);
+  const [showForm, setShowForm] = useState(false);
   
   // Form states
   const [name, setName] = useState('');
@@ -42,6 +43,7 @@ export default function PermissionGroupsClient({
     setSelectedPermissions([]);
     setIsCreating(false);
     setEditingGroupId(null);
+    setShowForm(false);
   }, []);
 
   const handleCreate = async (e: React.FormEvent) => {
@@ -141,6 +143,7 @@ export default function PermissionGroupsClient({
     setEditingGroupId(group.id);
     setIsCreating(false);
     setViewingGroupId(null);
+    setShowForm(true);
     setName(group.name);
     setDescription(group.description ?? '');
     setSelectedPermissions(group.permissions);
@@ -152,6 +155,7 @@ export default function PermissionGroupsClient({
     resetForm();
     setIsCreating(true);
     setViewingGroupId(null);
+    setShowForm(true);
     setError(null);
     setSuccess(null);
   };
@@ -197,14 +201,37 @@ export default function PermissionGroupsClient({
 
       {/* Groups List */}
       <div className="rounded-lg border border-gray-200 bg-white shadow-sm">
-        <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-gray-200 px-6 py-4">
           <h2 className="text-lg font-semibold text-gray-900">Rechtegruppen</h2>
-          <button
-            onClick={startCreate}
-            className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
-          >
-            Neue Rechtegruppe
-          </button>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                if (showForm) {
+                  setShowForm(false);
+                  return;
+                }
+
+                if (!isCreating && !editingGroupId) {
+                  startCreate();
+                  return;
+                }
+
+                setShowForm(true);
+              }}
+              aria-expanded={showForm}
+              className="rounded-md border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
+            >
+              {showForm ? 'Formular ausblenden' : 'Formular anzeigen'}
+            </button>
+            <button
+              type="button"
+              onClick={startCreate}
+              className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
+            >
+              Neue Rechtegruppe
+            </button>
+          </div>
         </div>
 
         {groups.length === 0 ? (
@@ -216,9 +243,9 @@ export default function PermissionGroupsClient({
             {groups.map((group) => (
               <li
                 key={group.id}
-                className="flex items-center justify-between px-6 py-4 hover:bg-gray-50"
+                className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between px-6 py-4 hover:bg-gray-50"
               >
-                <div className="flex-1">
+                <div className="flex-1 min-w-0">
                   <h3 className="font-medium text-gray-900">{group.name}</h3>
                   {group.description && (
                     <p className="mt-1 text-sm text-gray-500">{group.description}</p>
@@ -228,7 +255,7 @@ export default function PermissionGroupsClient({
                     <span>{group.userCount} Benutzer</span>
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto sm:justify-end">
                   <button
                     onClick={() => setViewingGroupId(group.id)}
                     className="rounded px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100"
@@ -256,7 +283,7 @@ export default function PermissionGroupsClient({
       </div>
 
       {/* Create/Edit Form */}
-      {(isCreating || editingGroupId) && (
+      {showForm && (isCreating || editingGroupId) && (
         <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
           <h2 className="mb-4 text-lg font-semibold text-gray-900">
             {isCreating ? 'Neue Rechtegruppe erstellen' : 'Rechtegruppe bearbeiten'}
