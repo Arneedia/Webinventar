@@ -99,8 +99,21 @@ export default function ScanPage() {
     }
 
     hasNavigatedRef.current = true;
-    await stopScan();
-    router.push(`/geraete/${encodeURIComponent(code)}`);
+    const target = `/geraete/${encodeURIComponent(code)}`;
+
+    // Navigate immediately (mobile browsers can be flaky if we await camera stop/cleanup first).
+    router.push(target);
+
+    // Stop camera in background.
+    void stopScan();
+
+    // Fallback: if Next navigation doesn't happen, force-load the target route.
+    window.setTimeout(() => {
+      if (typeof window === 'undefined') return;
+      if (window.location.pathname.startsWith('/scan')) {
+        window.location.assign(target);
+      }
+    }, 700);
   };
 
   const startScan = async () => {
