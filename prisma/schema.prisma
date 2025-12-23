@@ -14,6 +14,7 @@ model ABT {
   ABTID    Int        @id @default(autoincrement())
   ABTName  String?
   Benutzer Benutzer[]
+  AufgabenAssigned UebergabeAufgabe[] @relation("AufgabeAssignedAbteilung")
 }
 
 // Status
@@ -80,6 +81,7 @@ model Benutzer {
   ZubehoerBenutzer   ZubehoerBenutzer[]
   ZubehoerBewegung   ZubehoerBewegung[]
   UebergabeProtokolle UebergabeProtokoll[]
+  AufgabenAssigned    UebergabeAufgabe[] @relation("AufgabeAssignedBenutzer")
 }
 
 // Räume (Stammdaten für Geräte-Standorte)
@@ -325,8 +327,12 @@ model UebergabeAufgabe {
   Status       String             @default("OFFEN") // OFFEN, ERLEDIGT
   ErstelltAm   DateTime           @default(now())
   ErledigtAm   DateTime?
+  AssignedBenutzerID  Int?
+  AssignedAbteilungID Int?
 
   Protokoll    UebergabeProtokoll @relation(fields: [ProtokollID], references: [ID])
+  AssignedBenutzer  Benutzer? @relation("AufgabeAssignedBenutzer", fields: [AssignedBenutzerID], references: [BenutzerID])
+  AssignedAbteilung ABT?      @relation("AufgabeAssignedAbteilung", fields: [AssignedAbteilungID], references: [ABTID])
 }
 
 model UebergabeAufgabeVorlage {

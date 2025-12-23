@@ -1,6 +1,7 @@
-import { Boxes, RefreshCw } from "lucide-react";
+import { Boxes, RefreshCw, Save } from "lucide-react";
 import type { InventoryMovementSummary } from "@/lib/accessories";
 import type { MovementFormState, SelectOption } from "../types";
+import { useEffect, useState } from "react";
 
 interface InventoryTabProps {
   accessoryOptions: SelectOption[];
@@ -8,6 +9,8 @@ interface InventoryTabProps {
   form: MovementFormState;
   onFormChange: (field: keyof MovementFormState, value: string) => void;
   onSubmit: (event: React.FormEvent<HTMLFormElement>) => void;
+  onDelete: (id: number) => void;
+  onUpdateQuantity: (id: number, quantity: number) => void;
 }
 
 const directionLabel: Record<MovementFormState["direction"], string> = {
@@ -25,7 +28,29 @@ const formatDate = (value: string) => {
   return new Date(value).toLocaleDateString("de-DE", { year: "numeric", month: "2-digit", day: "2-digit" });
 };
 
-export default function InventoryTab({ accessoryOptions, movements, form, onFormChange, onSubmit }: InventoryTabProps) {
+export default function InventoryTab({
+  accessoryOptions,
+  movements,
+  form,
+  onFormChange,
+  onSubmit,
+  onDelete,
+  onUpdateQuantity,
+}: InventoryTabProps) {
+  const [quantities, setQuantities] = useState<Record<number, string>>({});
+
+  useEffect(() => {
+    const next: Record<number, string> = {};
+    movements.forEach((m) => {
+      next[m.id] = String(m.quantity);
+    });
+    setQuantities(next);
+  }, [movements]);
+
+  const handleQuantityChange = (id: number, value: string) => {
+    setQuantities((prev) => ({ ...prev, [id]: value }));
+  };
+
   return (
     <div className="space-y-6">
       <section className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
@@ -110,31 +135,47 @@ export default function InventoryTab({ accessoryOptions, movements, form, onForm
           <table className="min-w-full divide-y divide-gray-100 text-sm">
             <thead>
               <tr className="bg-gray-50 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
-                <th className="px-4 py-3">Datum</th>
                 <th className="px-4 py-3">Zubehör</th>
                 <th className="px-4 py-3">Menge</th>
-                <th className="px-4 py-3">Richtung</th>
+                <th className="px-4 py-3 text-right">Aktionen</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
               {movements.length === 0 && (
                 <tr>
-                  <td colSpan={4} className="px-4 py-6 text-center text-sm text-gray-500">
+                  <td colSpan={3} className="px-4 py-6 text-center text-sm text-gray-500">
                     Noch keine Bewegungen gebucht.
                   </td>
                 </tr>
               )}
               {movements.map((movement) => (
                 <tr key={movement.id}>
-                  <td className="px-4 py-3 text-gray-900">{formatDate(movement.date)}</td>
                   <td className="px-4 py-3 text-gray-600">{movement.note ?? `Zubehör #${movement.accessoryId}`}</td>
-                  <td className="px-4 py-3 font-semibold text-gray-900">{movement.quantity}</td>
                   <td className="px-4 py-3">
-                    <span
-                      className={`inline-flex items-center rounded-full px-3 py-0.5 text-xs font-medium ${directionBadgeClasses[movement.direction]}`}
+                    <input
+                      type="number"
+                      min={1}
+                      value={quantities[movement.id] ?? ""}
+                      onChange={(event) => handleQuantityChange(movement.id, event.target.value)}
+                      className="w-24 rounded-lg border border-gray-200 px-3 py-1 text-sm focus:border-primary focus:outline-none"
+                    />
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    <button
+                      type="button"
+                      onClick={() => onDelete(movement.id)}
+                      className="rounded-full border border-red-200 px-3 py-1 text-xs font-semibold text-red-600 hover:bg-red-50"
                     >
-                      {directionLabel[movement.direction]}
-                    </span>
+                      Löschen
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onUpdateQuantity(movement.id, Number(quantities[movement.id] ?? movement.quantity))}
+                      className="ml-2 rounded-full border border-primary/40 px-3 py-1 text-xs font-semibold text-primary-dark hover:bg-primary/10"
+                    >
+                      <Save className="mr-1 inline h-3.5 w-3.5" />
+                      Speichern
+                    </button>
                   </td>
                 </tr>
               ))}

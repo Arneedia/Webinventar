@@ -14,7 +14,11 @@ interface CatalogTabProps {
   onFormChange: (field: keyof AccessoryFormState, value: string) => void;
   onFiltersChange: (field: keyof CatalogFilterState, value: string) => void;
   onDropdownFilterChange: (field: keyof DropdownFilterState, value: string) => void;
-  onSubmit: (event: React.FormEvent<HTMLFormElement>) => void;
+  onSave: (event: React.FormEvent<HTMLFormElement>) => void;
+  editingId: number | null;
+  onEdit: (item: AccessoryItemSummary) => void;
+  onDelete: (id: number) => void;
+  onCancelEdit: () => void;
 }
 
 const formatModelLabel = (model: AccessoryItemSummary["model"]) => {
@@ -69,7 +73,11 @@ export default function CatalogTab({
   onFormChange,
   onFiltersChange,
   onDropdownFilterChange,
-  onSubmit,
+  onSave,
+  editingId,
+  onEdit,
+  onDelete,
+  onCancelEdit,
 }: CatalogTabProps) {
   return (
     <div className="space-y-6">
@@ -81,7 +89,7 @@ export default function CatalogTab({
           <p className="text-sm text-gray-500">Typ, Hardware, Hersteller und Modell verbinden.</p>
         </div>
 
-        <form onSubmit={onSubmit} className="mt-4 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <form onSubmit={onSave} className="mt-4 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           <label className="md:col-span-2 lg:col-span-3 text-sm text-gray-600">
             Name
             <input
@@ -186,13 +194,22 @@ export default function CatalogTab({
             </div>
           </div>
 
-          <div className="lg:col-span-3 flex justify-end">
+          <div className="lg:col-span-3 flex items-center justify-end gap-3">
             <button
               type="submit"
               className="inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2 text-sm font-semibold text-white shadow hover:bg-primary/100"
             >
-              <PackagePlus className="h-4 w-4" /> Speichern
+              <PackagePlus className="h-4 w-4" /> {editingId === null ? "Speichern" : "Aktualisieren"}
             </button>
+            {editingId !== null && (
+              <button
+                type="button"
+                onClick={onCancelEdit}
+                className="text-sm text-gray-600 hover:text-gray-800"
+              >
+                Abbrechen
+              </button>
+            )}
           </div>
         </form>
       </section>
@@ -252,6 +269,27 @@ export default function CatalogTab({
                 <span className="text-gray-500">
                   Aktiv: {item.assignments.active}/{item.assignments.total}
                 </span>
+              </div>
+              <div className="flex flex-wrap gap-2 pt-2 text-xs">
+                <button
+                  type="button"
+                  onClick={() => onEdit(item)}
+                  className="rounded-full border border-gray-200 px-3 py-1 font-medium text-gray-700 hover:bg-gray-50"
+                >
+                  Bearbeiten
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onDelete(item.id)}
+                  className="rounded-full border border-red-200 px-3 py-1 font-medium text-red-600 hover:bg-red-50"
+                >
+                  Löschen
+                </button>
+                {editingId === item.id && (
+                  <span className="inline-flex items-center rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-700">
+                    Bearbeitung aktiv
+                  </span>
+                )}
               </div>
             </div>
           ))}

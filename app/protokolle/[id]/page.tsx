@@ -22,6 +22,9 @@ import {
   PenTool,
   Trash2,
   AlertCircle,
+  Plus,
+  Save,
+  RefreshCw,
   Building2,
   MapPin,
 } from 'lucide-react';
@@ -36,6 +39,17 @@ interface ProtocolDetail {
   unterschriftIT: string | null;
   unterschriftDatum: string | null;
   bemerkung: string | null;
+  aufgaben: {
+    id: number;
+    titel: string;
+    beschreibung: string | null;
+    faelligAm: string | null;
+    status: string;
+    assignedBenutzerId: number | null;
+    assignedBenutzerName: string | null;
+    assignedAbteilungId: number | null;
+    assignedAbteilungName: string | null;
+  }[];
   benutzer: {
     id: number;
     name: string | null;
@@ -81,6 +95,16 @@ interface CurrentUser {
   permissions: string[];
 }
 
+interface SimpleUserOption {
+  id: number;
+  name: string;
+}
+
+interface SimpleDeptOption {
+  id: number;
+  name: string;
+}
+
 export default function ProtokollDetailPage() {
   const params = useParams();
   const router = useRouter();
@@ -90,6 +114,22 @@ export default function ProtokollDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
+  const [tasksDraft, setTasksDraft] = useState<
+    {
+      id: number | null;
+      titel: string;
+      beschreibung: string | null;
+      faelligAm: string | null;
+      status: string;
+      assignedBenutzerId: number | null;
+      assignedAbteilungId: number | null;
+    }[]
+  >([]);
+  const [tasksSaving, setTasksSaving] = useState(false);
+  const [tasksMessage, setTasksMessage] = useState<string | null>(null);
+  const [tasksError, setTasksError] = useState<string | null>(null);
+  const [userOptions, setUserOptions] = useState<SimpleUserOption[]>([]);
+  const [deptOptions, setDeptOptions] = useState<SimpleDeptOption[]>([]);
 
   // Unterschrift
   const [showSignModal, setShowSignModal] = useState(false);
@@ -154,6 +194,42 @@ export default function ProtokollDetailPage() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (protocol) {
+      setTasksDraft(
+        (protocol.aufgaben || []).map((t) => ({
+          id: t.id,
+          titel: t.titel,
+          beschreibung: t.beschreibung ?? '',
+          faelligAm: t.faelligAm ? t.faelligAm.slice(0, 10) : null,
+          status: t.status || 'OFFEN',
+          assignedBenutzerId: t.assignedBenutzerId,
+          assignedAbteilungId: t.assignedAbteilungId,
+        })),
+      );
+    }
+  }, [protocol]);
+
+  useEffect(() => {
+    // Benutzer-Optionen
+    fetch('/api/tables/Benutzer')
+      .then((res) => (res.ok ? res.json() : Promise.reject(new Error('Benutzer konnten nicht geladen werden'))))
+      .then((data) => {
+        const rows = (data?.data as any[]) ?? [];
+        setUserOptions(rows.map((r) => ({ id: r.BenutzerID, name: r.BenutzerName || `Benutzer #${r.BenutzerID}` })));
+      })
+      .catch(() => setUserOptions([]));
+
+    // Abteilungen
+    fetch('/api/tables/ABT')
+      .then((res) => (res.ok ? res.json() : Promise.reject(new Error('Abteilungen konnten nicht geladen werden'))))
+      .then((data) => {
+        const rows = (data?.data as any[]) ?? [];
+        setDeptOptions(rows.map((r) => ({ id: r.ABTID, name: r.ABTName || `Abteilung #${r.ABTID}` })));
+      })
+      .catch(() => setDeptOptions([]));
+  }, []);
 
   const formatDate = (dateStr: string | null) => {
     if (!dateStr) return '—';
@@ -335,6 +411,95 @@ export default function ProtokollDetailPage() {
     const pdfWindow = window.open(`/api/protocols/${protocolId}/pdf`, '_blank');
     if (pdfWindow) {
       pdfWindow.onload = () => pdfWindow.print();
+    }
+  };
+
+  const handleTaskChange = (
+    idx: number,
+    field: 'titel' | 'beschreibung' | 'faelligAm' | 'status' | 'assignedBenutzerId' | 'assignedAbteilungId',
+    value: string | null | number,
+  ) => {
+    setTasksDraft((prev) => prev.map((t, i) => (i === idx ? { ...t, [field]: value } : t)));
+  };
+
+  const handleAddTask = () => {
+    setTasksDraft((prev) => [
+      ...prev,
+      {
+        id: null,
+        titel: 'Neue Aufgabe',
+        beschreibung: '',
+        faelligAm: null,
+        status: 'OFFEN',
+        assignedBenutzerId: null,
+        assignedAbteilungId: null,
+      },
+    ]);
+  };
+
+  const handleRemoveTask = (idx: number) => {
+    setTasksDraft((prev) => prev.filter((_, i) => i !== idx));
+  };
+
+  const handleAssignUser = (idx: number, value: string) => {
+    const id = value ? Number(value) : null;
+    setTasksDraft((prev) =>
+      prev.map((t, i) =>
+        i === idx
+          ? {
+              ...t,
+              assignedBenutzerId: id,
+              assignedAbteilungId: null,
+            }
+          : t,
+      ),
+    );
+  };
+
+  const handleAssignDept = (idx: number, value: string) => {
+    const id = value ? Number(value) : null;
+    setTasksDraft((prev) =>
+      prev.map((t, i) =>
+        i === idx
+          ? {
+              ...t,
+              assignedAbteilungId: id,
+              assignedBenutzerId: null,
+            }
+          : t,
+      ),
+    );
+  };
+
+  const handleSaveTasks = async () => {
+    if (!protocol) return;
+    setTasksSaving(true);
+    setTasksMessage(null);
+    setTasksError(null);
+    try {
+      const payload = {
+        aufgaben: tasksDraft.map((t, i) => ({
+          titel: t.titel.trim() || `Aufgabe ${i + 1}`,
+          beschreibung: t.beschreibung?.trim() || null,
+          faelligAm: t.faelligAm || null,
+          status: t.status || 'OFFEN',
+        })),
+      };
+      const res = await fetch(`/api/protocols/${protocol.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || 'Speichern fehlgeschlagen');
+      }
+      setTasksMessage('Aufgaben gespeichert');
+      await fetchProtocol();
+    } catch (err) {
+      setTasksError(err instanceof Error ? err.message : 'Fehler beim Speichern');
+    } finally {
+      setTasksSaving(false);
     }
   };
 
@@ -552,6 +717,179 @@ export default function ProtokollDetailPage() {
               </div>
             </div>
           )}
+
+          {/* Aufgaben verwalten */}
+          <div className="bg-white rounded-xl border border-gray-200 p-4 space-y-4">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <h2 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
+                  <ClipboardList className="w-4 h-4 text-primary" />
+                  Aufgaben
+                </h2>
+                <p className="text-xs text-gray-600">
+                  Aufgaben zum Protokoll ansehen und bearbeiten.
+                </p>
+                {!canEdit || protocol.status !== 'ENTWURF' ? (
+                  <p className="text-xs text-amber-600 mt-1">
+                    Bearbeitung nur bei Entwürfen und mit Bearbeitungsrecht möglich.
+                  </p>
+                ) : null}
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={fetchProtocol}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-gray-200 px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" />
+                  Neu laden
+                </button>
+                <button
+                  type="button"
+                  onClick={handleAddTask}
+                  disabled={!canEdit || protocol.status !== 'ENTWURF'}
+                  className="inline-flex items-center gap-1.5 rounded-full bg-primary px-3 py-1.5 text-xs font-semibold text-white shadow hover:bg-primary/100 disabled:opacity-50"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  Aufgabe hinzufügen
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveTasks}
+                  disabled={!canEdit || protocol.status !== 'ENTWURF' || tasksSaving}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-primary/40 px-3 py-1.5 text-xs font-semibold text-primary-dark hover:bg-primary/10 disabled:opacity-50"
+                >
+                  <Save className="w-3.5 h-3.5" />
+                  {tasksSaving ? 'Speichern...' : 'Aufgaben speichern'}
+                </button>
+              </div>
+            </div>
+
+            {(tasksMessage || tasksError) && (
+              <div
+                className={`rounded-lg border p-3 text-xs ${
+                  tasksError ? 'bg-red-50 border-red-200 text-red-700' : 'bg-emerald-50 border-emerald-200 text-emerald-700'
+                }`}
+              >
+                {tasksError || tasksMessage}
+              </div>
+            )}
+
+            {tasksDraft.length === 0 ? (
+              <div className="text-sm text-gray-500">Keine Aufgaben hinterlegt.</div>
+            ) : (
+              <div className="space-y-3">
+                {tasksDraft.map((task, idx) => (
+                  <div
+                    key={`${task.id ?? 'neu'}-${idx}`}
+                    className="rounded-xl border border-gray-200 bg-gradient-to-br from-white to-gray-50 p-4 shadow-sm"
+                  >
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                      <div className="flex-1 space-y-2">
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:gap-3">
+                          <input
+                            type="text"
+                            value={task.titel}
+                            disabled={!canEdit || protocol.status !== 'ENTWURF'}
+                            onChange={(e) => handleTaskChange(idx, 'titel', e.target.value)}
+                            className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm font-semibold text-gray-900 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary disabled:bg-gray-100 disabled:text-gray-500"
+                            placeholder="Titel der Aufgabe"
+                          />
+                          <div className="flex items-center gap-2 text-xs text-gray-500">
+                            <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-1 font-semibold text-primary-dark">
+                              Task #{idx + 1}
+                            </span>
+                            {task.faelligAm && (
+                              <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2.5 py-1 font-semibold text-amber-700">
+                                Fällig: {formatDate(task.faelligAm)}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <div className="grid gap-3 sm:grid-cols-3">
+                          <div className="sm:col-span-2">
+                            <label className="block text-xs font-medium text-gray-600 mb-1">Beschreibung</label>
+                            <textarea
+                              value={task.beschreibung ?? ''}
+                              disabled={!canEdit || protocol.status !== 'ENTWURF'}
+                              onChange={(e) => handleTaskChange(idx, 'beschreibung', e.target.value)}
+                              className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary disabled:bg-gray-100 disabled:text-gray-500"
+                              rows={2}
+                              placeholder="Details oder Checkliste"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <label className="block text-xs font-medium text-gray-600 mb-1">Fällig am</label>
+                            <input
+                              type="date"
+                              value={task.faelligAm ?? ''}
+                              disabled={!canEdit || protocol.status !== 'ENTWURF'}
+                              onChange={(e) => handleTaskChange(idx, 'faelligAm', e.target.value || null)}
+                              className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary disabled:bg-gray-100 disabled:text-gray-500"
+                            />
+                            <label className="block text-xs font-medium text-gray-600 mb-1">Status</label>
+                            <select
+                              value={task.status}
+                              disabled={!canEdit || protocol.status !== 'ENTWURF'}
+                              onChange={(e) => handleTaskChange(idx, 'status', e.target.value)}
+                              className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary disabled:bg-gray-100 disabled:text-gray-500"
+                            >
+                              <option value="OFFEN">Offen</option>
+                              <option value="IN_ARBEIT">In Arbeit</option>
+                              <option value="ERLEDIGT">Erledigt</option>
+                            </select>
+                            <label className="block text-xs font-medium text-gray-600 mb-1">Zuweisung</label>
+                            <div className="space-y-1">
+                              <select
+                                value={task.assignedBenutzerId ?? ''}
+                                disabled={!canEdit || protocol.status !== 'ENTWURF'}
+                                onChange={(e) => handleAssignUser(idx, e.target.value)}
+                                className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary disabled:bg-gray-100 disabled:text-gray-500"
+                              >
+                                <option value="">Kein Benutzer</option>
+                                {userOptions.map((u) => (
+                                  <option key={u.id} value={u.id}>
+                                    {u.name}
+                                  </option>
+                                ))}
+                              </select>
+                              <select
+                                value={task.assignedAbteilungId ?? ''}
+                                disabled={!canEdit || protocol.status !== 'ENTWURF'}
+                                onChange={(e) => handleAssignDept(idx, e.target.value)}
+                                className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary disabled:bg-gray-100 disabled:text-gray-500"
+                              >
+                                <option value="">Keine Abteilung</option>
+                                {deptOptions.map((d) => (
+                                  <option key={d.id} value={d.id}>
+                                    {d.name}
+                                  </option>
+                                ))}
+                              </select>
+                              <p className="text-[11px] text-gray-500">
+                                Wähle entweder einen Benutzer oder eine Abteilung. Abteilung wirkt für alle Mitglieder.
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex gap-2 self-start">
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveTask(idx)}
+                          disabled={!canEdit || protocol.status !== 'ENTWURF'}
+                          className="inline-flex items-center gap-2 rounded-full border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50 disabled:opacity-50"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                          Entfernen
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
 
           {/* Bemerkungen */}
           {protocol.bemerkung && (

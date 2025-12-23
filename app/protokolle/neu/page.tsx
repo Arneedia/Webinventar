@@ -12,6 +12,9 @@ import {
   Loader2,
   AlertCircle,
   Search,
+  RefreshCw,
+  Trash2,
+  Plus,
 } from 'lucide-react';
 
 interface BenutzerOption {
@@ -635,11 +638,46 @@ export function ProtocolWizard({
 
         {/* Step 3 */}
         {step === 3 && (
-          <section className="bg-white border border-gray-200 rounded-lg p-4 space-y-4">
-            <h2 className="text-lg font-semibold flex items-center gap-2">
-              <ClipboardList className="w-5 h-5 text-primary" />
-              Aufgaben & Abschluss
-            </h2>
+          <section className="bg-white border border-gray-200 rounded-lg p-4 space-y-5">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <h2 className="text-lg font-semibold flex items-center gap-2">
+                  <ClipboardList className="w-5 h-5 text-primary" />
+                  Aufgaben & Abschluss
+                </h2>
+                <p className="text-xs text-gray-600">
+                  On-/Offboarding-Tasks prüfen, anpassen und mit dem Protokoll speichern.
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => loadTasksForTyp(typ)}
+                  className="inline-flex items-center gap-2 rounded-full border border-gray-200 px-3 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50"
+                >
+                  <RefreshCw className="h-4 w-4" />
+                  Aus Vorlage laden
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTasks([])}
+                  className="inline-flex items-center gap-2 rounded-full border border-gray-200 px-3 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Alle leeren
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setTasks((prev) => [...prev, { titel: 'Neue Aufgabe', beschreibung: '', faelligAm: null }])
+                  }
+                  className="inline-flex items-center gap-2 rounded-full bg-primary px-3 py-2 text-xs font-semibold text-white shadow hover:bg-primary/100"
+                >
+                  <Plus className="h-4 w-4" />
+                  Aufgabe hinzufügen
+                </button>
+              </div>
+            </div>
 
             <div className="space-y-2">
               <label className="text-sm font-semibold">Bemerkungen</label>
@@ -652,76 +690,75 @@ export function ProtocolWizard({
               />
             </div>
 
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="text-sm font-semibold">Aufgabenliste</div>
-                <p className="text-xs text-gray-600">
-                  Aufgaben können angepasst, ergänzt oder entfernt werden.
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() =>
-                  setTasks((prev) => [...prev, { titel: 'Neue Aufgabe', beschreibung: '', faelligAm: null }])
-                }
-                className="text-sm px-3 py-2 rounded-lg border border-gray-200 hover:bg-gray-50"
-              >
-                Aufgabe hinzufügen
-              </button>
-            </div>
-
             <div className="space-y-3">
               {tasks.length === 0 && <div className="text-sm text-gray-500">Keine Aufgaben hinzugefügt.</div>}
               {tasks.map((task, idx) => (
-                <div key={idx} className="border border-gray-200 rounded-lg p-4 space-y-3 bg-gray-50">
-                  <div className="flex flex-col sm:flex-row gap-3">
-                    <div className="flex-1">
-                      <label className="block text-xs font-medium text-gray-600 mb-1">Titel</label>
-                      <input
-                        type="text"
-                        value={task.titel}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          setTasks((prev) => prev.map((t, i) => (i === idx ? { ...t, titel: val } : t)));
-                        }}
-                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-                        placeholder="z.B. Account anlegen"
-                      />
+                <div
+                  key={idx}
+                  className="rounded-2xl border border-gray-200 bg-gradient-to-br from-white to-gray-50 p-4 shadow-sm"
+                >
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="flex-1 space-y-2">
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:gap-3">
+                        <input
+                          type="text"
+                          value={task.titel}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setTasks((prev) => prev.map((t, i) => (i === idx ? { ...t, titel: val } : t)));
+                          }}
+                          className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm font-semibold text-gray-900 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                          placeholder="Titel der Aufgabe"
+                        />
+                        <div className="flex items-center gap-2 text-xs text-gray-500">
+                          <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-1 font-semibold text-primary-dark">
+                            Task #{idx + 1}
+                          </span>
+                          {task.faelligAm && (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2.5 py-1 font-semibold text-amber-700">
+                              Fällig: {task.faelligAm}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="grid gap-3 sm:grid-cols-3">
+                        <div className="sm:col-span-2">
+                          <label className="block text-xs font-medium text-gray-600 mb-1">Beschreibung</label>
+                          <textarea
+                            value={task.beschreibung ?? ''}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setTasks((prev) => prev.map((t, i) => (i === idx ? { ...t, beschreibung: val } : t)));
+                            }}
+                            className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                            rows={2}
+                            placeholder="Details oder Checkliste"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-600 mb-1">Fällig am</label>
+                          <input
+                            type="date"
+                            value={task.faelligAm ?? ''}
+                            onChange={(e) => {
+                              const val = e.target.value || null;
+                              setTasks((prev) => prev.map((t, i) => (i === idx ? { ...t, faelligAm: val } : t)));
+                            }}
+                            className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                          />
+                        </div>
+                      </div>
                     </div>
-                    <div className="w-full sm:w-48">
-                      <label className="block text-xs font-medium text-gray-600 mb-1">Fällig am</label>
-                      <input
-                        type="date"
-                        value={task.faelligAm ?? ''}
-                        onChange={(e) => {
-                          const val = e.target.value || null;
-                          setTasks((prev) => prev.map((t, i) => (i === idx ? { ...t, faelligAm: val } : t)));
-                        }}
-                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-                      />
+                    <div className="flex gap-2 self-start">
+                      <button
+                        type="button"
+                        onClick={() => setTasks((prev) => prev.filter((_, i) => i !== idx))}
+                        className="inline-flex items-center gap-2 rounded-full border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                        Entfernen
+                      </button>
                     </div>
-                  </div>
-                  <div className="flex gap-3">
-                    <div className="flex-1">
-                      <label className="block text-xs font-medium text-gray-600 mb-1">Beschreibung</label>
-                      <textarea
-                        value={task.beschreibung ?? ''}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          setTasks((prev) => prev.map((t, i) => (i === idx ? { ...t, beschreibung: val } : t)));
-                        }}
-                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-                        rows={2}
-                        placeholder="Details oder Checkliste"
-                      />
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setTasks((prev) => prev.filter((_, i) => i !== idx))}
-                      className="text-sm text-red-600 underline self-start"
-                    >
-                      Entfernen
-                    </button>
                   </div>
                 </div>
               ))}

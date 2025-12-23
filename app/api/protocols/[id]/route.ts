@@ -69,6 +69,10 @@ export async function GET(req: NextRequest, context: RouteContext) {
         beschreibung: t.Beschreibung,
         faelligAm: t.FaelligAm?.toISOString() ?? null,
         status: t.Status,
+        assignedBenutzerId: t.AssignedBenutzerID ?? null,
+        assignedBenutzerName: t.AssignedBenutzer?.BenutzerName ?? null,
+        assignedAbteilungId: t.AssignedAbteilungID ?? null,
+        assignedAbteilungName: t.AssignedAbteilung?.ABTName ?? null,
       })),
       benutzer: {
         id: protocol.Benutzer.BenutzerID,
@@ -189,12 +193,14 @@ export async function PUT(req: NextRequest, context: RouteContext) {
         where: { ProtokollID: protocolId },
       });
       await (prisma as any).uebergabeAufgabe.createMany({
-        data: aufgaben.map((t: any) => ({
+        data: aufgaben.map((t, i) => ({
           ProtokollID: protocolId,
-          Titel: t.titel,
-          Beschreibung: t.beschreibung || null,
-          FaelligAm: t.faelligAm ? new Date(t.faelligAm) : null,
+          Titel: t.titel.trim() || `Aufgabe ${i + 1}`,
+          Beschreibung: t.beschreibung?.trim() || null,
+          FaelligAm: t.faelligAm || null,
           Status: t.status || 'OFFEN',
+          AssignedBenutzerID: t.assignedBenutzerId || null,
+          AssignedAbteilungID: t.assignedAbteilungId || null,
         })),
       });
     }

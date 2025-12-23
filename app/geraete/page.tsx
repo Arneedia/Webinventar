@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
-import { Database, MonitorSmartphone, UserRound, History, AlertTriangle, Plus, RefreshCw, Package, Undo2, XCircle, X, ChevronRight, QrCode, MapPin } from 'lucide-react';
+import { useEffect, useMemo, useState, KeyboardEvent } from 'react';
+import Link from 'next/link';
+import { Database, MonitorSmartphone, UserRound, History, AlertTriangle, Plus, RefreshCw, Package, Undo2, XCircle, X, ChevronRight, QrCode, MapPin, ClipboardList, ArrowUpRight, ArrowDownLeft, Repeat, FileText, User, Calendar, CheckCircle2, Clock, FileEdit, Archive } from 'lucide-react';
 import StickerModal from '../components/StickerModal';
 
 interface DeviceListItem {
@@ -54,6 +55,32 @@ interface DeviceAccessory {
   start: string | null;
   end: string | null;
   status: 'ACTIVE' | 'RETURNED';
+}
+
+interface ProtocolPreviewItem {
+  id: number;
+  protokollNr: string;
+  typ: string;
+  status: string;
+  erstelltAm: string;
+  benutzerName: string | null;
+  erstellerName: string | null;
+}
+
+interface ProtocolDetailPreview extends ProtocolPreviewItem {
+  bemerkung?: string | null;
+  unterschriftDatum?: string | null;
+  positionen?: {
+    id: number;
+    geraet?: { inventarCode: string; sno?: string | null } | null;
+    zubehoer?: { typ: string | null; modell?: string | null } | null;
+    zustand?: string | null;
+    zustandNotiz?: string | null;
+  }[];
+  benutzer?: {
+    name?: string | null;
+    abteilung?: string | null;
+  } | null;
 }
 
 interface AccessoryOption {
@@ -117,6 +144,14 @@ export default function DeviceManagementPage() {
   const [selectedAccessoryId, setSelectedAccessoryId] = useState<string>('');
   const [accessoryActionLoading, setAccessoryActionLoading] = useState(false);
 
+  // Protokolle
+  const [deviceProtocols, setDeviceProtocols] = useState<ProtocolPreviewItem[]>([]);
+  const [protocolsLoading, setProtocolsLoading] = useState(false);
+  const [selectedProtocolId, setSelectedProtocolId] = useState<number | null>(null);
+  const [protocolDetailLoading, setProtocolDetailLoading] = useState(false);
+  const [selectedProtocolDetail, setSelectedProtocolDetail] = useState<ProtocolDetailPreview | null>(null);
+  const [protocolError, setProtocolError] = useState<string | null>(null);
+
   // Raum-Stammdaten
   const [roomOptions, setRoomOptions] = useState<RoomOption[]>([]);
   const [roomsLoading, setRoomsLoading] = useState(true);
@@ -129,6 +164,7 @@ export default function DeviceManagementPage() {
   const canEditDevices = currentUser?.permissions?.includes('devices:edit') || currentUser?.role === 'ADMIN';
   const canCreateDevices = currentUser?.permissions?.includes('devices:create') || currentUser?.role === 'ADMIN';
   const canEditAccessories = currentUser?.permissions?.includes('accessories:edit') || currentUser?.role === 'ADMIN';
+  const canViewProtocols = currentUser?.permissions?.includes('protocols:view') || currentUser?.role === 'ADMIN';
 
   // Sticker Modal
   const [showStickerModal, setShowStickerModal] = useState(false);
@@ -144,6 +180,76 @@ export default function DeviceManagementPage() {
     IMEI1: '',
     IMEI2: '',
   });
+
+  const formatDate = (dateStr?: string | null) => {
+    if (!dateStr) return '—';
+    return new Date(dateStr).toLocaleDateString('de-DE', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+    });
+  };
+
+  const getProtocolTypeLabel = (typ: string) => {
+    switch (typ) {
+      case 'AUSGABE':
+        return 'Geräteausgabe';
+      case 'RUECKGABE':
+        return 'Geräterückgabe';
+      case 'TAUSCH':
+        return 'Gerätetausch';
+      default:
+        return typ;
+    }
+  };
+
+  const renderProtocolStatusBadge = (status: string) => {
+    switch (status) {
+      case 'UNTERSCHRIEBEN':
+        return (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-emerald-100 text-emerald-700">
+            <CheckCircle2 className="w-3.5 h-3.5" />
+            Signiert
+          </span>
+        );
+      case 'OFFEN':
+        return (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-amber-100 text-amber-700">
+            <Clock className="w-3.5 h-3.5" />
+            Offen
+          </span>
+        );
+      case 'ENTWURF':
+        return (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-gray-100 text-gray-700">
+            <FileEdit className="w-3.5 h-3.5" />
+            Entwurf
+          </span>
+        );
+      case 'ARCHIVIERT':
+        return (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-blue-100 text-blue-700">
+            <Archive className="w-3.5 h-3.5" />
+            Archiviert
+          </span>
+        );
+      default:
+        return <span className="text-[11px] font-medium text-gray-600">{status}</span>;
+    }
+  };
+
+  const renderProtocolTypeIcon = (typ: string) => {
+    switch (typ) {
+      case 'AUSGABE':
+        return <ArrowUpRight className="w-4 h-4 text-emerald-600" />;
+      case 'RUECKGABE':
+        return <ArrowDownLeft className="w-4 h-4 text-amber-600" />;
+      case 'TAUSCH':
+        return <Repeat className="w-4 h-4 text-blue-600" />;
+      default:
+        return <FileText className="w-4 h-4 text-gray-500" />;
+    }
+  };
 
   useEffect(() => {
     fetchCurrentUser();
@@ -168,6 +274,53 @@ export default function DeviceManagementPage() {
     }
   };
 
+  const fetchProtocolDetail = async (protocolId: number) => {
+    try {
+      setProtocolDetailLoading(true);
+      setProtocolError(null);
+      const res = await fetch(`/api/protocols/${protocolId}`, {
+        credentials: 'include',
+      });
+      if (!res.ok) throw new Error('Fehler beim Laden des Protokolls');
+      const data = await res.json();
+      setSelectedProtocolDetail(data);
+    } catch (err) {
+      console.error('Fehler beim Laden des Protokolls', err);
+      setProtocolError('Protokolldetails konnten nicht geladen werden.');
+      setSelectedProtocolDetail(null);
+    } finally {
+      setProtocolDetailLoading(false);
+    }
+  };
+
+  const fetchDeviceProtocols = async (deviceId: number) => {
+    try {
+      setProtocolsLoading(true);
+      setProtocolError(null);
+      const res = await fetch(`/api/devices/${deviceId}/protocols`, {
+        credentials: 'include',
+      });
+      if (!res.ok) throw new Error('Fehler beim Laden der Protokolle');
+      const json = await res.json();
+      const list = Array.isArray(json) ? json : json?.protocols ?? [];
+      setDeviceProtocols(list);
+      if (list.length > 0) {
+        setSelectedProtocolId(list[0].id);
+        fetchProtocolDetail(list[0].id);
+      } else {
+        setSelectedProtocolId(null);
+        setSelectedProtocolDetail(null);
+      }
+    } catch (err) {
+      console.error('Fehler beim Laden der Protokolle', err);
+      setProtocolError('Protokolle konnten nicht geladen werden.');
+      setDeviceProtocols([]);
+      setSelectedProtocolId(null);
+      setSelectedProtocolDetail(null);
+    } finally {
+      setProtocolsLoading(false);
+    }
+  };
 
   const handleChangeRoom = async () => {
     if (!selectedDeviceId) return;
@@ -215,15 +368,31 @@ export default function DeviceManagementPage() {
       fetchHistory(selectedDeviceId);
       fetchDeviceAccessories(selectedDeviceId);
       fetchCompatibleAccessories(selectedDeviceId);
+      if (canViewProtocols) {
+        fetchDeviceProtocols(selectedDeviceId);
+      } else {
+        setDeviceProtocols([]);
+      }
       const current = devices.find((d) => d.id === selectedDeviceId);
       setRoomSelectValue(current?.raumId?.toString() || '');
     } else {
       setHistory([]);
       setDeviceAccessories([]);
       setAccessoryOptions([]);
+      setDeviceProtocols([]);
+      setSelectedProtocolId(null);
+      setSelectedProtocolDetail(null);
       setRoomSelectValue('');
     }
-  }, [selectedDeviceId, devices]);
+  }, [selectedDeviceId, devices, canViewProtocols]);
+
+  useEffect(() => {
+    if (selectedProtocolId != null) {
+      fetchProtocolDetail(selectedProtocolId);
+    } else {
+      setSelectedProtocolDetail(null);
+    }
+  }, [selectedProtocolId]);
 
   const fetchDevices = async () => {
     try {
@@ -1049,311 +1218,443 @@ export default function DeviceManagementPage() {
           </section>
 
           {/* Detail & Aktionen - Desktop */}
-          <section className="hidden lg:flex w-full lg:w-80 xl:w-96 flex-col gap-4">
-            <div className="bg-white rounded-xl border border-gray-200 p-4">
-              <h2 className="text-sm font-semibold text-gray-900 flex items-center gap-2 mb-3">
-                <UserRound className="w-4 h-4 text-primary-dark" />
-                Zuordnung & Status
-              </h2>
+          <section className="hidden lg:flex w-full lg:w-[42rem] flex-col gap-4">
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+              {/* Zuordnung & Status */}
+              <div className="bg-white rounded-xl border border-gray-200 p-4">
+                <h2 className="text-sm font-semibold text-gray-900 flex items-center gap-2 mb-3">
+                  <UserRound className="w-4 h-4 text-primary-dark" />
+                  Zuordnung & Status
+                </h2>
 
-              {selectedDevice ? (
-                <>
-                  <div className="mb-3 text-xs text-gray-700">
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="font-semibold text-primary-dark">{selectedDevice.inventarCode}</span>
-                      <button
-                        type="button"
-                        onClick={() => setShowStickerModal(true)}
-                        className="inline-flex items-center gap-1 px-2 py-1 text-[10px] font-medium text-primary-dark bg-primary/10 rounded-lg hover:bg-primary/20"
-                        title="Inventar-Sticker generieren"
-                      >
-                        <QrCode className="w-3 h-3" />
-                        Sticker
-                      </button>
-                    </div>
-                    <div className="font-medium text-gray-900 mb-1">{selectedDevice.sno}</div>
-                    <div>{selectedDevice.hwName || '-'}</div>
-                    <div>{selectedDevice.hsName || '-'}</div>
-                    <div>{selectedDevice.modelName || '-'}</div>
-                  </div>
-
-                  <div className="mb-3 grid grid-cols-2 gap-x-4 gap-y-2 text-[11px] text-gray-600">
-                    <div>
-                      <div className="text-gray-500">Zugang</div>
-                      <div className="font-medium text-gray-900">
-                        {selectedDevice.zugang
-                          ? new Date(selectedDevice.zugang).toLocaleDateString('de-DE')
-                          : '—'}
-                      </div>
-                    </div>
-                    <div>
-                      <div className="text-gray-500">Abgang</div>
-                      <div className="font-medium text-gray-900">
-                        {selectedDevice.abgang
-                          ? new Date(selectedDevice.abgang).toLocaleDateString('de-DE')
-                          : '—'}
-                      </div>
-                    </div>
-                    <div>
-                      <div className="text-gray-500">Preis</div>
-                      <div className="font-medium text-gray-900">
-                        {(selectedDevice as any).preis != null
-                          ? Number((selectedDevice as any).preis).toLocaleString('de-DE', {
-                              style: 'currency',
-                              currency: 'EUR',
-                            })
-                          : '—'}
-                      </div>
-                    </div>
-                    <div>
-                      <div className="text-gray-500">EAN</div>
-                      <div className="font-medium text-gray-900 truncate">
-                        {(selectedDevice as any).ean || '—'}
-                      </div>
-                    </div>
-                    <div>
-                      <div className="text-gray-500">IMEI 1</div>
-                      <div className="font-medium text-gray-900 truncate">
-                        {(selectedDevice as any).imei1 || '—'}
-                      </div>
-                    </div>
-                    <div>
-                      <div className="text-gray-500">IMEI 2</div>
-                      <div className="font-medium text-gray-900 truncate">
-                        {(selectedDevice as any).imei2 || '—'}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="mb-3 text-xs text-gray-700 space-y-1">
-                    <div>
-                      <span className="text-gray-500 mr-1">Status:</span>
-                      <span className={selectedDevice.abgang ? 'text-gray-600' : 'text-emerald-600 font-medium'}>
-                        {selectedDevice.abgang ? 'Ausgebucht' : 'Aktiv'}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-gray-500 mr-1">Aktueller Benutzer:</span>
-                      <span className="font-medium">
-                        {selectedDevice.currentUserName || '— keiner —'}
-                      </span>
-                    </div>
-                  </div>
-
-                  {!loadingUsers && canEditDevices && (
-                    <div className="mb-3 text-xs space-y-2">
-                      <label className="block text-xs font-medium text-gray-700">Benutzer zuweisen</label>
-                      <select
-                        value={assignUserId}
-                        onChange={(e) => setAssignUserId(e.target.value)}
-                        className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-primary"
-                      >
-                        <option value="">-- Benutzer wählen --</option>
-                        {users.map((u) => (
-                          <option key={u.id} value={u.id}>
-                            {u.name} (ID {u.id})
-                          </option>
-                        ))}
-                      </select>
-                      <div className="flex gap-2">
+                {selectedDevice ? (
+                  <>
+                    <div className="mb-3 text-xs text-gray-700">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="font-semibold text-primary-dark">{selectedDevice.inventarCode}</span>
                         <button
                           type="button"
-                          onClick={handleAssign}
-                          className="flex-1 px-3 py-1.5 rounded-lg bg-primary text-white text-xs hover:bg-primary-dark"
+                          onClick={() => setShowStickerModal(true)}
+                          className="inline-flex items-center gap-1 px-2 py-1 text-[10px] font-medium text-primary-dark bg-primary/10 rounded-lg hover:bg-primary/20"
+                          title="Inventar-Sticker generieren"
                         >
-                          Zuweisen
-                        </button>
-                        <button
-                          type="button"
-                          onClick={handleUnassign}
-                          className="flex-1 px-3 py-1.5 rounded-lg border border-gray-300 text-gray-700 text-xs hover:bg-gray-50"
-                        >
-                          Zuordnung entfernen
+                          <QrCode className="w-3 h-3" />
+                          Sticker
                         </button>
                       </div>
+                      <div className="font-medium text-gray-900 mb-1">{selectedDevice.sno}</div>
+                      <div>{selectedDevice.hwName || '-'}</div>
+                      <div>{selectedDevice.hsName || '-'}</div>
+                      <div>{selectedDevice.modelName || '-'}</div>
                     </div>
-                  )}
 
-                  {canEditDevices && (
-                    <div className="border-t border-gray-100 pt-3 mt-2">
-                      <button
-                        type="button"
-                        onClick={handleRetire}
-                        className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-red-50 text-xs text-red-700 hover:bg-red-100"
-                      >
-                        <AlertTriangle className="w-3 h-3" />
-                        Gerät ausbuchen / defekt
-                      </button>
-                    </div>
-                  )}
-
-                  {actionError && (
-                    <div className="mt-3 text-[11px] text-red-600 flex items-center gap-1">
-                      <AlertTriangle className="w-3 h-3" />
-                      {actionError}
-                    </div>
-                  )}
-                </>
-              ) : (
-                <p className="text-xs text-gray-500">Bitte wähle links ein Gerät aus.</p>
-              )}
-            </div>
-
-            <div className="bg-white rounded-xl border border-gray-200 p-4 flex-1 flex flex-col">
-              <h2 className="text-sm font-semibold text-gray-900 flex items-center gap-2 mb-3">
-                <History className="w-4 h-4 text-primary-dark" />
-                Verlauf
-              </h2>
-
-              {selectedDevice ? (
-                historyLoading ? (
-                  <div className="flex-1 flex items-center justify-center">
-                    <RefreshCw className="w-5 h-5 text-primary-dark animate-spin" />
-                  </div>
-                ) : history.length === 0 ? (
-                  <p className="text-xs text-gray-500">Für dieses Gerät sind noch keine Zuordnungen vorhanden.</p>
-                ) : (
-                  <ul className="space-y-2 text-xs text-gray-700 overflow-y-auto max-h-72 pr-1">
-                    {history.map((entry) => (
-                      <li
-                        key={entry.id}
-                        className="rounded-lg border border-gray-200 px-3 py-2 bg-gray-50/60"
-                      >
-                        <div className="font-medium text-gray-900 mb-0.5">
-                          {entry.benutzerName || `Benutzer ${entry.benutzerId}`}
+                    <div className="mb-3 grid grid-cols-2 gap-x-4 gap-y-2 text-[11px] text-gray-600">
+                      <div>
+                        <div className="text-gray-500">Zugang</div>
+                        <div className="font-medium text-gray-900">
+                          {selectedDevice.zugang
+                            ? new Date(selectedDevice.zugang).toLocaleDateString('de-DE')
+                            : '—'}
                         </div>
-                        <div className="text-[11px] text-gray-600">
-                          <span className="mr-1">von</span>
-                          {new Date(entry.start).toLocaleDateString('de-DE')}
-                          <span className="mx-1">bis</span>
-                          {entry.ende
-                            ? new Date(entry.ende).toLocaleDateString('de-DE')
-                            : 'heute'}
+                      </div>
+                      <div>
+                        <div className="text-gray-500">Abgang</div>
+                        <div className="font-medium text-gray-900">
+                          {selectedDevice.abgang
+                            ? new Date(selectedDevice.abgang).toLocaleDateString('de-DE')
+                            : '—'}
                         </div>
-                      </li>
-                    ))}
-                  </ul>
-                )
-              ) : (
-                <p className="text-xs text-gray-500">Wähle links ein Gerät, um den Verlauf zu sehen.</p>
-              )}
-            </div>
+                      </div>
+                      <div>
+                        <div className="text-gray-500">Preis</div>
+                        <div className="font-medium text-gray-900">
+                          {(selectedDevice as any).preis != null
+                            ? Number((selectedDevice as any).preis).toLocaleString('de-DE', {
+                                style: 'currency',
+                                currency: 'EUR',
+                              })
+                            : '—'}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-gray-500">EAN</div>
+                        <div className="font-medium text-gray-900 truncate">
+                          {(selectedDevice as any).ean || '—'}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-gray-500">IMEI 1</div>
+                        <div className="font-medium text-gray-900 truncate">
+                          {(selectedDevice as any).imei1 || '—'}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-gray-500">IMEI 2</div>
+                        <div className="font-medium text-gray-900 truncate">
+                          {(selectedDevice as any).imei2 || '—'}
+                        </div>
+                      </div>
+                    </div>
 
-            {/* Zubehör-Sektion */}
-            <div className="bg-white rounded-xl border border-gray-200 p-4 flex flex-col">
-              <h2 className="text-sm font-semibold text-gray-900 flex items-center gap-2 mb-3">
-                <Package className="w-4 h-4 text-primary-dark" />
-                Zubehör
-              </h2>
+                    <div className="mb-3 text-xs text-gray-700 space-y-1">
+                      <div>
+                        <span className="text-gray-500 mr-1">Status:</span>
+                        <span className={selectedDevice.abgang ? 'text-gray-600' : 'text-emerald-600 font-medium'}>
+                          {selectedDevice.abgang ? 'Ausgebucht' : 'Aktiv'}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-gray-500 mr-1">Aktueller Benutzer:</span>
+                        <span className="font-medium">
+                          {selectedDevice.currentUserName || '— keiner —'}
+                        </span>
+                      </div>
+                    </div>
 
-              {selectedDevice ? (
-                <>
-                  {/* Zubehör zuweisen */}
-                  {canEditAccessories && (
-                    <div className="mb-3 text-xs space-y-2">
-                      <label className="block text-xs font-medium text-gray-700">Zubehör aus Lager zuweisen</label>
-                      <select
-                        value={selectedAccessoryId}
-                        onChange={(e) => setSelectedAccessoryId(e.target.value)}
-                        className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-primary"
-                      >
-                        <option value="">-- Zubehör wählen --</option>
-                        {accessoryOptions
-                          .filter((opt) => opt.stock > 0)
-                          .map((opt) => (
-                            <option key={opt.id} value={opt.id}>
-                              {opt.label} (Bestand: {opt.stock})
+                    {!loadingUsers && canEditDevices && (
+                      <div className="mb-3 text-xs space-y-2">
+                        <label className="block text-xs font-medium text-gray-700">Benutzer zuweisen</label>
+                        <select
+                          value={assignUserId}
+                          onChange={(e) => setAssignUserId(e.target.value)}
+                          className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-primary"
+                        >
+                          <option value="">-- Benutzer wählen --</option>
+                          {users.map((u) => (
+                            <option key={u.id} value={u.id}>
+                              {u.name} (ID {u.id})
                             </option>
                           ))}
-                      </select>
-                      <button
-                        type="button"
-                        onClick={handleAssignAccessory}
-                        disabled={!selectedAccessoryId || accessoryActionLoading}
-                        className="w-full px-3 py-1.5 rounded-lg bg-primary text-white text-xs hover:bg-primary-dark disabled:bg-primary/50 disabled:cursor-not-allowed"
-                      >
-                        {accessoryActionLoading ? 'Wird zugewiesen...' : 'Zuweisen & vom Lager abbuchen'}
-                      </button>
-                    </div>
-                  )}
-
-                  {/* Zugewiesenes Zubehör */}
-                  <div className="border-t border-gray-100 pt-3">
-                    <p className="text-xs font-medium text-gray-700 mb-2">Zugewiesenes Zubehör</p>
-                    {accessoriesLoading ? (
-                      <div className="flex items-center justify-center py-4">
-                        <RefreshCw className="w-4 h-4 text-primary-dark animate-spin" />
+                        </select>
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            onClick={handleAssign}
+                            className="flex-1 px-3 py-1.5 rounded-lg bg-primary text-white text-xs hover:bg-primary-dark"
+                          >
+                            Zuweisen
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handleUnassign}
+                            className="flex-1 px-3 py-1.5 rounded-lg border border-gray-300 text-gray-700 text-xs hover:bg-gray-50"
+                          >
+                            Zuordnung entfernen
+                          </button>
+                        </div>
                       </div>
-                    ) : deviceAccessories.filter((a) => a.status === 'ACTIVE').length === 0 ? (
-                      <p className="text-[11px] text-gray-500">Kein Zubehör zugewiesen.</p>
-                    ) : (
-                      <ul className="space-y-2 text-xs text-gray-700 max-h-48 overflow-y-auto pr-1">
-                        {deviceAccessories
-                          .filter((a) => a.status === 'ACTIVE')
-                          .map((acc) => (
-                            <li
-                              key={acc.id}
-                              className="rounded-lg border border-gray-200 px-3 py-2 bg-gray-50/60 flex items-center justify-between gap-2"
-                            >
-                              <div className="flex-1 min-w-0">
-                                <div className="font-medium text-gray-900">{acc.accessoryLabel}</div>
-                                {acc.accessoryType && (
-                                  <div className="text-[11px] text-gray-500">{acc.accessoryType}</div>
-                                )}
-                                <div className="text-[11px] text-gray-500">
-                                  seit {acc.start ? new Date(acc.start).toLocaleDateString('de-DE') : '—'}
-                                </div>
-                              </div>
-                              {canEditAccessories && (
-                                <div className="flex gap-1">
-                                  <button
-                                    type="button"
-                                    onClick={() => handleReturnAccessory(acc.id, true)}
-                                    disabled={accessoryActionLoading}
-                                    className="p-1.5 rounded-lg border border-gray-200 text-gray-500 hover:bg-emerald-50 hover:text-emerald-600 hover:border-emerald-200 disabled:opacity-50"
-                                    title="Zurückgeben (ins Lager)"
-                                  >
-                                    <Undo2 className="w-3.5 h-3.5" />
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => handleReturnAccessory(acc.id, false)}
-                                    disabled={accessoryActionLoading}
-                                    className="p-1.5 rounded-lg border border-gray-200 text-gray-500 hover:bg-red-50 hover:text-red-600 hover:border-red-200 disabled:opacity-50"
-                                    title="Ausbuchen / Defekt (nicht ins Lager)"
-                                  >
-                                    <XCircle className="w-3.5 h-3.5" />
-                                  </button>
-                                </div>
-                              )}
-                            </li>
-                          ))}
-                      </ul>
                     )}
+
+                    {canEditDevices && (
+                      <div className="border-t border-gray-100 pt-3 mt-2">
+                        <button
+                          type="button"
+                          onClick={handleRetire}
+                          className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-red-50 text-xs text-red-700 hover:bg-red-100"
+                        >
+                          <AlertTriangle className="w-3 h-3" />
+                          Gerät ausbuchen / defekt
+                        </button>
+                      </div>
+                    )}
+
+                    {actionError && (
+                      <div className="mt-3 text-[11px] text-red-600 flex items-center gap-1">
+                        <AlertTriangle className="w-3 h-3" />
+                        {actionError}
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <p className="text-xs text-gray-500">Bitte wähle links ein Gerät aus.</p>
+                )}
+              </div>
+
+              {/* Zubehör */}
+              <div className="bg-white rounded-xl border border-gray-200 p-4 flex flex-col">
+                <h2 className="text-sm font-semibold text-gray-900 flex items-center gap-2 mb-3">
+                  <Package className="w-4 h-4 text-primary-dark" />
+                  Zubehör
+                </h2>
+
+                {selectedDevice ? (
+                  <>
+                    {canEditAccessories && (
+                      <div className="mb-3 text-xs space-y-2">
+                        <label className="block text-xs font-medium text-gray-700">Zubehör aus Lager zuweisen</label>
+                        <select
+                          value={selectedAccessoryId}
+                          onChange={(e) => setSelectedAccessoryId(e.target.value)}
+                          className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-primary"
+                        >
+                          <option value="">-- Zubehör wählen --</option>
+                          {accessoryOptions
+                            .filter((opt) => opt.stock > 0)
+                            .map((opt) => (
+                              <option key={opt.id} value={opt.id}>
+                                {opt.label} (Bestand: {opt.stock})
+                              </option>
+                            ))}
+                        </select>
+                        <button
+                          type="button"
+                          onClick={handleAssignAccessory}
+                          disabled={!selectedAccessoryId || accessoryActionLoading}
+                          className="w-full px-3 py-1.5 rounded-lg bg-primary text-white text-xs hover:bg-primary-dark disabled:bg-primary/50 disabled:cursor-not-allowed"
+                        >
+                          {accessoryActionLoading ? 'Wird zugewiesen...' : 'Zuweisen & vom Lager abbuchen'}
+                        </button>
+                      </div>
+                    )}
+
+                    <div className="border-t border-gray-100 pt-3">
+                      <p className="text-xs font-medium text-gray-700 mb-2">Zugewiesenes Zubehör</p>
+                      {accessoriesLoading ? (
+                        <div className="flex items-center justify-center py-4">
+                          <RefreshCw className="w-4 h-4 text-primary-dark animate-spin" />
+                        </div>
+                      ) : deviceAccessories.filter((a) => a.status === 'ACTIVE').length === 0 ? (
+                        <p className="text-[11px] text-gray-500">Kein Zubehör zugewiesen.</p>
+                      ) : (
+                        <ul className="space-y-2 text-xs text-gray-700 max-h-48 overflow-y-auto pr-1">
+                          {deviceAccessories
+                            .filter((a) => a.status === 'ACTIVE')
+                            .map((acc) => (
+                              <li
+                                key={acc.id}
+                                className="rounded-lg border border-gray-200 px-3 py-2 bg-gray-50/60 flex items-center justify-between gap-2"
+                              >
+                                <div className="flex-1 min-w-0">
+                                  <div className="font-medium text-gray-900">{acc.accessoryLabel}</div>
+                                  {acc.accessoryType && (
+                                    <div className="text-[11px] text-gray-500">{acc.accessoryType}</div>
+                                  )}
+                                  <div className="text-[11px] text-gray-500">
+                                    seit {acc.start ? new Date(acc.start).toLocaleDateString('de-DE') : '—'}
+                                  </div>
+                                </div>
+                                {canEditAccessories && (
+                                  <div className="flex gap-1">
+                                    <button
+                                      type="button"
+                                      onClick={() => handleReturnAccessory(acc.id, true)}
+                                      disabled={accessoryActionLoading}
+                                      className="p-1.5 rounded-lg border border-gray-200 text-gray-500 hover:bg-emerald-50 hover:text-emerald-600 hover:border-emerald-200 disabled:opacity-50"
+                                      title="Zurückgeben (ins Lager)"
+                                    >
+                                      <Undo2 className="w-3.5 h-3.5" />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleReturnAccessory(acc.id, false)}
+                                      disabled={accessoryActionLoading}
+                                      className="p-1.5 rounded-lg border border-gray-200 text-gray-500 hover:bg-red-50 hover:text-red-600 hover:border-red-200 disabled:opacity-50"
+                                      title="Ausbuchen / Defekt (nicht ins Lager)"
+                                    >
+                                      <XCircle className="w-3.5 h-3.5" />
+                                    </button>
+                                  </div>
+                                )}
+                              </li>
+                            ))}
+                        </ul>
+                      )}
+                    </div>
+
+                    {deviceAccessories.filter((a) => a.status === 'RETURNED').length > 0 && (
+                      <div className="border-t border-gray-100 pt-3 mt-3">
+                        <p className="text-xs font-medium text-gray-700 mb-2">Zubehör-Historie</p>
+                        <ul className="space-y-1 text-[11px] text-gray-500 max-h-32 overflow-y-auto pr-1">
+                          {deviceAccessories
+                            .filter((a) => a.status === 'RETURNED')
+                            .map((acc) => (
+                              <li key={acc.id} className="flex justify-between">
+                                <span>{acc.accessoryLabel}</span>
+                                <span>
+                                  {acc.start ? new Date(acc.start).toLocaleDateString('de-DE') : '?'} –{' '}
+                                  {acc.end ? new Date(acc.end).toLocaleDateString('de-DE') : '?'}
+                                </span>
+                              </li>
+                            ))}
+                        </ul>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <p className="text-xs text-gray-500">Wähle links ein Gerät, um Zubehör zu verwalten.</p>
+                )}
+              </div>
+            </div>
+
+            {/* Verlauf & Protokolle */}
+            <div className="grid grid-cols-1 gap-4">
+              <div className="bg-white rounded-xl border border-gray-200 p-4 flex-1 flex flex-col">
+                <h2 className="text-sm font-semibold text-gray-900 flex items-center gap-2 mb-3">
+                  <History className="w-4 h-4 text-primary-dark" />
+                  Verlauf
+                </h2>
+
+                {selectedDevice ? (
+                  historyLoading ? (
+                    <div className="flex-1 flex items-center justify-center">
+                      <RefreshCw className="w-5 h-5 text-primary-dark animate-spin" />
+                    </div>
+                  ) : history.length === 0 ? (
+                    <p className="text-xs text-gray-500">Für dieses Gerät sind noch keine Zuordnungen vorhanden.</p>
+                  ) : (
+                    <ul className="space-y-2 text-xs text-gray-700 overflow-y-auto max-h-72 pr-1">
+                      {history.map((entry) => (
+                        <li
+                          key={entry.id}
+                          className="rounded-lg border border-gray-200 px-3 py-2 bg-gray-50/60"
+                        >
+                          <div className="font-medium text-gray-900 mb-0.5">
+                            {entry.benutzerName || `Benutzer ${entry.benutzerId}`}
+                          </div>
+                          <div className="text-[11px] text-gray-600">
+                            <span className="mr-1">von</span>
+                            {new Date(entry.start).toLocaleDateString('de-DE')}
+                            <span className="mx-1">bis</span>
+                            {entry.ende
+                              ? new Date(entry.ende).toLocaleDateString('de-DE')
+                              : 'heute'}
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  )
+                ) : (
+                  <p className="text-xs text-gray-500">Wähle links ein Gerät, um den Verlauf zu sehen.</p>
+                )}
+              </div>
+
+              {canViewProtocols && (
+                <div className="bg-white rounded-xl border border-gray-200 p-4 flex flex-col">
+                  <div className="flex items-center justify-between mb-3">
+                    <h2 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
+                      <ClipboardList className="w-4 h-4 text-primary-dark" />
+                      Protokolle
+                    </h2>
+                    <Link
+                      href="/protokolle"
+                      className="text-[11px] font-medium text-primary-dark hover:underline"
+                    >
+                      Alle ansehen
+                    </Link>
                   </div>
 
-                  {/* Zubehör-Historie (beendet) */}
-                  {deviceAccessories.filter((a) => a.status === 'RETURNED').length > 0 && (
-                    <div className="border-t border-gray-100 pt-3 mt-3">
-                      <p className="text-xs font-medium text-gray-700 mb-2">Zubehör-Historie</p>
-                      <ul className="space-y-1 text-[11px] text-gray-500 max-h-32 overflow-y-auto pr-1">
-                        {deviceAccessories
-                          .filter((a) => a.status === 'RETURNED')
-                          .map((acc) => (
-                            <li key={acc.id} className="flex justify-between">
-                              <span>{acc.accessoryLabel}</span>
-                              <span>
-                                {acc.start ? new Date(acc.start).toLocaleDateString('de-DE') : '?'} –{' '}
-                                {acc.end ? new Date(acc.end).toLocaleDateString('de-DE') : '?'}
-                              </span>
+                  {selectedDevice ? (
+                    protocolsLoading ? (
+                      <div className="flex items-center justify-center py-6">
+                        <RefreshCw className="w-5 h-5 text-primary-dark animate-spin" />
+                      </div>
+                    ) : deviceProtocols.length === 0 ? (
+                      <p className="text-xs text-gray-500">Keine Protokolle für dieses Gerät vorhanden.</p>
+                    ) : (
+                      <>
+                        <ul className="space-y-2 text-xs text-gray-700">
+                          {deviceProtocols.slice(0, 5).map((protocol) => (
+                            <li key={protocol.id}>
+                              <button
+                                type="button"
+                                onClick={() => setSelectedProtocolId(protocol.id)}
+                                className={`w-full text-left border border-gray-200 rounded-lg px-3 py-2 bg-gray-50/70 flex items-center gap-3 hover:bg-gray-100 transition-colors ${
+                                  protocol.id === selectedProtocolId ? 'ring-2 ring-primary' : ''
+                                }`}
+                              >
+                                <div className="p-1.5 rounded-lg bg-white border border-gray-200">
+                                  {renderProtocolTypeIcon(protocol.typ)}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <div className="font-semibold text-primary-dark truncate">{protocol.protokollNr}</div>
+                                  <div className="text-[11px] text-gray-500 truncate">
+                                    {protocol.benutzerName || 'Unbekannt'} • {formatDate(protocol.erstelltAm)}
+                                  </div>
+                                </div>
+                                {renderProtocolStatusBadge(protocol.status)}
+                              </button>
                             </li>
                           ))}
-                      </ul>
-                    </div>
+                        </ul>
+                        {deviceProtocols.length > 0 && selectedProtocolDetail && (
+                          <div className="mt-4 border border-gray-200 rounded-lg p-3 bg-white space-y-3">
+                            <div className="flex items-center justify-between gap-3">
+                              <div>
+                                <p className="text-xs text-gray-500">
+                                  {getProtocolTypeLabel(selectedProtocolDetail.typ)}
+                                </p>
+                                <p className="text-sm font-semibold text-gray-900">{selectedProtocolDetail.protokollNr}</p>
+                              </div>
+                              <Link
+                                href={`/protokolle/${selectedProtocolDetail.id}`}
+                                className="text-[11px] font-medium text-primary-dark hover:underline"
+                              >
+                                Im Protokoll öffnen
+                              </Link>
+                            </div>
+                            <div className="grid grid-cols-2 gap-3 text-[11px] text-gray-600">
+                              <div>
+                                <p className="text-gray-500">Mitarbeiter</p>
+                                <p className="font-medium text-gray-900">
+                                  {selectedProtocolDetail.benutzer?.name || 'Unbekannt'}
+                                </p>
+                              </div>
+                              <div>
+                                <p className="text-gray-500">Datum</p>
+                                <p className="font-medium text-gray-900">{formatDate(selectedProtocolDetail.erstelltAm)}</p>
+                              </div>
+                            </div>
+                            {selectedProtocolDetail.bemerkung && (
+                              <div className="text-[11px] text-gray-600">
+                                <p className="text-gray-500 mb-1">Bemerkung</p>
+                                <p className="bg-gray-50 rounded-lg p-2 text-gray-700">
+                                  {selectedProtocolDetail.bemerkung}
+                                </p>
+                              </div>
+                            )}
+                            {selectedProtocolDetail.positionen && selectedProtocolDetail.positionen.length > 0 && (
+                              <div className="space-y-2">
+                                <p className="text-[11px] text-gray-500">Positionen</p>
+                                <ul className="space-y-1">
+                                  {selectedProtocolDetail.positionen.slice(0, 3).map((pos) => (
+                                    <li key={pos.id} className="text-[11px] text-gray-700 flex items-center gap-2">
+                                      <span className="h-1.5 w-1.5 rounded-full bg-gray-400" />
+                                      <span className="truncate">
+                                        {pos.geraet
+                                          ? `Gerät ${pos.geraet.inventarCode}${
+                                              pos.geraet.sno ? ` (${pos.geraet.sno})` : ''
+                                            }`
+                                          : pos.zubehoer?.typ || 'Position'}{' '}
+                                        {pos.zustand ? `• ${pos.zustand}` : ''}
+                                      </span>
+                                    </li>
+                                  ))}
+                                  {selectedProtocolDetail.positionen.length > 3 && (
+                                    <li className="text-[11px] text-gray-500">… weitere Positionen</li>
+                                  )}
+                                </ul>
+                              </div>
+                            )}
+                            {protocolDetailLoading && (
+                              <div className="flex items-center gap-2 text-[11px] text-gray-500">
+                                <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                                Protokolldetails werden geladen …
+                              </div>
+                            )}
+                            {protocolError && (
+                              <p className="text-[11px] text-red-600 flex items-center gap-1">
+                                <AlertTriangle className="w-3.5 h-3.5" />
+                                {protocolError}
+                              </p>
+                            )}
+                          </div>
+                        )}
+                      </>
+                    )
+                  ) : (
+                    <p className="text-xs text-gray-500">Wähle links ein Gerät, um Protokolle zu sehen.</p>
                   )}
-                </>
-              ) : (
-                <p className="text-xs text-gray-500">Wähle links ein Gerät, um Zubehör zu verwalten.</p>
+                </div>
               )}
             </div>
           </section>

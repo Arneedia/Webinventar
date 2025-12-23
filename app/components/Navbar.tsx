@@ -57,8 +57,13 @@ export default async function Navbar() {
   const adminLinks: { href: string; label: string; show: boolean }[] = [
     {
       href: '/admin/users',
-      label: 'Userverwaltung',
+      label: 'Web-Benutzer',
       show: !!user && (user.role === Roles.ADMIN || userHasPermission(user, AvailablePermissions.ADMIN_USERS_MANAGE)),
+    },
+    {
+      href: '/admin/inventory-users',
+      label: 'Inventar-Benutzer',
+      show: !!user && (user.role === Roles.ADMIN || userHasPermission(user, AvailablePermissions.INVENTORY_USERS_VIEW)),
     },
     {
       href: '/admin/permission-groups',

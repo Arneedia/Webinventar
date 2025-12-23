@@ -13,6 +13,7 @@ interface AssignmentsTabProps {
   onFiltersChange: (field: keyof AssignmentFilterState, value: string) => void;
   onSubmit: (event: React.FormEvent<HTMLFormElement>) => void;
   onReturn: (assignment: AccessoryAssignmentSummary) => void;
+  onDelete: (id: number) => void;
 }
 
 const statusBadge: Record<AccessoryAssignmentSummary["status"], string> = {
@@ -36,6 +37,7 @@ export default function AssignmentsTab({
   onFiltersChange,
   onSubmit,
   onReturn,
+  onDelete,
 }: AssignmentsTabProps) {
   return (
     <div className="space-y-6">
@@ -184,6 +186,13 @@ export default function AssignmentsTab({
                       <RefreshCcw className="h-3.5 w-3.5" /> Rückgabe buchen
                     </button>
                   )}
+                  <button
+                    type="button"
+                    onClick={() => onDelete(assignment.id)}
+                    className="inline-flex items-center gap-2 rounded-full border border-red-200 px-3 py-1 text-xs font-semibold text-red-600 hover:bg-red-50"
+                  >
+                    Löschen
+                  </button>
                 </div>
               </div>
               <div className="mt-3 grid gap-4 text-sm text-gray-600 sm:grid-cols-4">

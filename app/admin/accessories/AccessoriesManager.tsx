@@ -160,6 +160,7 @@ export default function AccessoriesManager() {
   );
 
   const [newTypeName, setNewTypeName] = useState("");
+  const [editingTypeId, setEditingTypeId] = useState<number | null>(null);
   const [newAccessory, setNewAccessory] = useState<AccessoryFormState>({
     ZTID: "",
     HWID: "",
@@ -167,6 +168,7 @@ export default function AccessoriesManager() {
     ModID: "",
     Beschreibung: "",
   });
+  const [editingAccessoryId, setEditingAccessoryId] = useState<number | null>(null);
   const [movementForm, setMovementForm] = useState<MovementFormState>({
     ZubehoerID: "",
     Menge: "1",
@@ -242,6 +244,18 @@ export default function AccessoriesManager() {
     if (!term) return true;
     const lower = term.toLowerCase();
     return label.toLowerCase().includes(lower) || String(value).includes(lower);
+  };
+
+  const handleDeleteMovement = async (id: number) => {
+    try {
+      await handleApiCall(
+        `/api/tables/ZubehoerInventar/${id}`,
+        { method: "DELETE" },
+        "Bewegung gelöscht",
+      );
+    } catch (err) {
+      setGlobalError(err instanceof Error ? err.message : "Aktion fehlgeschlagen");
+    }
   };
 
   const filteredHwOptions = useMemo<SelectOption[]>(() => {
@@ -378,37 +392,117 @@ export default function AccessoriesManager() {
 
   const handleCreateType = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!newTypeName.trim()) return;
     try {
-      await handleApiCall(
-        "/api/tables/ZT",
-        { method: "POST", body: JSON.stringify({ ZTName: newTypeName.trim() }) },
-        "Zubehör-Typ erstellt",
-      );
+      const payload = { ZTName: newTypeName.trim() };
+      if (!payload.ZTName) {
+        return;
+      }
+
+      if (editingTypeId === null) {
+        await handleApiCall(
+          "/api/tables/ZT",
+          { method: "POST", body: JSON.stringify(payload) },
+          "Zubehör-Typ erstellt",
+        );
+      } else {
+        await handleApiCall(
+          `/api/tables/ZT/${editingTypeId}`,
+          { method: "PUT", body: JSON.stringify(payload) },
+          "Zubehör-Typ aktualisiert",
+        );
+      }
       setNewTypeName("");
+      setEditingTypeId(null);
     } catch (err) {
       setGlobalError(err instanceof Error ? err.message : "Aktion fehlgeschlagen");
     }
   };
 
-  const handleCreateAccessory = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
+  const handleEditType = (id: number, name: string | null) => {
+    setEditingTypeId(id);
+    setNewTypeName(name?.trim() ?? "");
+    setActiveTab("types");
+  };
+
+  const handleCancelEditType = () => {
+    setEditingTypeId(null);
+    setNewTypeName("");
+  };
+
+  const handleDeleteType = async (id: number) => {
     try {
       await handleApiCall(
-        "/api/tables/Zubehoer",
-        {
-          method: "POST",
-          body: JSON.stringify({
-            ZTID: Number(newAccessory.ZTID),
-            HWID: Number(newAccessory.HWID),
-            HSID: Number(newAccessory.HSID),
-            ModID: Number(newAccessory.ModID),
-            Beschreibung: newAccessory.Beschreibung.trim() || null,
-          }),
-        },
-        "Zubehör angelegt",
+        `/api/tables/ZT/${id}`,
+        { method: "DELETE" },
+        "Zubehör-Typ gelöscht",
       );
+      if (editingTypeId === id) {
+        handleCancelEditType();
+      }
+    } catch (err) {
+      setGlobalError(err instanceof Error ? err.message : "Aktion fehlgeschlagen");
+    }
+  };
+
+  const handleSaveAccessory = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    try {
+      const payload = {
+        ZTID: Number(newAccessory.ZTID),
+        HWID: Number(newAccessory.HWID),
+        HSID: newAccessory.HSID ? Number(newAccessory.HSID) : null,
+        ModID: newAccessory.ModID ? Number(newAccessory.ModID) : null,
+        Beschreibung: newAccessory.Beschreibung.trim() || null,
+      };
+
+      if (editingAccessoryId === null) {
+        await handleApiCall(
+          "/api/tables/Zubehoer",
+          { method: "POST", body: JSON.stringify(payload) },
+          "Zubehör angelegt",
+        );
+      } else {
+        await handleApiCall(
+          `/api/tables/Zubehoer/${editingAccessoryId}`,
+          { method: "PUT", body: JSON.stringify(payload) },
+          "Zubehör aktualisiert",
+        );
+      }
+
       setNewAccessory({ ZTID: "", HWID: "", HSID: "", ModID: "", Beschreibung: "" });
+      setEditingAccessoryId(null);
+    } catch (err) {
+      setGlobalError(err instanceof Error ? err.message : "Aktion fehlgeschlagen");
+    }
+  };
+
+  const handleEditAccessory = (item: AccessoryItemSummary) => {
+    setNewAccessory({
+      ZTID: String(item.type.id),
+      HWID: String(item.hardware.id),
+      HSID: item.manufacturer?.id ? String(item.manufacturer.id) : "",
+      ModID: item.model?.id ? String(item.model.id) : "",
+      Beschreibung: item.description ?? "",
+    });
+    setEditingAccessoryId(item.id);
+    setActiveTab("catalog");
+  };
+
+  const handleCancelEditAccessory = () => {
+    setEditingAccessoryId(null);
+    setNewAccessory({ ZTID: "", HWID: "", HSID: "", ModID: "", Beschreibung: "" });
+  };
+
+  const handleDeleteAccessory = async (id: number) => {
+    try {
+      await handleApiCall(
+        `/api/tables/Zubehoer/${id}`,
+        { method: "DELETE" },
+        "Zubehör gelöscht",
+      );
+      if (editingAccessoryId === id) {
+        handleCancelEditAccessory();
+      }
     } catch (err) {
       setGlobalError(err instanceof Error ? err.message : "Aktion fehlgeschlagen");
     }
@@ -431,6 +525,18 @@ export default function AccessoriesManager() {
         movementForm.direction === "IN" ? "Zugang gebucht" : "Abgang gebucht",
       );
       setMovementForm((prev) => ({ ...prev, Menge: "1" }));
+    } catch (err) {
+      setGlobalError(err instanceof Error ? err.message : "Aktion fehlgeschlagen");
+    }
+  };
+
+  const handleUpdateMovementQuantity = async (id: number, quantity: number) => {
+    try {
+      await handleApiCall(
+        `/api/tables/ZubehoerInventar/${id}`,
+        { method: "PUT", body: JSON.stringify({ Menge: quantity }) },
+        "Menge aktualisiert",
+      );
     } catch (err) {
       setGlobalError(err instanceof Error ? err.message : "Aktion fehlgeschlagen");
     }
@@ -483,6 +589,18 @@ export default function AccessoriesManager() {
     }
   };
 
+  const handleDeleteAssignment = async (id: number) => {
+    try {
+      await handleApiCall(
+        `/api/tables/ZubehoerBenutzer/${id}`,
+        { method: "DELETE" },
+        "Zuordnung gelöscht",
+      );
+    } catch (err) {
+      setGlobalError(err instanceof Error ? err.message : "Aktion fehlgeschlagen");
+    }
+  };
+
   const renderGlobalFeedback = () => (
     <div className="space-y-3">
       {error && (
@@ -509,8 +627,12 @@ export default function AccessoriesManager() {
         <TypesTab
           types={overview?.types ?? []}
           newTypeName={newTypeName}
+          editingId={editingTypeId}
           onTypeNameChange={setNewTypeName}
           onCreateType={handleCreateType}
+          onEdit={handleEditType}
+          onDelete={handleDeleteType}
+          onCancelEdit={handleCancelEditType}
         />
       )}
 
@@ -527,7 +649,11 @@ export default function AccessoriesManager() {
           onFormChange={handleAccessoryFormChange}
           onFiltersChange={handleCatalogFilterChange}
           onDropdownFilterChange={handleDropdownFilterChange}
-          onSubmit={handleCreateAccessory}
+          onSave={handleSaveAccessory}
+          editingId={editingAccessoryId}
+          onEdit={handleEditAccessory}
+          onDelete={handleDeleteAccessory}
+          onCancelEdit={handleCancelEditAccessory}
         />
       )}
 
@@ -538,6 +664,8 @@ export default function AccessoriesManager() {
           form={movementForm}
           onFormChange={handleMovementFormChange}
           onSubmit={handleInventoryMovement}
+          onDelete={handleDeleteMovement}
+          onUpdateQuantity={handleUpdateMovementQuantity}
         />
       )}
 
@@ -553,6 +681,7 @@ export default function AccessoriesManager() {
           onFiltersChange={handleAssignmentFilterChange}
           onSubmit={handleAssignment}
           onReturn={handleAssignmentReturn}
+          onDelete={handleDeleteAssignment}
         />
       )}
     </TabsShell>
