@@ -1,7 +1,7 @@
 import { Boxes, RefreshCw, Save } from "lucide-react";
 import type { InventoryMovementSummary } from "@/lib/accessories";
 import type { MovementFormState, SelectOption } from "../types";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 interface InventoryTabProps {
   accessoryOptions: SelectOption[];
@@ -38,6 +38,14 @@ export default function InventoryTab({
   onUpdateQuantity,
 }: InventoryTabProps) {
   const [quantities, setQuantities] = useState<Record<number, string>>({});
+
+  const accessoryLabelById = useMemo(() => {
+    const map = new Map<number, string>();
+    accessoryOptions.forEach((option) => {
+      map.set(option.value, option.label);
+    });
+    return map;
+  }, [accessoryOptions]);
 
   useEffect(() => {
     const next: Record<number, string> = {};
@@ -150,7 +158,11 @@ export default function InventoryTab({
               )}
               {movements.map((movement) => (
                 <tr key={movement.id}>
-                  <td className="px-4 py-3 text-gray-600">{movement.note ?? `Zubehör #${movement.accessoryId}`}</td>
+                  <td className="px-4 py-3 text-gray-600">
+                    {accessoryLabelById.get(movement.accessoryId) ??
+                      movement.note ??
+                      `Zubehör #${movement.accessoryId}`}
+                  </td>
                   <td className="px-4 py-3">
                     <input
                       type="number"

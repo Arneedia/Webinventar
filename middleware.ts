@@ -11,7 +11,7 @@ export function middleware(req: NextRequest) {
   }
 
   // Geschützte Seiten
-  const protectedPrefixes = ['/', '/geraete', '/admin'];
+  const protectedPrefixes = ['/', '/geraete', '/admin', '/auswertungen'];
   const requiresAuth = protectedPrefixes.some((p) => pathname === p || pathname.startsWith(p + '/'));
 
   if (!requiresAuth) {

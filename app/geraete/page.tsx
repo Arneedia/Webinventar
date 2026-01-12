@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, KeyboardEvent } from 'react';
 import Link from 'next/link';
-import { Database, MonitorSmartphone, UserRound, History, AlertTriangle, Plus, RefreshCw, Package, Undo2, XCircle, X, ChevronRight, QrCode, MapPin, ClipboardList, ArrowUpRight, ArrowDownLeft, Repeat, FileText, User, Calendar, CheckCircle2, Clock, FileEdit, Archive } from 'lucide-react';
+import { Database, MonitorSmartphone, UserRound, History, AlertTriangle, Plus, RefreshCw, Package, Undo2, XCircle, X, ChevronRight, QrCode, MapPin, ClipboardList, ArrowUpRight, ArrowDownLeft, Repeat, FileText, User, Calendar, CheckCircle2, Clock, FileEdit, Archive, Edit2 } from 'lucide-react';
 import StickerModal from '../components/StickerModal';
 
 interface DeviceListItem {
@@ -11,9 +11,12 @@ interface DeviceListItem {
   sno: string;
   zugang: string;
   abgang: string | null;
+  hwId: number | null;
   hwName: string | null;
   hwCode: string | null;
+  hsId: number | null;
   hsName: string | null;
+  modelId: number | null;
   modelName: string | null;
   preis: number | null;
   ean: string | null;
@@ -168,6 +171,28 @@ export default function DeviceManagementPage() {
 
   // Sticker Modal
   const [showStickerModal, setShowStickerModal] = useState(false);
+
+  // Retire Modal mit Zubehör-Verwaltung
+  const [showRetireModal, setShowRetireModal] = useState(false);
+  const [retireAccessoryActions, setRetireAccessoryActions] = useState<Record<number, 'retire' | 'return'>>({});
+
+  // Nicht zugewiesene Geräte Sektion
+  const [showUnassignedSection, setShowUnassignedSection] = useState(false);
+
+  // Edit Mode für Gerätedaten
+  const [isEditingDevice, setIsEditingDevice] = useState(false);
+  const [editDeviceData, setEditDeviceData] = useState({
+    SNO: '',
+    EAN: '',
+    IMEI1: '',
+    IMEI2: '',
+    Preis: '',
+    HWID: '',
+    HSID: '',
+    MODID: '',
+  });
+  const [editDeviceLoading, setEditDeviceLoading] = useState(false);
+  const [editDeviceError, setEditDeviceError] = useState<string | null>(null);
 
   const [newDevice, setNewDevice] = useState({
     HWID: '',
@@ -627,22 +652,103 @@ export default function DeviceManagementPage() {
     }
   };
 
-  const handleRetire = async () => {
+  const handleRetireClick = () => {
+    if (!selectedDeviceId) return;
+    const activeAccessories = deviceAccessories.filter((a) => a.status === 'ACTIVE');
+    
+    if (activeAccessories.length > 0) {
+      // Initialisiere Aktionen: Standard ist "return" (zurück ins Inventar)
+      const initialActions: Record<number, 'retire' | 'return'> = {};
+      activeAccessories.forEach((acc) => {
+        initialActions[acc.accessoryId] = 'return';
+      });
+      setRetireAccessoryActions(initialActions);
+      setShowRetireModal(true);
+    } else {
+      // Keine aktiven Zubehörteile, direkt ausbuchen
+      handleRetireConfirm();
+    }
+  };
+
+  const handleRetireConfirm = async () => {
     if (!selectedDeviceId) return;
     setActionError(null);
 
     try {
       const res = await fetch(`/api/devices/${selectedDeviceId}/retire`, {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ accessoryActions: retireAccessoryActions }),
       });
       if (!res.ok) {
         const data = await res.json();
         throw new Error(data.error || 'Fehler beim Ausbuchen des Geräts');
       }
+      setShowRetireModal(false);
+      setRetireAccessoryActions({});
       await fetchDevices();
       await fetchHistory(selectedDeviceId);
+      await fetchDeviceAccessories(selectedDeviceId);
     } catch (err) {
       setActionError(err instanceof Error ? err.message : 'Fehler beim Ausbuchen des Geräts');
+    }
+  };
+
+  const handleStartEditDevice = () => {
+    if (!selectedDevice) return;
+    setEditDeviceData({
+      SNO: selectedDevice.sno || '',
+      EAN: selectedDevice.ean || '',
+      IMEI1: selectedDevice.imei1 || '',
+      IMEI2: selectedDevice.imei2 || '',
+      Preis: selectedDevice.preis != null ? String(selectedDevice.preis) : '',
+      HWID: selectedDevice.hwId ? String(selectedDevice.hwId) : '',
+      HSID: selectedDevice.hsId ? String(selectedDevice.hsId) : '',
+      MODID: selectedDevice.modelId ? String(selectedDevice.modelId) : '',
+    });
+    setIsEditingDevice(true);
+    setEditDeviceError(null);
+  };
+
+  const handleCancelEditDevice = () => {
+    setIsEditingDevice(false);
+    setEditDeviceError(null);
+  };
+
+  const handleSaveDeviceEdit = async () => {
+    if (!selectedDeviceId) return;
+    setEditDeviceLoading(true);
+    setEditDeviceError(null);
+
+    try {
+      const payload = {
+        SNO: editDeviceData.SNO || null,
+        EAN: editDeviceData.EAN || null,
+        IMEI1: editDeviceData.IMEI1 || null,
+        IMEI2: editDeviceData.IMEI2 || null,
+        Preis: editDeviceData.Preis ? Number(editDeviceData.Preis) : null,
+        HWID: editDeviceData.HWID ? Number(editDeviceData.HWID) : null,
+        HSID: editDeviceData.HSID ? Number(editDeviceData.HSID) : null,
+        MODID: editDeviceData.MODID ? Number(editDeviceData.MODID) : null,
+      };
+
+      const res = await fetch(`/api/devices/${selectedDeviceId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || 'Fehler beim Aktualisieren des Geräts');
+      }
+
+      await fetchDevices();
+      setIsEditingDevice(false);
+    } catch (err) {
+      setEditDeviceError(err instanceof Error ? err.message : 'Fehler beim Aktualisieren des Geräts');
+    } finally {
+      setEditDeviceLoading(false);
     }
   };
 
@@ -848,9 +954,11 @@ export default function DeviceManagementPage() {
 
       {/* Inhalt */}
       <main className="flex-1">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-6 flex flex-col lg:flex-row gap-6">
-          {/* Geräte-Liste, Filter & Neuanlage */}
-          <section className="flex-1 flex flex-col gap-4">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-6 flex flex-col gap-6">
+
+          <div className="flex flex-col lg:flex-row gap-6">
+            {/* Geräte-Liste, Filter & Neuanlage */}
+            <section className="flex-1 flex flex-col gap-4" id="device-detail-section">
             <div className="flex items-center justify-between gap-3">
               <h2 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
                 <MonitorSmartphone className="w-4 h-4 text-primary-dark" />
@@ -1028,18 +1136,35 @@ export default function DeviceManagementPage() {
             )}
 
             <div className="bg-white rounded-xl border border-gray-200 p-3 flex flex-col sm:flex-row gap-3 text-xs">
-              <div className="flex-1 flex flex-col sm:flex-row gap-2">
+              <div className="flex-1 flex flex-col sm:flex-row gap-2 min-w-0">
                 <input
                   type="text"
                   placeholder="Suchen (SNO, EAN, IMEI, Typ, Modell, Benutzer)..."
                   value={deviceSearch}
                   onChange={(e) => setDeviceSearch(e.target.value)}
-                  className="w-full sm:flex-1 px-3 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                  className="w-full sm:flex-1 px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
+                  style={{ minWidth: '200px' }}
                 />
                 <select
                   value={filterUserId}
                   onChange={(e) => setFilterUserId(e.target.value)}
-                  className="w-full sm:w-56 px-3 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                  className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
+                  style={{ 
+                    appearance: 'none',
+                    WebkitAppearance: 'none',
+                    MozAppearance: 'none',
+                    backgroundImage: 'url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' fill=\'none\' viewBox=\'0 0 20 20\'%3E%3Cpath stroke=\'%236b7280\' stroke-linecap=\'round\' stroke-linejoin=\'round\' stroke-width=\'1.5\' d=\'M6 8l4 4 4-4\'/%3E%3C/svg%3E")', 
+                    backgroundPosition: 'right 0.5rem center', 
+                    backgroundRepeat: 'no-repeat', 
+                    backgroundSize: '1.5em 1.5em', 
+                    paddingRight: '2.5rem',
+                    borderWidth: '1px',
+                    borderStyle: 'solid',
+                    borderColor: '#d1d5db',
+                    minWidth: '14rem',
+                    width: '14rem',
+                    flexShrink: 0
+                  }}
                 >
                   <option value="">Alle Benutzer</option>
                   {users.map((u) => (
@@ -1049,22 +1174,38 @@ export default function DeviceManagementPage() {
                   ))}
                 </select>
               </div>
-              <div className="flex items-center gap-2 flex-wrap">
+              <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
                 <select
                   value={statusFilter}
                   onChange={(e) => setStatusFilter(e.target.value as 'all' | 'active' | 'retired')}
-                  className="px-3 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                  className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
+                  style={{ 
+                    appearance: 'none',
+                    WebkitAppearance: 'none',
+                    MozAppearance: 'none',
+                    backgroundImage: 'url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' fill=\'none\' viewBox=\'0 0 20 20\'%3E%3Cpath stroke=\'%236b7280\' stroke-linecap=\'round\' stroke-linejoin=\'round\' stroke-width=\'1.5\' d=\'M6 8l4 4 4-4\'/%3E%3C/svg%3E")', 
+                    backgroundPosition: 'right 0.5rem center', 
+                    backgroundRepeat: 'no-repeat', 
+                    backgroundSize: '1.5em 1.5em', 
+                    paddingRight: '2.5rem',
+                    borderWidth: '1px',
+                    borderStyle: 'solid',
+                    borderColor: '#d1d5db',
+                    minWidth: '10rem',
+                    width: '10rem',
+                    flexShrink: 0
+                  }}
                 >
                   <option value="all">Alle Status</option>
                   <option value="active">Nur aktive</option>
                   <option value="retired">Nur ausgebuchte</option>
                 </select>
-                <label className="inline-flex items-center gap-2 px-2 py-1.5 border border-gray-200 rounded-lg text-gray-600 text-[11px] font-medium">
+                <label className="inline-flex items-center gap-2 px-2 py-1.5 border border-gray-200 rounded-lg text-gray-600 text-[11px] font-medium whitespace-nowrap flex-shrink-0">
                   <input
                     type="checkbox"
                     checked={showUnassignedOnly}
                     onChange={(e) => setShowUnassignedOnly(e.target.checked)}
-                    className="h-3.5 w-3.5 rounded border-gray-300 text-primary focus:ring-primary"
+                    className="h-3.5 w-3.5 rounded border-gray-300 text-primary focus:ring-1 focus:ring-primary"
                   />
                   Nur ohne Benutzer
                 </label>
@@ -1119,11 +1260,19 @@ export default function DeviceManagementPage() {
                           return (
                             <tr
                               key={d.id}
-                              className={`cursor-pointer hover:bg-gray-50 ${isSelected ? 'bg-primary/10/60' : ''}`}
+                              className={`cursor-pointer transition-colors ${
+                                isSelected 
+                                  ? 'bg-primary/10 border-l-4 border-primary shadow-sm' 
+                                  : 'hover:bg-gray-50 border-l-4 border-transparent'
+                              }`}
                               onClick={() => setSelectedDeviceId(d.id)}
                             >
-                              <td className="px-3 py-2 text-primary-dark font-semibold">{d.inventarCode}</td>
-                              <td className="px-3 py-2 text-gray-800 font-medium">{d.sno}</td>
+                              <td className={`px-3 py-2 font-semibold ${isSelected ? 'text-primary' : 'text-primary-dark'}`}>
+                                {d.inventarCode}
+                              </td>
+                              <td className={`px-3 py-2 font-medium ${isSelected ? 'text-gray-900' : 'text-gray-800'}`}>
+                                {d.sno}
+                              </td>
                               <td className="px-3 py-2 text-gray-700">{d.hwName || '-'}</td>
                               <td className="px-3 py-2 text-gray-700">{d.hsName || '-'}</td>
                               <td className="px-3 py-2 text-gray-700">{d.modelName || '-'}</td>
@@ -1163,7 +1312,11 @@ export default function DeviceManagementPage() {
                       return (
                         <div
                           key={d.id}
-                          className={`p-3 cursor-pointer active:bg-gray-100 ${isSelected ? 'bg-primary/10/60' : ''}`}
+                          className={`p-3 cursor-pointer transition-colors ${
+                            isSelected 
+                              ? 'bg-primary/10 border-l-4 border-primary shadow-sm' 
+                              : 'active:bg-gray-100 border-l-4 border-transparent'
+                          }`}
                           onClick={() => {
                             setSelectedDeviceId(d.id);
                             setShowMobileDetail(true);
@@ -1215,103 +1368,396 @@ export default function DeviceManagementPage() {
                 </>
               )}
             </div>
+
+            {/* Nicht zugewiesene Geräte - Ausklappbare Sektion */}
+            {devices.filter(d => !d.currentUserName && !d.abgang).length > 0 && (
+              <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => setShowUnassignedSection(!showUnassignedSection)}
+                  className="w-full px-4 py-3 flex items-center justify-between hover:bg-gray-50 transition-colors"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-amber-100 rounded-lg">
+                      <AlertTriangle className="w-4 h-4 text-amber-600" />
+                    </div>
+                    <div className="text-left">
+                      <h3 className="text-sm font-semibold text-gray-900">Nicht zugewiesene Geräte</h3>
+                      <p className="text-xs text-gray-600">Verfügbare Geräte ohne Benutzerzuordnung</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className="px-3 py-1 bg-amber-100 rounded-full">
+                      <span className="text-sm font-bold text-amber-700">
+                        {devices.filter(d => !d.currentUserName && !d.abgang).length}
+                      </span>
+                    </div>
+                    <ChevronRight className={`w-5 h-5 text-gray-400 transition-transform ${
+                      showUnassignedSection ? 'rotate-90' : ''
+                    }`} />
+                  </div>
+                </button>
+
+                {showUnassignedSection && (
+                  <div className="border-t border-gray-200">
+                    {/* Desktop: Tabelle */}
+                    <div className="hidden md:block overflow-x-auto">
+                      <table className="w-full text-xs">
+                        <thead className="bg-amber-50 border-b border-amber-100">
+                          <tr>
+                            <th className="px-3 py-2 text-left font-semibold text-gray-600">Inventar-Nr.</th>
+                            <th className="px-3 py-2 text-left font-semibold text-gray-600">SNO</th>
+                            <th className="px-3 py-2 text-left font-semibold text-gray-600">Typ</th>
+                            <th className="px-3 py-2 text-left font-semibold text-gray-600">Hersteller</th>
+                            <th className="px-3 py-2 text-left font-semibold text-gray-600">Modell</th>
+                            <th className="px-3 py-2 text-left font-semibold text-gray-600">Raum</th>
+                            <th className="px-3 py-2 text-left font-semibold text-gray-600">Zugang</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100">
+                          {devices
+                            .filter(d => !d.currentUserName && !d.abgang)
+                            .map((d) => {
+                              const isSelected = d.id === selectedDeviceId;
+                              return (
+                                <tr
+                                  key={d.id}
+                                  className={`cursor-pointer transition-colors ${
+                                    isSelected 
+                                      ? 'bg-primary/10 border-l-4 border-primary shadow-sm' 
+                                      : 'hover:bg-amber-50/50 border-l-4 border-transparent'
+                                  }`}
+                                  onClick={() => setSelectedDeviceId(d.id)}
+                                >
+                                  <td className={`px-3 py-2 font-semibold ${
+                                    isSelected ? 'text-primary' : 'text-primary-dark'
+                                  }`}>
+                                    {d.inventarCode}
+                                  </td>
+                                  <td className={`px-3 py-2 font-medium ${
+                                    isSelected ? 'text-gray-900' : 'text-gray-800'
+                                  }`}>
+                                    {d.sno}
+                                  </td>
+                                  <td className="px-3 py-2 text-gray-700">{d.hwName || '-'}</td>
+                                  <td className="px-3 py-2 text-gray-700">{d.hsName || '-'}</td>
+                                  <td className="px-3 py-2 text-gray-700">{d.modelName || '-'}</td>
+                                  <td className="px-3 py-2 text-gray-600">{d.effectiveRoom || '-'}</td>
+                                  <td className="px-3 py-2 text-gray-600">
+                                    {d.zugang
+                                      ? new Date(d.zugang).toLocaleDateString('de-DE')
+                                      : '-'}
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {/* Mobile: Karten-Layout */}
+                    <div className="md:hidden divide-y divide-gray-100">
+                      {devices
+                        .filter(d => !d.currentUserName && !d.abgang)
+                        .map((d) => {
+                          const isSelected = d.id === selectedDeviceId;
+                          return (
+                            <div
+                              key={d.id}
+                              className={`p-3 cursor-pointer transition-colors ${
+                                isSelected 
+                                  ? 'bg-primary/10 border-l-4 border-primary shadow-sm' 
+                                  : 'active:bg-amber-50/50 border-l-4 border-transparent'
+                              }`}
+                              onClick={() => {
+                                setSelectedDeviceId(d.id);
+                                setShowMobileDetail(true);
+                              }}
+                            >
+                              <div className="flex items-center justify-between gap-2">
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2 mb-1">
+                                    <span className="font-semibold text-sm text-primary-dark">{d.inventarCode}</span>
+                                    <span className="font-medium text-sm text-gray-900 truncate">{d.sno}</span>
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium shrink-0 bg-amber-50 text-amber-700">
+                                      <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
+                                      Verfügbar
+                                    </span>
+                                  </div>
+                                  <div className="text-xs text-gray-600 truncate">
+                                    {[d.hwName, d.hsName, d.modelName].filter(Boolean).join(' · ') || '-'}
+                                  </div>
+                                  {d.effectiveRoom && (
+                                    <div className="text-xs text-gray-500 mt-0.5 flex items-center gap-1">
+                                      <MapPin className="w-3 h-3" />
+                                      {d.effectiveRoom}
+                                    </div>
+                                  )}
+                                </div>
+                                <ChevronRight className="w-5 h-5 text-gray-400 shrink-0" />
+                              </div>
+                            </div>
+                          );
+                        })}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </section>
 
           {/* Detail & Aktionen - Desktop */}
           <section className="hidden lg:flex w-full lg:w-[42rem] flex-col gap-4">
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-              {/* Zuordnung & Status */}
-              <div className="bg-white rounded-xl border border-gray-200 p-4">
-                <h2 className="text-sm font-semibold text-gray-900 flex items-center gap-2 mb-3">
-                  <UserRound className="w-4 h-4 text-primary-dark" />
-                  Zuordnung & Status
-                </h2>
+            {/* Zuordnung & Status */}
+            <div className="bg-white rounded-xl border border-gray-200 p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <h2 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
+                    <UserRound className="w-4 h-4 text-primary-dark" />
+                    Zuordnung & Status
+                  </h2>
+                  {selectedDevice && canEditDevices && !isEditingDevice && (
+                    <button
+                      type="button"
+                      onClick={handleStartEditDevice}
+                      className="inline-flex items-center gap-1 px-2 py-1 text-[10px] font-medium text-primary-dark bg-primary/10 rounded-lg hover:bg-primary/20"
+                      title="Gerätedaten bearbeiten"
+                    >
+                      <Edit2 className="w-3 h-3" />
+                      Bearbeiten
+                    </button>
+                  )}
+                </div>
 
                 {selectedDevice ? (
                   <>
-                    <div className="mb-3 text-xs text-gray-700">
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="font-semibold text-primary-dark">{selectedDevice.inventarCode}</span>
-                        <button
-                          type="button"
-                          onClick={() => setShowStickerModal(true)}
-                          className="inline-flex items-center gap-1 px-2 py-1 text-[10px] font-medium text-primary-dark bg-primary/10 rounded-lg hover:bg-primary/20"
-                          title="Inventar-Sticker generieren"
-                        >
-                          <QrCode className="w-3 h-3" />
-                          Sticker
-                        </button>
-                      </div>
-                      <div className="font-medium text-gray-900 mb-1">{selectedDevice.sno}</div>
-                      <div>{selectedDevice.hwName || '-'}</div>
-                      <div>{selectedDevice.hsName || '-'}</div>
-                      <div>{selectedDevice.modelName || '-'}</div>
-                    </div>
+                    {!isEditingDevice ? (
+                      <>
+                        <div className="mb-3 text-xs text-gray-700">
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="font-semibold text-primary-dark">{selectedDevice.inventarCode}</span>
+                            <button
+                              type="button"
+                              onClick={() => setShowStickerModal(true)}
+                              className="inline-flex items-center gap-1 px-2 py-1 text-[10px] font-medium text-primary-dark bg-primary/10 rounded-lg hover:bg-primary/20"
+                              title="Inventar-Sticker generieren"
+                            >
+                              <QrCode className="w-3 h-3" />
+                              Sticker
+                            </button>
+                          </div>
+                          <div className="font-medium text-gray-900 mb-1">{selectedDevice.sno}</div>
+                          <div>{selectedDevice.hwName || '-'}</div>
+                          <div>{selectedDevice.hsName || '-'}</div>
+                          <div>{selectedDevice.modelName || '-'}</div>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="mb-3 space-y-2">
+                        <div className="text-xs font-semibold text-primary-dark mb-2">{selectedDevice.inventarCode}</div>
+                        
+                        <div>
+                          <label className="block text-[11px] font-medium text-gray-700 mb-1">Seriennummer (SNO)</label>
+                          <input
+                            type="text"
+                            value={editDeviceData.SNO}
+                            onChange={(e) => setEditDeviceData(prev => ({ ...prev, SNO: e.target.value }))}
+                            className="w-full px-2 py-1.5 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-primary"
+                            placeholder="Seriennummer"
+                          />
+                        </div>
 
-                    <div className="mb-3 grid grid-cols-2 gap-x-4 gap-y-2 text-[11px] text-gray-600">
-                      <div>
-                        <div className="text-gray-500">Zugang</div>
-                        <div className="font-medium text-gray-900">
-                          {selectedDevice.zugang
-                            ? new Date(selectedDevice.zugang).toLocaleDateString('de-DE')
-                            : '—'}
+                        <div className="grid grid-cols-3 gap-2">
+                          <div>
+                            <label className="block text-[11px] font-medium text-gray-700 mb-1">HW</label>
+                            <select
+                              value={editDeviceData.HWID}
+                              onChange={(e) => setEditDeviceData(prev => ({ ...prev, HWID: e.target.value }))}
+                              className="w-full px-2 py-1.5 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-primary"
+                            >
+                              <option value="">--</option>
+                              {hwOptions.map((hw) => (
+                                <option key={hw.id} value={hw.id}>
+                                  {hw.name}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                          <div>
+                            <label className="block text-[11px] font-medium text-gray-700 mb-1">HS</label>
+                            <select
+                              value={editDeviceData.HSID}
+                              onChange={(e) => setEditDeviceData(prev => ({ ...prev, HSID: e.target.value }))}
+                              className="w-full px-2 py-1.5 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-primary"
+                            >
+                              <option value="">--</option>
+                              {hsOptions.map((hs) => (
+                                <option key={hs.id} value={hs.id}>
+                                  {hs.name}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                          <div>
+                            <label className="block text-[11px] font-medium text-gray-700 mb-1">Modell</label>
+                            <select
+                              value={editDeviceData.MODID}
+                              onChange={(e) => setEditDeviceData(prev => ({ ...prev, MODID: e.target.value }))}
+                              className="w-full px-2 py-1.5 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-primary"
+                            >
+                              <option value="">--</option>
+                              {modOptions.map((mod) => (
+                                <option key={mod.id} value={mod.id}>
+                                  {mod.name}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
                         </div>
                       </div>
-                      <div>
-                        <div className="text-gray-500">Abgang</div>
-                        <div className="font-medium text-gray-900">
-                          {selectedDevice.abgang
-                            ? new Date(selectedDevice.abgang).toLocaleDateString('de-DE')
-                            : '—'}
-                        </div>
-                      </div>
-                      <div>
-                        <div className="text-gray-500">Preis</div>
-                        <div className="font-medium text-gray-900">
-                          {(selectedDevice as any).preis != null
-                            ? Number((selectedDevice as any).preis).toLocaleString('de-DE', {
-                                style: 'currency',
-                                currency: 'EUR',
-                              })
-                            : '—'}
-                        </div>
-                      </div>
-                      <div>
-                        <div className="text-gray-500">EAN</div>
-                        <div className="font-medium text-gray-900 truncate">
-                          {(selectedDevice as any).ean || '—'}
-                        </div>
-                      </div>
-                      <div>
-                        <div className="text-gray-500">IMEI 1</div>
-                        <div className="font-medium text-gray-900 truncate">
-                          {(selectedDevice as any).imei1 || '—'}
-                        </div>
-                      </div>
-                      <div>
-                        <div className="text-gray-500">IMEI 2</div>
-                        <div className="font-medium text-gray-900 truncate">
-                          {(selectedDevice as any).imei2 || '—'}
-                        </div>
-                      </div>
-                    </div>
+                    )}
 
-                    <div className="mb-3 text-xs text-gray-700 space-y-1">
-                      <div>
-                        <span className="text-gray-500 mr-1">Status:</span>
-                        <span className={selectedDevice.abgang ? 'text-gray-600' : 'text-emerald-600 font-medium'}>
-                          {selectedDevice.abgang ? 'Ausgebucht' : 'Aktiv'}
-                        </span>
-                      </div>
-                      <div>
-                        <span className="text-gray-500 mr-1">Aktueller Benutzer:</span>
-                        <span className="font-medium">
-                          {selectedDevice.currentUserName || '— keiner —'}
-                        </span>
-                      </div>
-                    </div>
+                    {!isEditingDevice ? (
+                      <>
+                        <div className="mb-3 grid grid-cols-2 gap-x-4 gap-y-2 text-[11px] text-gray-600">
+                          <div>
+                            <div className="text-gray-500">Zugang</div>
+                            <div className="font-medium text-gray-900">
+                              {selectedDevice.zugang
+                                ? new Date(selectedDevice.zugang).toLocaleDateString('de-DE')
+                                : '—'}
+                            </div>
+                          </div>
+                          <div>
+                            <div className="text-gray-500">Abgang</div>
+                            <div className="font-medium text-gray-900">
+                              {selectedDevice.abgang
+                                ? new Date(selectedDevice.abgang).toLocaleDateString('de-DE')
+                                : '—'}
+                            </div>
+                          </div>
+                          <div>
+                            <div className="text-gray-500">Preis</div>
+                            <div className="font-medium text-gray-900">
+                              {(selectedDevice as any).preis != null
+                                ? Number((selectedDevice as any).preis).toLocaleString('de-DE', {
+                                    style: 'currency',
+                                    currency: 'EUR',
+                                  })
+                                : '—'}
+                            </div>
+                          </div>
+                          <div>
+                            <div className="text-gray-500">EAN</div>
+                            <div className="font-medium text-gray-900 truncate">
+                              {(selectedDevice as any).ean || '—'}
+                            </div>
+                          </div>
+                          <div>
+                            <div className="text-gray-500">IMEI 1</div>
+                            <div className="font-medium text-gray-900 truncate">
+                              {(selectedDevice as any).imei1 || '—'}
+                            </div>
+                          </div>
+                          <div>
+                            <div className="text-gray-500">IMEI 2</div>
+                            <div className="font-medium text-gray-900 truncate">
+                              {(selectedDevice as any).imei2 || '—'}
+                            </div>
+                          </div>
+                        </div>
 
-                    {!loadingUsers && canEditDevices && (
+                        <div className="mb-3 text-xs text-gray-700 space-y-1">
+                          <div>
+                            <span className="text-gray-500 mr-1">Status:</span>
+                            <span className={selectedDevice.abgang ? 'text-gray-600' : 'text-emerald-600 font-medium'}>
+                              {selectedDevice.abgang ? 'Ausgebucht' : 'Aktiv'}
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-gray-500 mr-1">Aktueller Benutzer:</span>
+                            <span className="font-medium">
+                              {selectedDevice.currentUserName || '— keiner —'}
+                            </span>
+                          </div>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="mb-3 space-y-2">
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <label className="block text-[11px] font-medium text-gray-700 mb-1">Preis (€)</label>
+                            <input
+                              type="number"
+                              step="0.01"
+                              value={editDeviceData.Preis}
+                              onChange={(e) => setEditDeviceData(prev => ({ ...prev, Preis: e.target.value }))}
+                              className="w-full px-2 py-1.5 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-primary"
+                              placeholder="0.00"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[11px] font-medium text-gray-700 mb-1">EAN</label>
+                            <input
+                              type="text"
+                              value={editDeviceData.EAN}
+                              onChange={(e) => setEditDeviceData(prev => ({ ...prev, EAN: e.target.value }))}
+                              className="w-full px-2 py-1.5 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-primary"
+                              placeholder="EAN-Code"
+                            />
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <label className="block text-[11px] font-medium text-gray-700 mb-1">IMEI 1</label>
+                            <input
+                              type="text"
+                              value={editDeviceData.IMEI1}
+                              onChange={(e) => setEditDeviceData(prev => ({ ...prev, IMEI1: e.target.value }))}
+                              className="w-full px-2 py-1.5 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-primary"
+                              placeholder="IMEI 1"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[11px] font-medium text-gray-700 mb-1">IMEI 2</label>
+                            <input
+                              type="text"
+                              value={editDeviceData.IMEI2}
+                              onChange={(e) => setEditDeviceData(prev => ({ ...prev, IMEI2: e.target.value }))}
+                              className="w-full px-2 py-1.5 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-primary"
+                              placeholder="IMEI 2"
+                            />
+                          </div>
+                        </div>
+
+                        {editDeviceError && (
+                          <div className="text-[11px] text-red-600 flex items-center gap-1">
+                            <AlertTriangle className="w-3 h-3" />
+                            {editDeviceError}
+                          </div>
+                        )}
+
+                        <div className="flex gap-2 pt-2">
+                          <button
+                            type="button"
+                            onClick={handleSaveDeviceEdit}
+                            disabled={editDeviceLoading}
+                            className="flex-1 px-3 py-1.5 rounded-lg bg-primary text-white text-xs font-medium hover:bg-primary-dark disabled:bg-primary/50 disabled:cursor-not-allowed"
+                          >
+                            {editDeviceLoading ? 'Speichert...' : 'Speichern'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handleCancelEditDevice}
+                            disabled={editDeviceLoading}
+                            className="flex-1 px-3 py-1.5 rounded-lg border border-gray-300 text-gray-700 text-xs font-medium hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            Abbrechen
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {!isEditingDevice && !loadingUsers && canEditDevices && (
                       <div className="mb-3 text-xs space-y-2">
                         <label className="block text-xs font-medium text-gray-700">Benutzer zuweisen</label>
                         <select
@@ -1349,7 +1795,7 @@ export default function DeviceManagementPage() {
                       <div className="border-t border-gray-100 pt-3 mt-2">
                         <button
                           type="button"
-                          onClick={handleRetire}
+                          onClick={handleRetireClick}
                           className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-red-50 text-xs text-red-700 hover:bg-red-100"
                         >
                           <AlertTriangle className="w-3 h-3" />
@@ -1368,10 +1814,10 @@ export default function DeviceManagementPage() {
                 ) : (
                   <p className="text-xs text-gray-500">Bitte wähle links ein Gerät aus.</p>
                 )}
-              </div>
+            </div>
 
-              {/* Zubehör */}
-              <div className="bg-white rounded-xl border border-gray-200 p-4 flex flex-col">
+            {/* Zubehör */}
+            <div className="bg-white rounded-xl border border-gray-200 p-4 flex flex-col">
                 <h2 className="text-sm font-semibold text-gray-900 flex items-center gap-2 mb-3">
                   <Package className="w-4 h-4 text-primary-dark" />
                   Zubehör
@@ -1483,7 +1929,6 @@ export default function DeviceManagementPage() {
                 ) : (
                   <p className="text-xs text-gray-500">Wähle links ein Gerät, um Zubehör zu verwalten.</p>
                 )}
-              </div>
             </div>
 
             {/* Verlauf & Protokolle */}
@@ -1658,6 +2103,7 @@ export default function DeviceManagementPage() {
               )}
             </div>
           </section>
+          </div>
         </div>
       </main>
 
@@ -1897,7 +2343,7 @@ export default function DeviceManagementPage() {
                   <button
                     type="button"
                     onClick={() => {
-                      handleRetire();
+                      handleRetireClick();
                       setShowMobileDetail(false);
                     }}
                     className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-red-50 text-sm font-medium text-red-700 hover:bg-red-100 active:bg-red-200"
@@ -1925,6 +2371,120 @@ export default function DeviceManagementPage() {
           deviceId={selectedDeviceId}
           onClose={() => setShowStickerModal(false)}
         />
+      )}
+
+      {/* Retire Modal mit Zubehör-Verwaltung */}
+      {showRetireModal && selectedDeviceId && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-red-100 rounded-lg">
+                    <AlertTriangle className="w-5 h-5 text-red-600" />
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-semibold text-gray-900">Gerät ausbuchen</h2>
+                    <p className="text-sm text-gray-600">Was soll mit dem zugewiesenen Zubehör passieren?</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowRetireModal(false)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 text-sm">
+                <div className="flex items-start gap-2">
+                  <AlertTriangle className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
+                  <div className="text-amber-800">
+                    <p className="font-medium mb-1">Diesem Gerät ist aktives Zubehör zugewiesen</p>
+                    <p className="text-xs">Bitte wähle für jedes Zubehörteil, ob es ebenfalls ausgebucht werden soll oder zurück ins Inventar geht.</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                {deviceAccessories
+                  .filter((a) => a.status === 'ACTIVE')
+                  .map((accessory) => (
+                    <div key={accessory.id} className="border border-gray-200 rounded-lg p-4">
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex-1 min-w-0">
+                          <div className="font-medium text-gray-900 mb-1">{accessory.accessoryLabel}</div>
+                          <div className="text-xs text-gray-600">
+                            {accessory.accessoryType && <span className="mr-2">Typ: {accessory.accessoryType}</span>}
+                            {accessory.userName && (
+                              <span className="inline-flex items-center gap-1">
+                                <User className="w-3 h-3" />
+                                {accessory.userName}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex flex-col gap-2 shrink-0">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setRetireAccessoryActions((prev) => ({
+                                ...prev,
+                                [accessory.accessoryId]: 'return',
+                              }))
+                            }
+                            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                              retireAccessoryActions[accessory.accessoryId] === 'return'
+                                ? 'bg-emerald-100 text-emerald-700 border-2 border-emerald-500'
+                                : 'bg-gray-100 text-gray-600 border-2 border-transparent hover:bg-gray-200'
+                            }`}
+                          >
+                            Zurück ins Inventar
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setRetireAccessoryActions((prev) => ({
+                                ...prev,
+                                [accessory.accessoryId]: 'retire',
+                              }))
+                            }
+                            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                              retireAccessoryActions[accessory.accessoryId] === 'retire'
+                                ? 'bg-red-100 text-red-700 border-2 border-red-500'
+                                : 'bg-gray-100 text-gray-600 border-2 border-transparent hover:bg-gray-200'
+                            }`}
+                          >
+                            Auch ausbuchen
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+              </div>
+            </div>
+
+            <div className="p-6 border-t border-gray-200 flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setShowRetireModal(false)}
+                className="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 text-sm font-medium hover:bg-gray-50"
+              >
+                Abbrechen
+              </button>
+              <button
+                type="button"
+                onClick={handleRetireConfirm}
+                className="px-4 py-2 rounded-lg bg-red-600 text-white text-sm font-medium hover:bg-red-700"
+              >
+                Gerät ausbuchen
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

@@ -1,8 +1,7 @@
 // Prisma Schema für die lokale Inventar-Datenbank
 
 generator client {
-  provider = "prisma-client"
-  output   = "../lib/generated/prisma"
+  provider = "prisma-client-js"
 }
 
 datasource db {
@@ -233,6 +232,8 @@ model WebUser {
   sessions           Session[]
   permissionGroups   WebUserPermissionGroup[]
   erstellteProtokolle UebergabeProtokoll[]
+  reportsCreated      Report[]                  @relation("ReportCreator")
+  reportExportsCreated ReportExport[]           @relation("ReportExportCreator")
   createdAt          DateTime                  @default(now())
   updatedAt          DateTime                  @updatedAt
 }
@@ -347,4 +348,30 @@ model UebergabeAufgabeVorlage {
   AktualisiertAm DateTime @updatedAt
 
   @@index([Typ, Sortierung])
+}
+
+model Report {
+  id          Int      @id @default(autoincrement())
+  name        String
+  description String?
+  definition  Json
+  createdBy   Int
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  creator     WebUser   @relation("ReportCreator", fields: [createdBy], references: [id], onDelete: Cascade)
+  exports     ReportExport[]
+}
+
+model ReportExport {
+  id        Int      @id @default(autoincrement())
+  reportId  Int
+  format    String
+  createdBy Int
+  createdAt DateTime @default(now())
+
+  report   Report  @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  creator  WebUser @relation("ReportExportCreator", fields: [createdBy], references: [id], onDelete: Cascade)
+
+  @@index([reportId, createdAt])
 }

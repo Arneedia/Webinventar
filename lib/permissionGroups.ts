@@ -1,4 +1,4 @@
-import type { PermissionGroup, WebUserPermissionGroup } from './generated/prisma/client';
+import type { PermissionGroup, WebUserPermissionGroup } from '@prisma/client';
 
 // Verfügbare Berechtigungen im System
 export const AvailablePermissions = {

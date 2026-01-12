@@ -1,5 +1,5 @@
 import { prisma } from './prismaClient';
-import type { Prisma } from './generated/prisma/client';
+import type { Prisma } from '@prisma/client';
 
 export type LookupOption = { id: number; name: string | null };
 

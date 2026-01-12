@@ -221,6 +221,13 @@ CREATE TABLE IF NOT EXISTS "UebergabeProtokoll" (
   "Bemerkung" TEXT
 );
 
+-- Falls die Tabelle bereits existiert (ältere Version), fehlende Spalten nachziehen
+ALTER TABLE "UebergabeProtokoll" ADD COLUMN IF NOT EXISTS "UnterschriftMitarbeiter" TEXT;
+ALTER TABLE "UebergabeProtokoll" ADD COLUMN IF NOT EXISTS "UnterschriftIT" TEXT;
+ALTER TABLE "UebergabeProtokoll" ADD COLUMN IF NOT EXISTS "UnterschriftDatum" TIMESTAMP;
+ALTER TABLE "UebergabeProtokoll" ADD COLUMN IF NOT EXISTS "Status" TEXT;
+ALTER TABLE "UebergabeProtokoll" ADD COLUMN IF NOT EXISTS "Bemerkung" TEXT;
+
 -- Übergabe-Positionen
 CREATE TABLE IF NOT EXISTS "UebergabePosition" (
   "ID" SERIAL PRIMARY KEY,
@@ -232,6 +239,61 @@ CREATE TABLE IF NOT EXISTS "UebergabePosition" (
   "Vollstaendig" BOOLEAN NOT NULL DEFAULT TRUE,
   "FehlendTeile" TEXT
 );
+
+ALTER TABLE "UebergabePosition" ADD COLUMN IF NOT EXISTS "Zustand" TEXT;
+ALTER TABLE "UebergabePosition" ADD COLUMN IF NOT EXISTS "ZustandNotiz" TEXT;
+ALTER TABLE "UebergabePosition" ADD COLUMN IF NOT EXISTS "Vollstaendig" BOOLEAN;
+ALTER TABLE "UebergabePosition" ADD COLUMN IF NOT EXISTS "FehlendTeile" TEXT;
+
+-- Übergabe-Aufgaben (On/Offboarding)
+CREATE TABLE IF NOT EXISTS "UebergabeAufgabe" (
+  "ID" SERIAL PRIMARY KEY,
+  "ProtokollID" INTEGER NOT NULL REFERENCES "UebergabeProtokoll"("ID"),
+  "Titel" TEXT NOT NULL,
+  "Beschreibung" TEXT,
+  "FaelligAm" TIMESTAMP,
+  "Status" TEXT NOT NULL DEFAULT 'OFFEN',
+  "ErstelltAm" TIMESTAMP NOT NULL DEFAULT NOW(),
+  "ErledigtAm" TIMESTAMP,
+  "AssignedBenutzerID" INTEGER REFERENCES "Benutzer"("BenutzerID"),
+  "AssignedAbteilungID" INTEGER REFERENCES "ABT"("ABTID")
+);
+
+-- Aufgaben-Vorlagen
+CREATE TABLE IF NOT EXISTS "UebergabeAufgabeVorlage" (
+  "ID" SERIAL PRIMARY KEY,
+  "Typ" TEXT NOT NULL,
+  "Titel" TEXT NOT NULL,
+  "Beschreibung" TEXT,
+  "FaelligInTagen" INTEGER,
+  "Sortierung" INTEGER NOT NULL DEFAULT 0,
+  "Aktiv" BOOLEAN NOT NULL DEFAULT TRUE,
+  "ErstelltAm" TIMESTAMP NOT NULL DEFAULT NOW(),
+  "AktualisiertAm" TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS "UebergabeAufgabeVorlage_Typ_Sortierung_idx" ON "UebergabeAufgabeVorlage" ("Typ", "Sortierung");
+
+-- Reports (Auswertungen)
+CREATE TABLE IF NOT EXISTS "Report" (
+  "id" SERIAL PRIMARY KEY,
+  "name" TEXT NOT NULL,
+  "description" TEXT,
+  "definition" JSONB NOT NULL,
+  "createdBy" INTEGER NOT NULL REFERENCES "WebUser"("id") ON DELETE CASCADE,
+  "createdAt" TIMESTAMP NOT NULL DEFAULT NOW(),
+  "updatedAt" TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS "ReportExport" (
+  "id" SERIAL PRIMARY KEY,
+  "reportId" INTEGER NOT NULL REFERENCES "Report"("id") ON DELETE CASCADE,
+  "format" TEXT NOT NULL,
+  "createdBy" INTEGER NOT NULL REFERENCES "WebUser"("id") ON DELETE CASCADE,
+  "createdAt" TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS "ReportExport_reportId_createdAt_idx" ON "ReportExport" ("reportId", "createdAt");
 `;
 
 async function setupSchema() {

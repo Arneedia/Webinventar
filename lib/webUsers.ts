@@ -1,4 +1,4 @@
-import type { WebUser, WebUserPermissionGroup, PermissionGroup } from './generated/prisma/client';
+import type { WebUser, WebUserPermissionGroup, PermissionGroup } from '@prisma/client';
 
 export type PublicWebUser = Pick<WebUser, 'id' | 'email' | 'name' | 'role' | 'createdAt' | 'updatedAt'>;
 

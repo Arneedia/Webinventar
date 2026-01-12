@@ -52,6 +52,11 @@ export default async function Navbar() {
         AvailablePermissions.PROTOCOLS_CREATE,
       ])),
     },
+    {
+      href: '/auswertungen',
+      label: 'Auswertungen',
+      show: !!user && (user.role === Roles.ADMIN || userHasPermission(user, AvailablePermissions.REPORTS_VIEW)),
+    },
   ];
 
   const adminLinks: { href: string; label: string; show: boolean }[] = [
