@@ -73,8 +73,6 @@ export type UserWithPermissions = {
 
 async function loadUserWithPermissions(userId: number): Promise<UserWithPermissions | null> {
   try {
-    console.log('[Auth] loadUserWithPermissions für userId:', userId);
-    
     const user = await prisma.webUser.findUnique({
       where: { id: userId },
       include: {
@@ -84,12 +82,7 @@ async function loadUserWithPermissions(userId: number): Promise<UserWithPermissi
       },
     });
 
-    if (!user) {
-      console.log('[Auth] Kein User gefunden für userId:', userId);
-      return null;
-    }
-
-    console.log('[Auth] User gefunden:', user.email, 'Rolle:', user.role);
+    if (!user) return null;
 
     // Sammle alle Berechtigungen aus allen Gruppen
     const allPermissions = new Set<string>();
@@ -118,47 +111,20 @@ async function loadUserWithPermissions(userId: number): Promise<UserWithPermissi
 
 export async function getCurrentUserFromRequest(req: NextRequest): Promise<UserWithPermissions | null> {
   const token = req.cookies.get(SESSION_COOKIE_NAME)?.value;
-  console.log('[Auth] getCurrentUserFromRequest - Token vorhanden:', !!token);
-  
   if (!token) return null;
 
   try {
-    // Prüfe erst ob überhaupt Sessions existieren
-    const totalSessions = await prisma.session.count();
-    const validSessions = await prisma.session.count({
-      where: { expiresAt: { gt: new Date() } }
-    });
-    
-    console.log('[Auth] Sessions in DB - Total:', totalSessions, 'Gültig:', validSessions);
-    
     const session = await prisma.session.findFirst({
       where: {
         token,
         expiresAt: { gt: new Date() },
       },
-      select: { userId: true, expiresAt: true },
+      select: { userId: true },
     });
 
-    if (!session) {
-      // Prüfe ob Token existiert aber abgelaufen ist
-      const expiredSession = await prisma.session.findFirst({
-        where: { token },
-        select: { expiresAt: true }
-      });
-      
-      if (expiredSession) {
-        console.log('[Auth] Session abgelaufen! Expires:', expiredSession.expiresAt, 'Jetzt:', new Date());
-      } else {
-        console.log('[Auth] Token nicht in DB gefunden (erste 10 Zeichen):', token.substring(0, 10));
-      }
-      return null;
-    }
+    if (!session) return null;
     
-    console.log('[Auth] Session gefunden! UserId:', session.userId, 'Expires:', session.expiresAt);
-    
-    const user = await loadUserWithPermissions(session.userId);
-    console.log('[Auth] User geladen:', !!user, user?.email);
-    return user;
+    return loadUserWithPermissions(session.userId);
   } catch (error) {
     console.error('[Auth] Fehler beim Laden der Session:', error);
     return null;
