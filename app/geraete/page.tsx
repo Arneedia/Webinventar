@@ -41,6 +41,8 @@ interface HistoryEntry {
   benutzerName: string | null;
   start: string;
   ende: string | null;
+  roomId: number | null;
+  roomName: string | null;
 }
 
 interface UserOption {
@@ -1340,7 +1342,21 @@ export default function DeviceManagementPage() {
                                 </span>
                               </td>
                               <td className="px-3 py-2 text-gray-700">{d.currentUserName || '-'}</td>
-                              <td className="px-3 py-2 text-gray-600">{d.effectiveRoom || '-'}</td>
+                              <td className="px-3 py-2 text-gray-700">
+                                <div className="font-medium text-gray-900">
+                                  {d.effectiveRoom || d.raumName || '—'}
+                                </div>
+                                {d.raumId && (
+                                  <div className="text-[11px] text-gray-500">
+                                    Raum-ID: {d.raumId}
+                                  </div>
+                                )}
+                                {d.effectiveRoom && d.effectiveRoomSource === 'user' && d.raumName && d.raumName !== d.effectiveRoom && (
+                                  <div className="text-[11px] text-gray-400">
+                                    Standard: {d.raumName}
+                                  </div>
+                                )}
+                              </td>
                             </tr>
                           );
                         })}
@@ -1493,7 +1509,21 @@ export default function DeviceManagementPage() {
                                   <td className="px-3 py-2 text-gray-700">{d.hwName || '-'}</td>
                                   <td className="px-3 py-2 text-gray-700">{d.hsName || '-'}</td>
                                   <td className="px-3 py-2 text-gray-700">{d.modelName || '-'}</td>
-                                  <td className="px-3 py-2 text-gray-600">{d.effectiveRoom || '-'}</td>
+                                  <td className="px-3 py-2 text-gray-700">
+                                    <div className="font-medium text-gray-900">
+                                      {d.effectiveRoom || d.raumName || '—'}
+                                    </div>
+                                    {d.raumId && (
+                                      <div className="text-[11px] text-gray-500">
+                                        Raum-ID: {d.raumId}
+                                      </div>
+                                    )}
+                                    {d.effectiveRoom && d.effectiveRoomSource === 'user' && d.raumName && d.raumName !== d.effectiveRoom && (
+                                      <div className="text-[11px] text-gray-400">
+                                        Standard: {d.raumName}
+                                      </div>
+                                    )}
+                                  </td>
                                   <td className="px-3 py-2 text-gray-600">
                                     {d.zugang
                                       ? new Date(d.zugang).toLocaleDateString('de-DE')
@@ -1729,6 +1759,39 @@ export default function DeviceManagementPage() {
                             <span className="font-medium">
                               {selectedDevice.currentUserName || '— keiner —'}
                             </span>
+                          </div>
+                          <div className="flex items-start gap-2 mt-1 text-gray-700">
+                            <MapPin className="w-3.5 h-3.5 mt-0.5 text-primary-dark" />
+                            <div>
+                              <div className="font-medium text-gray-900">
+                                {selectedDevice.effectiveRoom || selectedDevice.raumName || '— kein Raum hinterlegt —'}
+                              </div>
+                              <div className="text-[11px] text-gray-500">
+                                {selectedDevice.effectiveRoom
+                                  ? selectedDevice.effectiveRoomSource === 'user'
+                                    ? 'Raum des aktuellen Benutzers'
+                                    : 'Standard-Raum des Geräts'
+                                  : selectedDevice.raumName
+                                    ? 'Standard-Raum des Geräts'
+                                    : 'Bitte Raum zuweisen'}
+                              </div>
+                              {selectedDevice.raumName && selectedDevice.effectiveRoom !== selectedDevice.raumName && (
+                                <div className="text-[11px] text-gray-500">
+                                  Standard-Raum: <span className="font-medium text-gray-700">{selectedDevice.raumName}</span>
+                                </div>
+                              )}
+                              {selectedDevice.raumStandort && (
+                                <div className="text-[11px] text-gray-500">
+                                  Standort: {selectedDevice.raumStandort}
+                                </div>
+                              )}
+                              {selectedDevice.raumBranch && (
+                                <div className="text-[11px] text-gray-500">
+                                  Geschäftsstelle: {selectedDevice.raumBranch}
+                                  {selectedDevice.raumBranchCity ? ` (${selectedDevice.raumBranchCity})` : ''}
+                                </div>
+                              )}
+                            </div>
                           </div>
                         </div>
                       </>

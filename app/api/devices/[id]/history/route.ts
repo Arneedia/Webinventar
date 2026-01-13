@@ -22,7 +22,23 @@ export async function GET(req: NextRequest, context: RouteContext) {
 
     const entries = await prisma.benutzerGER.findMany({
       where: { GERID: deviceId },
-      include: { Benutzer: true },
+      select: {
+        ID: true,
+        BenutzerID: true,
+        Start: true,
+        Ende: true,
+        Benutzer: {
+          select: {
+            BenutzerName: true,
+            RAUM: {
+              select: {
+                RaumID: true,
+                RaumName: true,
+              },
+            },
+          },
+        },
+      },
       orderBy: { Start: 'desc' },
     });
 
@@ -32,6 +48,8 @@ export async function GET(req: NextRequest, context: RouteContext) {
       benutzerName: e.Benutzer?.BenutzerName ?? null,
       start: e.Start,
       ende: e.Ende,
+      roomId: e.Benutzer?.RAUM?.RaumID ?? null,
+      roomName: e.Benutzer?.RAUM?.RaumName ?? null,
     }));
 
     return NextResponse.json(history);
