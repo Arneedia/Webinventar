@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prismaClient';
 import { requireApiUser } from '@/lib/auth';
 import { AvailablePermissions } from '@/lib/permissionGroups';
@@ -44,10 +45,12 @@ export async function PUT(req: NextRequest, context: RouteContext) {
       }
     }
 
-    // Raum aktualisieren
+    // Raum aktualisieren (Standard-Raum des Geräts)
     await prisma.gER.update({
       where: { GerID: deviceId },
-      data: { RaumID: raumId ? Number(raumId) : null },
+      data: {
+        StandardRaumID: raumId !== null && raumId !== undefined ? Number(raumId) : null,
+      },
     });
 
     return NextResponse.json({ success: true });

@@ -12,7 +12,7 @@ export async function GET(req: NextRequest) {
 
   try {
     const users = await prisma.benutzer.findMany({
-      include: { ABT: true, GS: true, STAT: true },
+      include: { ABT: true, GS: true, STAT: true, RAUM: true },
       orderBy: [{ BenutzerName: 'asc' }, { BenutzerID: 'asc' }],
     });
     return NextResponse.json({ users: users.map(serializeInventoryUser) });
@@ -29,17 +29,17 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const { name, room, departmentId, statusId, branchId } = await req.json();
+    const { name, roomId, departmentId, statusId, branchId } = await req.json();
 
     const created = await prisma.benutzer.create({
       data: {
         BenutzerName: name ?? null,
-        BenutzerRaum: room ?? null,
+        RaumID: roomId ?? null,
         ABTID: departmentId ?? null,
         StatusID: statusId ?? null,
         GSID: branchId ?? null,
       },
-      include: { ABT: true, GS: true, STAT: true },
+      include: { ABT: true, GS: true, STAT: true, RAUM: true },
     });
 
     return NextResponse.json({ user: serializeInventoryUser(created) }, { status: 201 });

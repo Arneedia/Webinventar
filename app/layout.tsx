@@ -17,17 +17,18 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Inventar-Verwaltung",
   description: "IT-Inventar Verwaltungssystem",
-  viewport: {
-    width: 'device-width',
-    initialScale: 1,
-    maximumScale: 1,
-    userScalable: false,
-  },
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
     title: 'Inventar',
   },
+};
+
+export const viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
 };
 
 export default function RootLayout({

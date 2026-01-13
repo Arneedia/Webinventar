@@ -21,18 +21,18 @@ export async function PUT(req: NextRequest, context: RouteContext) {
   }
 
   try {
-    const { name, room, departmentId, statusId, branchId } = await req.json();
+    const { name, roomId, departmentId, statusId, branchId } = await req.json();
 
     const updated = await prisma.benutzer.update({
       where: { BenutzerID: userId },
       data: {
         BenutzerName: name ?? null,
-        BenutzerRaum: room ?? null,
+        RaumID: roomId ?? null,
         ABTID: departmentId ?? null,
         StatusID: statusId ?? null,
         GSID: branchId ?? null,
       },
-      include: { ABT: true, GS: true, STAT: true },
+      include: { ABT: true, GS: true, STAT: true, RAUM: true },
     });
 
     return NextResponse.json({ user: serializeInventoryUser(updated) });

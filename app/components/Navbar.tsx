@@ -87,6 +87,11 @@ export default async function Navbar() {
       label: 'Raumverwaltung',
       show: !!user && (user.role === Roles.ADMIN || userHasPermission(user, AvailablePermissions.MASTER_DATA_EDIT)),
     },
+    {
+      href: '/admin/gefahrenstellen',
+      label: 'Gefahrenstellen',
+      show: !!user && (user.role === Roles.ADMIN || userHasPermission(user, AvailablePermissions.MASTER_DATA_EDIT)),
+    },
   ];
 
   const showAdminMenu = adminLinks.some((l) => l.show);

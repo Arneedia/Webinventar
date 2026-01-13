@@ -22,7 +22,16 @@ export async function GET(req: NextRequest, context: RouteContext) {
         HW: true,
         HS: true,
         MOD: true,
-        RAUM: true,
+        StandardRaum: {
+          include: {
+            GS: true,
+            RaumGefahrenstellen: {
+              include: {
+                Gefahrenstelle: true,
+              },
+            },
+          },
+        },
         BenutzerGER: {
           orderBy: { Start: 'desc' },
           include: {
@@ -31,6 +40,7 @@ export async function GET(req: NextRequest, context: RouteContext) {
                 ABT: true,
                 STAT: true,
                 GS: true,
+                RAUM: true,
               },
             },
           },
@@ -57,7 +67,7 @@ export async function GET(req: NextRequest, context: RouteContext) {
 
     // Aktueller Benutzer (ohne Ende-Datum)
     const currentAssignment = device.BenutzerGER.find((a) => !a.Ende);
-    const currentUser = currentAssignment?.Benutzer;
+    const currentUser = currentAssignment?.Benutzer ?? null;
 
     // Verlauf (alle Zuordnungen)
     const history = device.BenutzerGER.map((a) => ({
@@ -102,11 +112,11 @@ export async function GET(req: NextRequest, context: RouteContext) {
       currentUserId: currentUser?.BenutzerID ?? null,
       currentUserName: currentUser?.BenutzerName ?? null,
       // Raum-Informationen
-      raumId: device.RaumID,
-      raumName: device.RAUM?.RaumName ?? null,
-      raumStandort: device.RAUM?.Standort ?? null,
+      raumId: device.StandardRaumID ?? null,
+      raumName: device.StandardRaum?.RaumName ?? null,
+      raumStandort: device.StandardRaum?.Standort ?? null,
       // Effektiver Raum: Benutzer-Raum hat Vorrang vor Geräte-Raum
-      effectiveRoom: currentUser?.BenutzerRaum ?? device.RAUM?.RaumName ?? null,
+      effectiveRoom: currentUser?.RAUM?.RaumName ?? currentUser?.BenutzerRaum ?? device.StandardRaum?.RaumName ?? null,
     };
 
     return NextResponse.json({

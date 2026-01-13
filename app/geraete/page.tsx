@@ -26,7 +26,13 @@ interface DeviceListItem {
   currentUserName: string | null;
   raumId: number | null;
   raumName: string | null;
+  raumStandort: string | null;
+  raumNotiz: string | null;
+  raumBranch: string | null;
+  raumBranchCity: string | null;
+  raumHazards: { id: number; name: string }[];
   effectiveRoom: string | null;
+  effectiveRoomSource: 'user' | 'device' | null;
 }
 
 interface HistoryEntry {
@@ -96,6 +102,10 @@ interface RoomOption {
   id: number;
   name: string;
   standort: string | null;
+  branch: string | null;
+  branchCity: string | null;
+  hazards: string[];
+  notiz: string | null;
 }
 
 interface CurrentUser {
@@ -160,6 +170,7 @@ export default function DeviceManagementPage() {
   const [roomsLoading, setRoomsLoading] = useState(true);
   const [roomActionLoading, setRoomActionLoading] = useState(false);
   const [roomActionError, setRoomActionError] = useState<string | null>(null);
+  const [roomActionSuccess, setRoomActionSuccess] = useState<string | null>(null);
   const [roomSelectValue, setRoomSelectValue] = useState<string>('');
 
   // Berechtigungen
@@ -178,6 +189,12 @@ export default function DeviceManagementPage() {
 
   // Nicht zugewiesene Geräte Sektion
   const [showUnassignedSection, setShowUnassignedSection] = useState(false);
+
+  // Unassign Modal mit Raumauswahl
+  const [showUnassignModal, setShowUnassignModal] = useState(false);
+  const [unassignTargetRoomId, setUnassignTargetRoomId] = useState<string>('');
+  const [roomsWithUsers, setRoomsWithUsers] = useState<Array<{id: number; name: string; users: string[]; standort: string}>>([]);
+  const [roomsWithUsersLoading, setRoomsWithUsersLoading] = useState(false);
 
   // Edit Mode für Gerätedaten
   const [isEditingDevice, setIsEditingDevice] = useState(false);
@@ -285,6 +302,7 @@ export default function DeviceManagementPage() {
     fetchModels();
     fetchHsModRelations();
     fetchRooms();
+    fetchRoomsWithUsers();
   }, []);
 
   const fetchCurrentUser = async () => {
@@ -372,19 +390,40 @@ export default function DeviceManagementPage() {
   const fetchRooms = async () => {
     try {
       setRoomsLoading(true);
-      const res = await fetch('/api/tables/RAUM');
+      const res = await fetch('/api/rooms');
       if (!res.ok) throw new Error('Fehler beim Laden der Räume');
       const json = await res.json();
-      const options: RoomOption[] = (json.data as any[]).map((row: any) => ({
-        id: row.RaumID,
-        name: row.RaumName || `Raum ${row.RaumID}`,
-        standort: row.Standort || null,
+      const options: RoomOption[] = (json.rooms as any[]).map((room: any) => ({
+        id: room.RaumID,
+        name: room.RaumName || `Raum ${room.RaumID}`,
+        standort: room.Standort || null,
+        branch: room.GS?.GSName ?? null,
+        branchCity: room.GS?.GSOrt ?? null,
+        hazards:
+          (room.RaumGefahrenstellen ?? [])
+            .map((rg: any) => rg.Gefahrenstelle?.Name)
+            .filter(Boolean) ?? [],
+        notiz: room.Notiz ?? null,
       }));
       setRoomOptions(options);
     } catch {
       setRoomOptions([]);
     } finally {
       setRoomsLoading(false);
+    }
+  };
+
+  const fetchRoomsWithUsers = async () => {
+    setRoomsWithUsersLoading(true);
+    try {
+      const res = await fetch('/api/rooms/with-users');
+      if (!res.ok) throw new Error('Fehler beim Laden der Räume');
+      const data = await res.json();
+      setRoomsWithUsers(data.rooms || []);
+    } catch (err) {
+      console.error('Fehler beim Laden der Räume:', err);
+    } finally {
+      setRoomsWithUsersLoading(false);
     }
   };
 
@@ -633,13 +672,23 @@ export default function DeviceManagementPage() {
     }
   };
 
-  const handleUnassign = async () => {
+  const handleUnassignClick = () => {
     if (!selectedDeviceId) return;
+    // Modal öffnen und Raum des aktuellen Benutzers vorauswählen
+    const currentUserRoom = currentUser ? roomsWithUsers.find(r => r.users.includes(currentUser.name))?.id : null;
+    setUnassignTargetRoomId(currentUserRoom ? String(currentUserRoom) : '');
+    setShowUnassignModal(true);
+  };
+
+  const handleUnassignConfirm = async () => {
+    if (!selectedDeviceId || !unassignTargetRoomId) return;
     setActionError(null);
 
     try {
       const res = await fetch(`/api/devices/${selectedDeviceId}/unassign`, {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ targetRoomId: Number(unassignTargetRoomId) }),
       });
       if (!res.ok) {
         const data = await res.json();
@@ -647,6 +696,8 @@ export default function DeviceManagementPage() {
       }
       await fetchDevices();
       await fetchHistory(selectedDeviceId);
+      setShowUnassignModal(false);
+      setUnassignTargetRoomId('');
     } catch (err) {
       setActionError(err instanceof Error ? err.message : 'Fehler beim Entfernen der Zuordnung');
     }
@@ -1782,7 +1833,7 @@ export default function DeviceManagementPage() {
                           </button>
                           <button
                             type="button"
-                            onClick={handleUnassign}
+                            onClick={handleUnassignClick}
                             className="flex-1 px-3 py-1.5 rounded-lg border border-gray-300 text-gray-700 text-xs hover:bg-gray-50"
                           >
                             Zuordnung entfernen
@@ -2212,7 +2263,7 @@ export default function DeviceManagementPage() {
                     </button>
                     <button
                       type="button"
-                      onClick={handleUnassign}
+                      onClick={handleUnassignClick}
                       className="flex-1 px-4 py-2.5 rounded-lg border border-gray-300 text-gray-700 text-sm font-medium hover:bg-gray-50 active:bg-gray-100"
                     >
                       Entfernen
@@ -2481,6 +2532,90 @@ export default function DeviceManagementPage() {
                 className="px-4 py-2 rounded-lg bg-red-600 text-white text-sm font-medium hover:bg-red-700"
               >
                 Gerät ausbuchen
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Unassign Modal mit Raumauswahl */}
+      {showUnassignModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full">
+            <div className="p-6 border-b border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-900">Gerät zurückgeben</h3>
+              <p className="text-sm text-gray-600 mt-1">
+                Wählen Sie den Ziel-Raum für das Gerät aus
+              </p>
+            </div>
+
+            <div className="p-6">
+              {selectedDevice && (
+                <div className="mb-4 p-3 bg-gray-50 rounded-lg">
+                  <div className="text-xs text-gray-600">Gerät</div>
+                  <div className="font-medium text-gray-900">{selectedDevice.inventarCode}</div>
+                  <div className="text-sm text-gray-600">
+                    {[selectedDevice.hwName, selectedDevice.hsName, selectedDevice.modelName]
+                      .filter(Boolean)
+                      .join(' · ')}
+                  </div>
+                  {selectedDevice.currentUserName && (
+                    <div className="text-xs text-gray-600 mt-1">
+                      Aktuell bei: <span className="font-medium">{selectedDevice.currentUserName}</span>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Ziel-Raum <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={unassignTargetRoomId}
+                  onChange={(e) => setUnassignTargetRoomId(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                  disabled={roomsWithUsersLoading}
+                >
+                  <option value="">-- Raum auswählen --</option>
+                  {roomsWithUsers.map((room) => (
+                    <option key={room.id} value={room.id}>
+                      🏢 {room.name}{room.standort ? ` (${room.standort})` : ''}
+                      {room.users.length > 0 ? ` - ${room.users.join(', ')}` : ' - (-)'}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-xs text-gray-500 mt-1">
+                  Das Gerät wird in den ausgewählten Raum zurückgelegt
+                </p>
+              </div>
+
+              {actionError && (
+                <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+                  <p className="text-sm text-red-700">{actionError}</p>
+                </div>
+              )}
+            </div>
+
+            <div className="p-6 border-t border-gray-200 flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowUnassignModal(false);
+                  setUnassignTargetRoomId('');
+                  setActionError(null);
+                }}
+                className="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 text-sm font-medium hover:bg-gray-50"
+              >
+                Abbrechen
+              </button>
+              <button
+                type="button"
+                onClick={handleUnassignConfirm}
+                disabled={!unassignTargetRoomId}
+                className="px-4 py-2 rounded-lg bg-primary text-white text-sm font-medium hover:bg-primary-dark disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Zurückgeben
               </button>
             </div>
           </div>

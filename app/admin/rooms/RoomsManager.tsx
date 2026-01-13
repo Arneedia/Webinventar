@@ -7,6 +7,23 @@ interface RoomRecord {
   RaumName: string | null;
   Standort: string | null;
   Notiz: string | null;
+  GSID: number | null;
+  GS?: { GSID: number; GSName: string | null } | null;
+  RaumGefahrenstellen?: Array<{
+    GefahrenstelleID: number;
+    Gefahrenstelle: { GefahrenstelleID: number; Name: string };
+  }>;
+}
+
+interface Geschaeftsstelle {
+  GSID: number;
+  GSName: string | null;
+}
+
+interface Gefahrenstelle {
+  GefahrenstelleID: number;
+  Name: string;
+  Beschreibung: string | null;
 }
 
 interface TableResponse {
@@ -20,6 +37,8 @@ const emptyForm = {
   RaumName: '',
   Standort: '',
   Notiz: '',
+  GSID: '',
+  gefahrenstellen: [] as number[],
 };
 
 export default function RoomsManager() {
@@ -31,17 +50,20 @@ export default function RoomsManager() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [geschaeftsstellen, setGeschaeftsstellen] = useState<Geschaeftsstelle[]>([]);
+  const [gefahrenstellen, setGefahrenstellen] = useState<Gefahrenstelle[]>([]);
+  const [loadingLookups, setLoadingLookups] = useState(true);
 
   const fetchRooms = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
-      const res = await fetch('/api/tables/RAUM', { cache: 'no-store' });
+      const res = await fetch('/api/rooms', { cache: 'no-store' });
       if (!res.ok) {
         throw new Error('Räume konnten nicht geladen werden');
       }
-      const payload: TableResponse = await res.json();
-      setRooms(payload.data ?? []);
+      const payload = await res.json();
+      setRooms(payload.rooms ?? []);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unbekannter Fehler');
       setRooms([]);
@@ -50,9 +72,32 @@ export default function RoomsManager() {
     }
   }, []);
 
+  const fetchLookups = useCallback(async () => {
+    try {
+      setLoadingLookups(true);
+      const [gsRes, ghRes] = await Promise.all([
+        fetch('/api/tables/GS', { cache: 'no-store' }),
+        fetch('/api/gefahrenstellen', { cache: 'no-store' }),
+      ]);
+      if (gsRes.ok) {
+        const gsData = await gsRes.json();
+        setGeschaeftsstellen(gsData.data ?? []);
+      }
+      if (ghRes.ok) {
+        const ghData = await ghRes.json();
+        setGefahrenstellen(ghData.gefahrenstellen ?? []);
+      }
+    } catch (err) {
+      console.error('Fehler beim Laden der Lookups:', err);
+    } finally {
+      setLoadingLookups(false);
+    }
+  }, []);
+
   useEffect(() => {
     fetchRooms();
-  }, [fetchRooms]);
+    fetchLookups();
+  }, [fetchRooms, fetchLookups]);
 
   const resetFeedback = () => {
     setError(null);
@@ -67,6 +112,8 @@ export default function RoomsManager() {
     RaumName: form.RaumName.trim() || null,
     Standort: form.Standort.trim() || null,
     Notiz: form.Notiz.trim() || null,
+    GSID: form.GSID ? Number(form.GSID) : null,
+    gefahrenstellen: form.gefahrenstellen,
   });
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -81,7 +128,7 @@ export default function RoomsManager() {
 
     try {
       const body = JSON.stringify(payloadFromForm());
-      const url = editingId ? `/api/tables/RAUM/${editingId}` : '/api/tables/RAUM';
+      const url = editingId ? `/api/rooms/${editingId}` : '/api/rooms';
       const method = editingId ? 'PUT' : 'POST';
 
       const res = await fetch(url, {
@@ -112,6 +159,8 @@ export default function RoomsManager() {
       RaumName: room.RaumName ?? '',
       Standort: room.Standort ?? '',
       Notiz: room.Notiz ?? '',
+      GSID: room.GSID ? String(room.GSID) : '',
+      gefahrenstellen: room.RaumGefahrenstellen?.map(rg => rg.GefahrenstelleID) ?? [],
     });
     setSuccess(null);
     setError(null);
@@ -132,7 +181,7 @@ export default function RoomsManager() {
     resetFeedback();
     setDeletingId(room.RaumID);
     try {
-      const res = await fetch(`/api/tables/RAUM/${room.RaumID}`, { method: 'DELETE' });
+      const res = await fetch(`/api/rooms/${room.RaumID}`, { method: 'DELETE' });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         throw new Error(data.error || 'Löschen fehlgeschlagen');
@@ -194,6 +243,45 @@ export default function RoomsManager() {
             />
           </label>
 
+          <label className="flex flex-col gap-1 text-sm">
+            <span className="text-gray-700">Geschäftsstelle</span>
+            <select
+              value={form.GSID}
+              onChange={(e) => handleChange('GSID', e.target.value)}
+              disabled={loadingLookups}
+              className="rounded-lg border border-gray-200 bg-white px-3 py-2 focus:border-primary focus:outline-none"
+            >
+              <option value="">Keine Geschäftsstelle</option>
+              {geschaeftsstellen.map((gs) => (
+                <option key={gs.GSID} value={gs.GSID}>
+                  {gs.GSName ?? `GS #${gs.GSID}`}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="flex flex-col gap-1 text-sm">
+            <span className="text-gray-700">Gefahrenstellen</span>
+            <select
+              multiple
+              value={form.gefahrenstellen.map(String)}
+              onChange={(e) => {
+                const selected = Array.from(e.target.selectedOptions).map(opt => Number(opt.value));
+                setForm(prev => ({ ...prev, gefahrenstellen: selected }));
+              }}
+              disabled={loadingLookups}
+              className="rounded-lg border border-gray-200 bg-white px-3 py-2 focus:border-primary focus:outline-none"
+              size={4}
+            >
+              {gefahrenstellen.map((gh) => (
+                <option key={gh.GefahrenstelleID} value={gh.GefahrenstelleID}>
+                  {gh.Name}
+                </option>
+              ))}
+            </select>
+            <span className="text-xs text-gray-500">Mehrfachauswahl mit Strg/Cmd</span>
+          </label>
+
           <label className="flex flex-col gap-1 text-sm md:col-span-2">
             <span className="text-gray-700">Notiz</span>
             <textarea
@@ -247,6 +335,8 @@ export default function RoomsManager() {
                 <tr>
                   <th className="px-6 py-3">Raum</th>
                   <th className="px-6 py-3">Standort</th>
+                  <th className="px-6 py-3">Geschäftsstelle</th>
+                  <th className="px-6 py-3">Gefahrenstellen</th>
                   <th className="px-6 py-3">Notiz</th>
                   <th className="px-6 py-3 text-right">Aktionen</th>
                 </tr>
@@ -256,6 +346,12 @@ export default function RoomsManager() {
                   <tr key={room.RaumID} className="hover:bg-gray-50">
                     <td className="px-6 py-3 font-medium text-gray-900">{room.RaumName || `Raum ${room.RaumID}`}</td>
                     <td className="px-6 py-3 text-gray-700">{room.Standort || '—'}</td>
+                    <td className="px-6 py-3 text-gray-700">{room.GS?.GSName || '—'}</td>
+                    <td className="px-6 py-3 text-gray-700">
+                      {room.RaumGefahrenstellen && room.RaumGefahrenstellen.length > 0
+                        ? room.RaumGefahrenstellen.map(rg => rg.Gefahrenstelle.Name).join(', ')
+                        : '—'}
+                    </td>
                     <td className="px-6 py-3 text-gray-600 max-w-md">
                       {room.Notiz ? <span className="line-clamp-2">{room.Notiz}</span> : '—'}
                     </td>

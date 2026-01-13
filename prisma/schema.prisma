@@ -32,6 +32,7 @@ model GS {
   GSPLZ     String?
   GSOrt     String?
   Benutzer  Benutzer[]
+  Raeume    RAUM[]
 }
 
 // Hardware-Typen
@@ -70,12 +71,14 @@ model Benutzer {
   BenutzerID       Int               @id @default(autoincrement())
   BenutzerName     String?
   BenutzerRaum     String?
+  RaumID           Int?
   ABTID            Int?
   StatusID         Int?
   GSID             Int?
   ABT              ABT?              @relation(fields: [ABTID], references: [ABTID])
   STAT             STAT?             @relation(fields: [StatusID], references: [StatusID])
   GS               GS?               @relation(fields: [GSID], references: [GSID])
+  RAUM             RAUM?             @relation("BenutzerRaum", fields: [RaumID], references: [RaumID])
   BenutzerGER        BenutzerGER[]
   ZubehoerBenutzer   ZubehoerBenutzer[]
   ZubehoerBewegung   ZubehoerBewegung[]
@@ -85,36 +88,40 @@ model Benutzer {
 
 // Räume (Stammdaten für Geräte-Standorte)
 model RAUM {
-  RaumID    Int     @id @default(autoincrement())
-  RaumName  String?
-  Standort  String?
-  Notiz     String?
-  GER       GER[]
+  RaumID         Int        @id @default(autoincrement())
+  RaumName       String?
+  Standort       String?
+  Notiz          String?
+  GSID           Int?
+  GS             GS?        @relation(fields: [GSID], references: [GSID])
+  Benutzer       Benutzer[] @relation("BenutzerRaum")
+  GeraeteStandard GER[]     @relation("GeraetStandardRaum")
+  RaumGefahrenstellen RaumGefahrenstelle[]
 }
 
 // Geräte
 model GER {
-  GerID        Int      @id @default(autoincrement())
-  HWID         Int
-  HSID         Int
-  MODID        Int
-  RaumID       Int?
-  SNO          String
-  InventarCode String   @unique
-  Preis       Decimal?
-  Zugang      DateTime
-  Abgang      DateTime?
-  EAN         String?
-  IMEI1       String?
-  IMEI2       String?
-  HW          HW            @relation(fields: [HWID], references: [HWID])
-  HS          HS            @relation(fields: [HSID], references: [HSID])
-  MOD         MOD           @relation(fields: [MODID], references: [ModID])
-  RAUM              RAUM?              @relation(fields: [RaumID], references: [RaumID])
-  BenutzerGER       BenutzerGER[]
-  ZubehoerBenutzer  ZubehoerBenutzer[]
-  ZubehoerBewegung  ZubehoerBewegung[]
-  UebergabePositionen UebergabePosition[]
+  GerID          Int      @id @default(autoincrement())
+  HWID           Int
+  HSID           Int
+  MODID          Int
+  StandardRaumID Int?
+  SNO            String
+  InventarCode   String   @unique
+  Preis          Decimal?
+  Zugang         DateTime
+  Abgang         DateTime?
+  EAN            String?
+  IMEI1          String?
+  IMEI2          String?
+  HW             HW            @relation(fields: [HWID], references: [HWID])
+  HS             HS            @relation(fields: [HSID], references: [HSID])
+  MOD            MOD           @relation(fields: [MODID], references: [ModID])
+  StandardRaum         RAUM?              @relation("GeraetStandardRaum", fields: [StandardRaumID], references: [RaumID])
+  BenutzerGER          BenutzerGER[]
+  ZubehoerBenutzer     ZubehoerBenutzer[]
+  ZubehoerBewegung     ZubehoerBewegung[]
+  UebergabePositionen  UebergabePosition[]
 }
 
 // Benutzer-Geräte Zuordnung
@@ -374,4 +381,25 @@ model ReportExport {
   creator  WebUser @relation("ReportExportCreator", fields: [createdBy], references: [id], onDelete: Cascade)
 
   @@index([reportId, createdAt])
+}
+
+// Gefahrenstellen (Hazard Locations)
+model Gefahrenstelle {
+  GefahrenstelleID   Int      @id @default(autoincrement())
+  Name               String
+  Beschreibung       String?
+  RaumGefahrenstellen RaumGefahrenstelle[]
+}
+
+// Junction Table: Raum <-> Gefahrenstelle (Many-to-Many)
+model RaumGefahrenstelle {
+  ID               Int      @id @default(autoincrement())
+  RaumID           Int
+  GefahrenstelleID Int
+  Notiz            String?
+  
+  Raum             RAUM             @relation(fields: [RaumID], references: [RaumID], onDelete: Cascade)
+  Gefahrenstelle   Gefahrenstelle   @relation(fields: [GefahrenstelleID], references: [GefahrenstelleID], onDelete: Cascade)
+
+  @@unique([RaumID, GefahrenstelleID])
 }

@@ -5,7 +5,7 @@ import type { InventoryLookups, SerializableInventoryUser } from '@/lib/inventor
 
 type FormState = {
   name: string;
-  room: string;
+  roomId: string;
   departmentId: string;
   statusId: string;
   branchId: string;
@@ -29,7 +29,7 @@ export default function InventoryUsersClient({
   const [users, setUsers] = useState<SerializableInventoryUser[]>(initialUsers);
   const [form, setForm] = useState<FormState>({
     name: '',
-    room: '',
+    roomId: '',
     departmentId: '',
     statusId: '',
     branchId: '',
@@ -46,14 +46,14 @@ export default function InventoryUsersClient({
       if (u) {
         setForm({
           name: u.name ?? '',
-          room: u.room ?? '',
+          roomId: u.room?.id ? String(u.room.id) : '',
           departmentId: u.department?.id ? String(u.department.id) : '',
           statusId: u.status?.id ? String(u.status.id) : '',
           branchId: u.branch?.id ? String(u.branch.id) : '',
         });
       }
     } else {
-      setForm({ name: '', room: '', departmentId: '', statusId: '', branchId: '' });
+      setForm({ name: '', roomId: '', departmentId: '', statusId: '', branchId: '' });
     }
   }, [editingId, users]);
 
@@ -61,7 +61,7 @@ export default function InventoryUsersClient({
     const term = search.trim().toLowerCase();
     if (!term) return users;
     return users.filter((u) =>
-      [u.name, u.room, u.department?.name, u.status?.name, u.branch?.name]
+      [u.name, u.room?.name, u.department?.name, u.status?.name, u.branch?.name]
         .filter(Boolean)
         .some((v) => (v ?? '').toLowerCase().includes(term))
     );
@@ -82,7 +82,7 @@ export default function InventoryUsersClient({
     try {
       const payload = {
         name: form.name.trim() || null,
-        room: form.room.trim() || null,
+        roomId: form.roomId ? Number(form.roomId) : null,
         departmentId: form.departmentId ? Number(form.departmentId) : null,
         statusId: form.statusId ? Number(form.statusId) : null,
         branchId: form.branchId ? Number(form.branchId) : null,
@@ -164,12 +164,18 @@ export default function InventoryUsersClient({
           </label>
           <label className="flex flex-col gap-1 text-sm">
             <span className="text-primary-dark">Raum</span>
-            <input
-              type="text"
-              value={form.room}
-              onChange={(e) => setForm((p) => ({ ...p, room: e.target.value }))}
-              className="rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-primary-dark focus:outline-none"
-            />
+            <select
+              value={form.roomId}
+              onChange={(e) => setForm((p) => ({ ...p, roomId: e.target.value }))}
+              className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm focus:border-primary-dark focus:outline-none"
+            >
+              <option value="">Kein Raum</option>
+              {lookups.rooms.map((r) => (
+                <option key={r.id} value={r.id}>
+                  {r.name ?? `Raum #${r.id}`}{r.standort ? ` (${r.standort})` : ''}
+                </option>
+              ))}
+            </select>
           </label>
           <label className="flex flex-col gap-1 text-sm">
             <span className="text-primary-dark">Abteilung</span>
@@ -270,7 +276,7 @@ export default function InventoryUsersClient({
               {filtered.map((u) => (
                 <tr key={u.id} className="hover:bg-gray-50">
                   <td className="px-4 py-3 font-medium text-gray-900">{u.name ?? `Benutzer #${u.id}`}</td>
-                  <td className="px-4 py-3 text-gray-700">{u.room ?? '—'}</td>
+                  <td className="px-4 py-3 text-gray-700">{u.room?.name ?? '—'}</td>
                   <td className="px-4 py-3 text-gray-700">{u.department?.name ?? '—'}</td>
                   <td className="px-4 py-3 text-gray-700">{u.status?.name ?? '—'}</td>
                   <td className="px-4 py-3 text-gray-700">{u.branch?.name ?? '—'}</td>

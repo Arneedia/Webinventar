@@ -16,12 +16,27 @@ export async function GET(req: NextRequest) {
         HW: true,
         HS: true,
         MOD: true,
-        RAUM: true,
+        StandardRaum: {
+          include: {
+            GS: true,
+            RaumGefahrenstellen: {
+              include: {
+                Gefahrenstelle: true,
+              },
+            },
+          },
+        },
         BenutzerGER: {
           where: { Ende: null },
           orderBy: { Start: 'desc' },
           take: 1,
-          include: { Benutzer: true },
+          include: {
+            Benutzer: {
+              include: {
+                RAUM: true,
+              },
+            },
+          },
         },
       },
     });
@@ -29,8 +44,18 @@ export async function GET(req: NextRequest) {
     const data = devices.map((d) => {
       const currentAssignment = d.BenutzerGER[0];
       const currentUser = currentAssignment?.Benutzer;
-      // Raum: Wenn Benutzer zugewiesen -> Benutzer-Raum, sonst Geräte-Raum
-      const effectiveRoom = currentUser?.BenutzerRaum ?? d.RAUM?.RaumName ?? null;
+      // Raum: Wenn Benutzer zugewiesen -> Benutzer-RAUM, sonst Geräte-StandardRaum
+      const effectiveRoom = currentUser?.RAUM?.RaumName ?? d.StandardRaum?.RaumName ?? null;
+      const effectiveRoomSource = currentUser?.RAUM
+        ? 'user'
+        : d.StandardRaum
+          ? 'device'
+          : null;
+      const roomHazards =
+        d.StandardRaum?.RaumGefahrenstellen?.map((rg) => ({
+          id: rg.GefahrenstelleID,
+          name: rg.Gefahrenstelle?.Name ?? '',
+        })) ?? [];
       return {
         id: d.GerID,
         inventarCode: d.InventarCode,
@@ -51,9 +76,15 @@ export async function GET(req: NextRequest) {
         currentUserId: currentAssignment?.BenutzerID ?? null,
         currentUserName: currentUser?.BenutzerName ?? null,
         // Raum-Informationen
-        raumId: d.RaumID,
-        raumName: d.RAUM?.RaumName ?? null,
-        effectiveRoom, // Benutzer-Raum oder Geräte-Raum
+        raumId: d.StandardRaumID ?? null,
+        raumName: d.StandardRaum?.RaumName ?? null,
+        raumStandort: d.StandardRaum?.Standort ?? null,
+        raumNotiz: d.StandardRaum?.Notiz ?? null,
+        raumBranch: d.StandardRaum?.GS?.GSName ?? null,
+        raumBranchCity: d.StandardRaum?.GS?.GSOrt ?? null,
+        raumHazards: roomHazards,
+        effectiveRoom, // Benutzer-Raum oder Geräte-StandardRaum
+        effectiveRoomSource,
       };
     });
 

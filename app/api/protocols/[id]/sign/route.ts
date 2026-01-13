@@ -37,7 +37,7 @@ async function applyProtocolEffects(protocolId: number) {
         // Raum leeren, wenn Benutzerzuweisung erfolgt
         await tx.gER.update({
           where: { GerID: gerId },
-          data: { RaumID: null },
+          data: { StandardRaumID: null },
         });
         // neue Zuordnung erstellen
         await tx.benutzerGER.create({

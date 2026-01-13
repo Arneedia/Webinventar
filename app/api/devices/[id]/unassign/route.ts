@@ -20,6 +20,13 @@ export async function POST(req: NextRequest, context: RouteContext) {
       return NextResponse.json({ error: 'Ungültige Geräte-ID' }, { status: 400 });
     }
 
+    const body = await req.json();
+    const { targetRoomId } = body;
+
+    if (!targetRoomId || Number.isNaN(Number(targetRoomId))) {
+      return NextResponse.json({ error: 'Ziel-Raum muss angegeben werden' }, { status: 400 });
+    }
+
     const now = new Date();
 
     // Offene Zuordnung(en) beenden
@@ -31,6 +38,12 @@ export async function POST(req: NextRequest, context: RouteContext) {
       data: {
         Ende: now,
       },
+    });
+
+    // StandardRaumID setzen
+    await prisma.gER.update({
+      where: { GerID: deviceId },
+      data: { StandardRaumID: Number(targetRoomId) },
     });
 
     return NextResponse.json({ success: true });
