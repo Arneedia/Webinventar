@@ -72,52 +72,75 @@ export type UserWithPermissions = {
 };
 
 async function loadUserWithPermissions(userId: number): Promise<UserWithPermissions | null> {
-  const user = await prisma.webUser.findUnique({
-    where: { id: userId },
-    include: {
-      permissionGroups: {
-        include: { permissionGroup: true },
+  try {
+    console.log('[Auth] loadUserWithPermissions für userId:', userId);
+    
+    const user = await prisma.webUser.findUnique({
+      where: { id: userId },
+      include: {
+        permissionGroups: {
+          include: { permissionGroup: true },
+        },
       },
-    },
-  });
+    });
 
-  if (!user) return null;
-
-  // Sammle alle Berechtigungen aus allen Gruppen
-  const allPermissions = new Set<string>();
-  for (const { permissionGroup } of user.permissionGroups) {
-    const perms = parsePermissions(permissionGroup.permissions);
-    for (const perm of perms) {
-      allPermissions.add(perm);
+    if (!user) {
+      console.log('[Auth] Kein User gefunden für userId:', userId);
+      return null;
     }
+
+    console.log('[Auth] User gefunden:', user.email, 'Rolle:', user.role);
+
+    // Sammle alle Berechtigungen aus allen Gruppen
+    const allPermissions = new Set<string>();
+    for (const { permissionGroup } of user.permissionGroups) {
+      const perms = parsePermissions(permissionGroup.permissions);
+      for (const perm of perms) {
+        allPermissions.add(perm);
+      }
+    }
+
+    // Erweitere Berechtigungen um implizierte (z.B. "bearbeiten" → "erstellen", "löschen", "anzeigen")
+    const expandedPermissions = expandPermissions(Array.from(allPermissions));
+
+    return {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      role: user.role,
+      permissions: expandedPermissions,
+    };
+  } catch (error) {
+    console.error('[Auth] Fehler beim Laden des Users:', error);
+    return null;
   }
-
-  // Erweitere Berechtigungen um implizierte (z.B. "bearbeiten" → "erstellen", "löschen", "anzeigen")
-  const expandedPermissions = expandPermissions(Array.from(allPermissions));
-
-  return {
-    id: user.id,
-    email: user.email,
-    name: user.name,
-    role: user.role,
-    permissions: expandedPermissions,
-  };
 }
 
 export async function getCurrentUserFromRequest(req: NextRequest): Promise<UserWithPermissions | null> {
   const token = req.cookies.get(SESSION_COOKIE_NAME)?.value;
+  console.log('[Auth] getCurrentUserFromRequest - Token vorhanden:', !!token);
+  
   if (!token) return null;
 
-  const session = await prisma.session.findFirst({
-    where: {
-      token,
-      expiresAt: { gt: new Date() },
-    },
-    select: { userId: true },
-  });
+  try {
+    const session = await prisma.session.findFirst({
+      where: {
+        token,
+        expiresAt: { gt: new Date() },
+      },
+      select: { userId: true },
+    });
 
-  if (!session) return null;
-  return loadUserWithPermissions(session.userId);
+    console.log('[Auth] Session gefunden:', !!session);
+    if (!session) return null;
+    
+    const user = await loadUserWithPermissions(session.userId);
+    console.log('[Auth] User geladen:', !!user, user?.email);
+    return user;
+  } catch (error) {
+    console.error('[Auth] Fehler beim Laden der Session:', error);
+    return null;
+  }
 }
 
 export async function getCurrentUser(): Promise<UserWithPermissions | null> {

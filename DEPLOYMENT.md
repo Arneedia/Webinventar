@@ -31,7 +31,15 @@ npx prisma db push
 
 # Optional: Seed-Daten einfügen
 npm run seed
+
+# WICHTIG: Teste die Datenbankverbindung
+tsx scripts/test-db-connection.ts
 ```
+
+**Wenn der Test fehlschlägt:**
+- Überprüfe die `DATABASE_URL` in `.env.local`
+- Stelle sicher, dass PostgreSQL läuft
+- Prüfe die Netzwerkverbindung zur Datenbank
 
 ### 3. Build erstellen
 
@@ -72,14 +80,41 @@ npm run build
 - Prüfe die Firewall-Einstellungen
 - Für lokale Verbindungen: SSL deaktivieren in der Connection-String: `?sslmode=disable`
 
-### Logs anzeigen
+### Problem: 401 Unauthorized bei allen API-Anfragen
 
-Die Anwendung gibt jetzt Debug-Informationen aus:
+**Diagnose:**
+```bash
+# 1. Teste die Datenbankverbindung
+tsx scripts/test-db-connection.ts
+
+# 2. Überprüfe die Logs beim Start
+npm start
+
+# Erwartete Logs:
+# [Prisma] Initialisiere Prisma Client... { nodeEnv: 'production', hasPostgresUrl: true, urlType: 'PostgreSQL' }
+# [Prisma] Verwende PostgreSQL-Adapter
+```
+
+**Mögliche Ursachen:**
+1. **Prisma Client nicht generiert** → `npx prisma generate`
+2. **Datenbankverbindung fehlgeschlagen** → Siehe Logs `[Auth] Fehler beim Laden der Session`
+3. **Session-Cookie nicht gesetzt** → Browser-DevTools → Application → Cookies
+4. **Umgebungsvariablen nicht geladen** → `.env.local` muss existieren
+
+**Debug-Logs aktiviert:**
+Die Anwendung gibt jetzt detaillierte Debug-Informationen aus:
 
 ```
 [Prisma] Initialisiere Prisma Client... { nodeEnv: 'production', hasPostgresUrl: true, urlType: 'PostgreSQL' }
 [Prisma] Verwende PostgreSQL-Adapter
+[Auth] getCurrentUserFromRequest - Token vorhanden: true
+[Auth] Session gefunden: true
+[Auth] loadUserWithPermissions für userId: 1
+[Auth] User gefunden: admin@example.com Rolle: ADMIN
+[Auth] User geladen: true admin@example.com
 ```
+
+Wenn du `[Auth] Fehler beim Laden der Session` siehst, ist die Datenbankverbindung das Problem.
 
 ## Production mit PM2 (empfohlen)
 
