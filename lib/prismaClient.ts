@@ -1,4 +1,3 @@
-import 'dotenv/config';
 import { PrismaClient } from '@prisma/client';
 
 // PrismaClient als Singleton, um Verbindungsprobleme in Next.js (Hot Reload) zu vermeiden

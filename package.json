@@ -6,6 +6,7 @@
     "dev": "next dev --webpack",
     "build": "prisma generate && next build",
     "start": "next start",
+    "start:prod": "node -r dotenv/config node_modules/.bin/next start dotenv_config_path=.env.local",
     "lint": "eslint",
     "seed": "tsx prisma/seed.ts",
     "db:setup-postgres": "tsx scripts/setup-postgres-schema.ts",

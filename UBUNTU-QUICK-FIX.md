@@ -90,9 +90,13 @@ npx prisma generate
 # Neu bauen
 npm run build
 
-# Starten mit Logs
-npm start
+# WICHTIG: Verwende start:prod statt start (lädt .env.local)
+npm run start:prod
 ```
+
+**Warum `start:prod` statt `start`?**
+- `npm start` lädt `.env.local` NICHT automatisch in Production
+- `npm run start:prod` lädt `.env.local` explizit mit dotenv
 
 ### 6. Überprüfe die Logs
 
@@ -154,8 +158,8 @@ sudo ufw allow 5432/tcp
 # PM2 installieren
 npm install -g pm2
 
-# App mit PM2 starten
-pm2 start npm --name "webinventar" -- start
+# App mit PM2 starten (mit .env.local Support)
+pm2 start npm --name "webinventar" -- run start:prod
 
 # Logs anzeigen
 pm2 logs webinventar
@@ -163,6 +167,9 @@ pm2 logs webinventar
 # Auto-Start beim Systemstart
 pm2 startup
 pm2 save
+
+# Status prüfen
+pm2 status
 ```
 
 ## Noch Probleme?
