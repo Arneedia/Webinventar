@@ -40,11 +40,12 @@ export async function POST(req: NextRequest) {
       success: true,
     });
 
-    // Cookie setzen - secure nur auf Vercel/Production (HTTPS)
-    const isProduction = process.env.NODE_ENV === 'production' || process.env.VERCEL === '1';
+    // Cookie setzen - secure nur bei HTTPS (Vercel oder explizit gesetzt)
+    // Für lokale Production-Server mit HTTP muss secure=false sein
+    const isSecure = process.env.VERCEL === '1' || process.env.FORCE_SECURE_COOKIES === 'true';
     res.cookies.set(AuthConstants.SESSION_COOKIE_NAME, token, {
       httpOnly: true,
-      secure: isProduction,
+      secure: isSecure,
       sameSite: 'lax',
       path: '/',
       expires: expiresAt,

@@ -61,10 +61,34 @@ psql -U user -d webinventar -c "DELETE FROM \"Session\";"
 
 Dann müssen sich alle Benutzer neu anmelden.
 
+## Problem: "Cookie wurde abgelehnt - Nicht-HTTPS-Cookie kann nicht als secure gesetzt werden"
+
+**Ursache:** Der Server läuft mit HTTP (nicht HTTPS), aber Next.js versucht das Cookie als `secure` zu setzen.
+
+**Lösung:** Code wurde bereits gefixt! Einfach neu bauen:
+
+```bash
+# Auf dem Ubuntu Server:
+npm run build
+npm run start:prod
+```
+
+Jetzt funktioniert das Cookie auch über HTTP!
+
+**Für HTTPS (später mit Nginx/Reverse Proxy):**
+Setze in `.env.local`:
+```
+FORCE_SECURE_COOKIES="true"
+```
+
 ## Zusammenfassung
 
-**Problem:** Browser-Cookie zeigt auf nicht-existente Session in DB
+**Problem 1:** Browser-Cookie zeigt auf nicht-existente Session in DB
 **Lösung:** Cookie löschen + neu anmelden
-**Dauer:** 30 Sekunden
+
+**Problem 2:** Cookie wird abgelehnt wegen "secure" Flag bei HTTP
+**Lösung:** Code gefixt - secure nur bei HTTPS/Vercel
+
+**Dauer:** 2 Minuten (neu bauen + anmelden)
 
 Das ist ein **normales Problem** nach einem DB-Reset oder wenn Sessions ablaufen!
