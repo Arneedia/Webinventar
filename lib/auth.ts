@@ -123,16 +123,38 @@ export async function getCurrentUserFromRequest(req: NextRequest): Promise<UserW
   if (!token) return null;
 
   try {
+    // Prüfe erst ob überhaupt Sessions existieren
+    const totalSessions = await prisma.session.count();
+    const validSessions = await prisma.session.count({
+      where: { expiresAt: { gt: new Date() } }
+    });
+    
+    console.log('[Auth] Sessions in DB - Total:', totalSessions, 'Gültig:', validSessions);
+    
     const session = await prisma.session.findFirst({
       where: {
         token,
         expiresAt: { gt: new Date() },
       },
-      select: { userId: true },
+      select: { userId: true, expiresAt: true },
     });
 
-    console.log('[Auth] Session gefunden:', !!session);
-    if (!session) return null;
+    if (!session) {
+      // Prüfe ob Token existiert aber abgelaufen ist
+      const expiredSession = await prisma.session.findFirst({
+        where: { token },
+        select: { expiresAt: true }
+      });
+      
+      if (expiredSession) {
+        console.log('[Auth] Session abgelaufen! Expires:', expiredSession.expiresAt, 'Jetzt:', new Date());
+      } else {
+        console.log('[Auth] Token nicht in DB gefunden (erste 10 Zeichen):', token.substring(0, 10));
+      }
+      return null;
+    }
+    
+    console.log('[Auth] Session gefunden! UserId:', session.userId, 'Expires:', session.expiresAt);
     
     const user = await loadUserWithPermissions(session.userId);
     console.log('[Auth] User geladen:', !!user, user?.email);
