@@ -42,3 +42,11 @@ next-env.d.ts
 
 /lib/generated/prisma
 .env*.local
+daten_korrigiert.sql
+daten.sql
+fix_sql_simple.ps1
+fix_sql_final.ps1
+fix_sql.ps1
+fix_sql.py
+scripts/export-schema.sh
+scripts/start-prisma-studio.sh

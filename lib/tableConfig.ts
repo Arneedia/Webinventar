@@ -136,7 +136,7 @@ export const tables: TableConfig[] = [
       { name: 'HWID', type: 'int', nullable: false },
       { name: 'HSID', type: 'int', nullable: false },
       { name: 'MODID', type: 'int', nullable: false },
-      { name: 'RaumID', type: 'int', nullable: true },
+      { name: 'StandardRaumID', type: 'int', nullable: true },
       { name: 'SNO', type: 'varchar', nullable: false, maxLength: 50 },
       { name: 'InventarCode', type: 'varchar', nullable: false, maxLength: 20 },
       { name: 'Preis', type: 'decimal', nullable: true, precision: 18, scale: 2 },
@@ -150,7 +150,7 @@ export const tables: TableConfig[] = [
       { column: 'HWID', refTable: 'HW', relationName: 'HW', displayColumn: 'HWName' },
       { column: 'HSID', refTable: 'HS', relationName: 'HS', displayColumn: 'HSName' },
       { column: 'MODID', refTable: 'MOD', relationName: 'MOD', displayColumn: 'ModName' },
-      { column: 'RaumID', refTable: 'RAUM', relationName: 'RAUM', displayColumn: 'RaumName' },
+      { column: 'StandardRaumID', refTable: 'RAUM', relationName: 'StandardRaum', displayColumn: 'RaumName' },
     ],
   },
   {

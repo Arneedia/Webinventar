@@ -46,11 +46,10 @@ export async function PUT(req: NextRequest, context: RouteContext) {
     const now = new Date();
 
     // Zuordnung beenden
-    await prisma.$executeRawUnsafe(
-      'UPDATE "ZubehörBenutzer" SET "Ende" = ? WHERE "ID" = ?',
-      now.toISOString(),
-      assignId,
-    );
+    await prisma.zubehoerBenutzer.update({
+      where: { ID: assignId },
+      data: { Ende: now },
+    });
 
     // Optional: Bestand wieder erhöhen (Menge in bestehendem Eintrag erhöhen oder neuen anlegen)
     if (returnToStock) {
@@ -123,7 +122,9 @@ export async function DELETE(req: NextRequest, context: RouteContext) {
     }
 
     // Zuordnung löschen
-    await prisma.$executeRawUnsafe('DELETE FROM "ZubehörBenutzer" WHERE "ID" = ?', assignId);
+    await prisma.zubehoerBenutzer.delete({
+      where: { ID: assignId },
+    });
 
     // Optional: Bestand wieder erhöhen (nur wenn Zuordnung noch aktiv war)
     if (returnToStock && !assignment.Ende) {
