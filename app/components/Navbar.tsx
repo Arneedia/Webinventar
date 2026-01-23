@@ -92,6 +92,11 @@ export default async function Navbar() {
       label: 'Gefahrenstellen',
       show: !!user && (user.role === Roles.ADMIN || userHasPermission(user, AvailablePermissions.MASTER_DATA_EDIT)),
     },
+    {
+      href: '/admin/sticker-templates',
+      label: 'Sticker-Vorlagen',
+      show: !!user && (user.role === Roles.ADMIN || userHasPermission(user, AvailablePermissions.MASTER_DATA_EDIT)),
+    },
   ];
 
   const showAdminMenu = adminLinks.some((l) => l.show);

@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import PaginatedTable, { TableColumn } from '@/app/components/PaginatedTable';
 
 interface RoomRecord {
   RaumID: number;
@@ -316,8 +317,8 @@ export default function RoomsManager() {
         </form>
       </section>
 
-      <section className="rounded-2xl border border-gray-200 bg-white shadow-sm">
-        <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+      <section className="rounded-2xl border border-gray-200 bg-white shadow-sm p-6">
+        <div className="mb-4 flex items-center justify-between">
           <h2 className="text-lg font-semibold text-gray-900">Bestehende Räume</h2>
           <span className="text-sm text-gray-500">{rooms.length} Einträge</span>
         </div>
@@ -326,57 +327,85 @@ export default function RoomsManager() {
           <div className="flex items-center justify-center py-12">
             <span className="text-gray-500 text-sm">Lade Räume…</span>
           </div>
-        ) : rooms.length === 0 ? (
-          <div className="px-6 py-12 text-center text-sm text-gray-500">Noch keine Räume vorhanden.</div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200 text-sm">
-              <thead className="bg-gray-50 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
-                <tr>
-                  <th className="px-6 py-3">Raum</th>
-                  <th className="px-6 py-3">Standort</th>
-                  <th className="px-6 py-3">Geschäftsstelle</th>
-                  <th className="px-6 py-3">Gefahrenstellen</th>
-                  <th className="px-6 py-3">Notiz</th>
-                  <th className="px-6 py-3 text-right">Aktionen</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {sortedRooms.map((room) => (
-                  <tr key={room.RaumID} className="hover:bg-gray-50">
-                    <td className="px-6 py-3 font-medium text-gray-900">{room.RaumName || `Raum ${room.RaumID}`}</td>
-                    <td className="px-6 py-3 text-gray-700">{room.Standort || '—'}</td>
-                    <td className="px-6 py-3 text-gray-700">{room.GS?.GSName || '—'}</td>
-                    <td className="px-6 py-3 text-gray-700">
-                      {room.RaumGefahrenstellen && room.RaumGefahrenstellen.length > 0
-                        ? room.RaumGefahrenstellen.map(rg => rg.Gefahrenstelle.Name).join(', ')
-                        : '—'}
-                    </td>
-                    <td className="px-6 py-3 text-gray-600 max-w-md">
-                      {room.Notiz ? <span className="line-clamp-2">{room.Notiz}</span> : '—'}
-                    </td>
-                    <td className="px-6 py-3 text-right space-x-3">
-                      <button
-                        type="button"
-                        onClick={() => handleEdit(room)}
-                        className="text-primary-dark hover:underline"
-                      >
-                        Bearbeiten
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleDelete(room)}
-                        disabled={deletingId === room.RaumID}
-                        className="text-red-600 hover:underline disabled:text-red-300"
-                      >
-                        {deletingId === room.RaumID ? 'Löscht…' : 'Löschen'}
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <PaginatedTable
+            data={sortedRooms}
+            columns={[
+              {
+                key: 'RaumName',
+                label: 'Raum',
+                sortable: true,
+                searchable: true,
+                render: (value, room) => (
+                  <span className="font-medium text-gray-900">
+                    {value || `Raum ${room.RaumID}`}
+                  </span>
+                ),
+              },
+              {
+                key: 'Standort',
+                label: 'Standort',
+                sortable: true,
+                searchable: true,
+                render: (value) => value || '—',
+              },
+              {
+                key: 'GS',
+                label: 'Geschäftsstelle',
+                sortable: true,
+                searchable: true,
+                render: (value) => value?.GSName || '—',
+              },
+              {
+                key: 'RaumGefahrenstellen',
+                label: 'Gefahrenstellen',
+                sortable: false,
+                searchable: true,
+                render: (value) =>
+                  value && value.length > 0
+                    ? value.map((rg: any) => rg.Gefahrenstelle.Name).join(', ')
+                    : '—',
+              },
+              {
+                key: 'Notiz',
+                label: 'Notiz',
+                sortable: false,
+                searchable: true,
+                render: (value) =>
+                  value ? <span className="line-clamp-2 max-w-md">{value}</span> : '—',
+                className: 'max-w-md',
+              },
+              {
+                key: 'RaumID',
+                label: 'Aktionen',
+                sortable: false,
+                render: (_, room) => (
+                  <div className="flex gap-3 justify-end">
+                    <button
+                      type="button"
+                      onClick={() => handleEdit(room)}
+                      className="text-primary-dark hover:underline text-xs font-medium"
+                    >
+                      Bearbeiten
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDelete(room)}
+                      disabled={deletingId === room.RaumID}
+                      className="text-red-600 hover:underline disabled:text-red-300 text-xs font-medium"
+                    >
+                      {deletingId === room.RaumID ? 'Löscht…' : 'Löschen'}
+                    </button>
+                  </div>
+                ),
+              },
+            ]}
+            keyExtractor={(room) => room.RaumID}
+            emptyMessage="Noch keine Räume vorhanden."
+            rowsPerPage={10}
+            searchPlaceholder="Raum, Standort, Geschäftsstelle oder Notiz suchen..."
+            showSearch={true}
+          />
         )}
       </section>
     </div>

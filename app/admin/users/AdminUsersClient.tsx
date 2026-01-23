@@ -3,6 +3,7 @@
 import { useCallback, useMemo, useState } from 'react';
 import type { SerializableWebUser } from '@/lib/webUsers';
 import type { SerializablePermissionGroup } from '@/lib/permissionGroups';
+import PaginatedTable, { TableColumn } from '@/app/components/PaginatedTable';
 
 interface AdminUsersClientProps {
   initialUsers: SerializableWebUser[];

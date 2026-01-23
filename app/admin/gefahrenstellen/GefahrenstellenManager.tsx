@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import PaginatedTable, { TableColumn } from '@/app/components/PaginatedTable';
 
 interface Gefahrenstelle {
   GefahrenstelleID: number;
@@ -206,8 +207,8 @@ export default function GefahrenstellenManager() {
         </form>
       </section>
 
-      <section className="rounded-2xl border border-gray-200 bg-white shadow-sm">
-        <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+      <section className="rounded-2xl border border-gray-200 bg-white shadow-sm p-6">
+        <div className="mb-4 flex items-center justify-between">
           <h2 className="text-lg font-semibold text-gray-900">Bestehende Gefahrenstellen</h2>
           <span className="text-sm text-gray-500">{gefahrenstellen.length} Einträge</span>
         </div>
@@ -216,45 +217,55 @@ export default function GefahrenstellenManager() {
           <div className="flex items-center justify-center py-12">
             <span className="text-gray-500 text-sm">Lade Gefahrenstellen…</span>
           </div>
-        ) : gefahrenstellen.length === 0 ? (
-          <div className="px-6 py-12 text-center text-sm text-gray-500">Noch keine Gefahrenstellen vorhanden.</div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200 text-sm">
-              <thead className="bg-gray-50 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
-                <tr>
-                  <th className="px-6 py-3">Name</th>
-                  <th className="px-6 py-3">Beschreibung</th>
-                  <th className="px-6 py-3 text-right">Aktionen</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {sortedItems.map((item) => (
-                  <tr key={item.GefahrenstelleID} className="hover:bg-gray-50">
-                    <td className="px-6 py-3 font-medium text-gray-900">{item.Name}</td>
-                    <td className="px-6 py-3 text-gray-700">{item.Beschreibung || '—'}</td>
-                    <td className="px-6 py-3 text-right space-x-3">
-                      <button
-                        type="button"
-                        onClick={() => handleEdit(item)}
-                        className="text-primary-dark hover:underline"
-                      >
-                        Bearbeiten
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleDelete(item)}
-                        disabled={deletingId === item.GefahrenstelleID}
-                        className="text-red-600 hover:underline disabled:text-red-300"
-                      >
-                        {deletingId === item.GefahrenstelleID ? 'Löscht…' : 'Löschen'}
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <PaginatedTable
+            data={sortedItems}
+            columns={[
+              {
+                key: 'Name',
+                label: 'Name',
+                sortable: true,
+                searchable: true,
+                render: (value) => <span className="font-medium text-gray-900">{value}</span>,
+              },
+              {
+                key: 'Beschreibung',
+                label: 'Beschreibung',
+                sortable: true,
+                searchable: true,
+                render: (value) => value || '—',
+              },
+              {
+                key: 'GefahrenstelleID',
+                label: 'Aktionen',
+                sortable: false,
+                render: (_, item) => (
+                  <div className="flex gap-3 justify-end">
+                    <button
+                      type="button"
+                      onClick={() => handleEdit(item)}
+                      className="text-primary-dark hover:underline text-xs font-medium"
+                    >
+                      Bearbeiten
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDelete(item)}
+                      disabled={deletingId === item.GefahrenstelleID}
+                      className="text-red-600 hover:underline disabled:text-red-300 text-xs font-medium"
+                    >
+                      {deletingId === item.GefahrenstelleID ? 'Löscht…' : 'Löschen'}
+                    </button>
+                  </div>
+                ),
+              },
+            ]}
+            keyExtractor={(item) => item.GefahrenstelleID}
+            emptyMessage="Noch keine Gefahrenstellen vorhanden."
+            rowsPerPage={10}
+            searchPlaceholder="Name oder Beschreibung suchen..."
+            showSearch={true}
+          />
         )}
       </section>
     </div>
