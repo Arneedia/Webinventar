@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Database, ChevronDown, QrCode, ClipboardList, ArrowUpRight, ArrowDownLeft } from 'lucide-react';
+import { Database, ChevronDown, QrCode, ClipboardList, ArrowUpRight, ArrowDownLeft, Users, ClipboardCheck } from 'lucide-react';
 import { getCurrentUser, Roles, userHasPermission, userHasAnyPermission } from '@/lib/auth';
 import { AvailablePermissions } from '@/lib/permissionGroups';
 import MobileMenu from './MobileMenu';
@@ -56,6 +56,16 @@ export default async function Navbar() {
       href: '/auswertungen',
       label: 'Auswertungen',
       show: !!user && (user.role === Roles.ADMIN || userHasPermission(user, AvailablePermissions.REPORTS_VIEW)),
+    },
+    {
+      href: '/mitarbeiter-geraete',
+      label: 'Mitarbeiter-Geräte',
+      show: !!user && (user.role === Roles.ADMIN || userHasPermission(user, AvailablePermissions.DEVICES_VIEW)),
+    },
+    {
+      href: '/inventur',
+      label: 'Inventur',
+      show: !!user && (user.role === Roles.ADMIN || userHasPermission(user, AvailablePermissions.DEVICES_VIEW)),
     },
   ];
 
