@@ -3,6 +3,8 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import Navbar from "./components/Navbar";
 import Footer from "./components/Footer";
+import InventoryFAB from "./components/InventoryFAB";
+import { InventoryModeProvider } from "./contexts/InventoryModeContext";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -42,13 +44,16 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-gray-50`}
         suppressHydrationWarning
       >
-        <div className="min-h-screen flex flex-col">
-          <Navbar />
-          <main className="flex-1 flex flex-col">
-            {children}
-          </main>
-          <Footer />
-        </div>
+        <InventoryModeProvider>
+          <div className="min-h-screen flex flex-col">
+            <Navbar />
+            <main className="flex-1 flex flex-col">
+              {children}
+            </main>
+            <Footer />
+            <InventoryFAB />
+          </div>
+        </InventoryModeProvider>
       </body>
     </html>
   );

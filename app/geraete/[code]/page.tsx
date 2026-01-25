@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { MonitorSmartphone, ArrowLeft, Loader2, UserRound, History, Package, QrCode, Building2, MapPin, Briefcase, UserPlus, UserMinus, Undo2, Plus, X, Archive, ClipboardList, ArrowUpRight, ArrowDownLeft, Repeat } from 'lucide-react';
 import Link from 'next/link';
 import StickerModal from '../../components/StickerModal';
+import InventoryScanButton from '../../components/InventoryScanButton';
 
 interface CurrentUser {
   id: number;
@@ -494,7 +495,7 @@ export default function DeviceDetailPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       <header className="border-b bg-white/80 backdrop-blur-sm sticky top-0 z-10">
-        <div className="mx-auto max-w-2xl px-4 py-4 flex items-center justify-between">
+        <div className="mx-auto max-w-2xl px-4 py-4 flex items-center justify-between gap-3">
           <div className="flex items-center gap-4">
             <button
               onClick={() => router.push('/geraete')}
@@ -512,13 +513,19 @@ export default function DeviceDetailPage() {
               </div>
             </div>
           </div>
-          <button
-            onClick={() => setShowStickerModal(true)}
-            className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-primary-dark bg-primary/10 rounded-lg hover:bg-primary/20"
-          >
-            <QrCode className="w-4 h-4" />
-            Sticker
-          </button>
+          <div className="flex items-center gap-2">
+            <InventoryScanButton 
+              inventarCode={device.inventarCode}
+              deviceName={device.hwName || undefined}
+            />
+            <button
+              onClick={() => setShowStickerModal(true)}
+              className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-primary-dark bg-primary/10 rounded-lg hover:bg-primary/20"
+            >
+              <QrCode className="w-4 h-4" />
+              Sticker
+            </button>
+          </div>
         </div>
       </header>
 

@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Database, ChevronDown, QrCode, ClipboardList, ArrowUpRight, ArrowDownLeft, Users, ClipboardCheck } from 'lucide-react';
+import { Database, ChevronDown, QrCode, ClipboardList, ArrowUpRight, ArrowDownLeft, Users, ClipboardCheck, Scan } from 'lucide-react';
 import { getCurrentUser, Roles, userHasPermission, userHasAnyPermission } from '@/lib/auth';
 import { AvailablePermissions } from '@/lib/permissionGroups';
 import MobileMenu from './MobileMenu';
@@ -132,7 +132,18 @@ export default async function Navbar() {
           </div>
         </Link>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3">
+          {/* Inventur-Modus Button - Prominent auf allen Geräten */}
+          {!!user && (user.role === Roles.ADMIN || userHasPermission(user, AvailablePermissions.DEVICES_VIEW)) && (
+            <Link
+              href="/inventur"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 sm:px-4 sm:py-2 rounded-full bg-primary text-white text-xs sm:text-sm font-semibold hover:bg-primary-dark shadow-sm transition-colors"
+            >
+              <ClipboardCheck className="w-4 h-4" />
+              <span className="hidden xs:inline">Inventur</span>
+            </Link>
+          )}
+          
           <div className="hidden md:flex items-center gap-2 px-3 py-1 rounded-full border border-gray-200 bg-gray-50 text-xs text-gray-600">
             <span className="inline-flex h-2 w-2 rounded-full bg-emerald-500" />
             <span>Lokal</span>

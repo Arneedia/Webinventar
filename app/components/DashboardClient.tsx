@@ -17,6 +17,8 @@ import {
   Plus,
 } from 'lucide-react';
 import TableView from './TableView';
+import LandingPageScanModule from './LandingPageScanModule';
+import InventoryModeToggle from './InventoryModeToggle';
 
 const iconMap = {
   MonitorSmartphone,
@@ -166,7 +168,11 @@ export default function DashboardClient({ features, quickActions }: DashboardCli
         </header>
 
         {view === 'dashboard' && (
-          <section className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-6">
+          <section className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+            {/* Inventur-Modus Toggle & Scan-Modul */}
+            <InventoryModeToggle />
+            <LandingPageScanModule />
+            
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               {quickActions.length > 0 && (
                 <div className="md:col-span-2 rounded-xl border border-gray-200 bg-white p-4">
