@@ -75,6 +75,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ relation: serializeRelation(created) }, { status: 201 });
   } catch (error) {
     console.error('Error in POST /api/relations/hs-mod:', error);
+    
+    if (error && typeof error === 'object' && 'code' in error && error.code === 'P2002') {
+      return NextResponse.json({ error: 'Diese Zuordnung existiert bereits (Datenbank-Constraint)' }, { status: 409 });
+    }
+    
     return NextResponse.json({ error: 'Zuordnung konnte nicht erstellt werden' }, { status: 500 });
   }
 }
