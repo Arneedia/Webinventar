@@ -7,7 +7,7 @@ import { Lock, Mail } from 'lucide-react';
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const redirectTo = searchParams.get('redirectTo') || '/geraete';
+  const redirectTo = searchParams.get('redirectTo') || '/';
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -32,14 +32,11 @@ function LoginForm() {
         throw new Error(data.error || 'Login fehlgeschlagen');
       }
 
-      // Router cache invalidieren damit Server-Komponenten neu geladen werden
-      router.refresh();
-
       // Prüfen ob Passwort geändert werden muss
       if (data.mustChangePassword) {
-        router.push('/change-password');
+        window.location.href = '/change-password';
       } else {
-        router.push(redirectTo || '/geraete');
+        window.location.href = redirectTo;
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Login fehlgeschlagen');

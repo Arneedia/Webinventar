@@ -22,7 +22,7 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
     }
 
     const body = await req.json();
-    const { SNO, EAN, IMEI1, IMEI2, Preis, HWID, HSID, MODID } = body;
+    const { SNO, EAN, IMEI1, IMEI2, Preis, HWID, HSID, MODID, StandardRaumID } = body;
 
     // Build update data object with only provided fields
     const updateData: any = {};
@@ -35,6 +35,7 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
     if (HWID !== undefined) updateData.HWID = HWID;
     if (HSID !== undefined) updateData.HSID = HSID;
     if (MODID !== undefined) updateData.MODID = MODID;
+    if (StandardRaumID !== undefined) updateData.StandardRaumID = StandardRaumID;
 
     const updatedDevice = await prisma.gER.update({
       where: { GerID: deviceId },

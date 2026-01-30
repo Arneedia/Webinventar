@@ -518,7 +518,7 @@ export default function AccessoriesManager() {
           body: JSON.stringify({
             ZubehoerID: Number(movementForm.ZubehoerID),
             Menge: Number(movementForm.Menge),
-            Zugang: movementForm.direction === "IN" ? movementForm.date : null,
+            Zugang: movementForm.direction === "IN" ? movementForm.date : movementForm.date,
             Abgang: movementForm.direction === "OUT" ? movementForm.date : null,
           }),
         },

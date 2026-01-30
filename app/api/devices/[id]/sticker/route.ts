@@ -35,9 +35,10 @@ export async function GET(req: NextRequest, context: RouteContext) {
       return NextResponse.json({ error: 'Gerät nicht gefunden' }, { status: 404 });
     }
 
-    // URL für QR-Code: Gerätedetailseite
-    const baseUrl = req.headers.get('x-forwarded-host') || req.headers.get('host') || 'localhost:3000';
-    const protocol = req.headers.get('x-forwarded-proto') || 'http';
+    // URL für QR-Code: Gerätedetailseite (dynamisch aus Request ermitteln)
+    const url = new URL(req.url);
+    const baseUrl = req.headers.get('x-forwarded-host') || req.headers.get('host') || url.host;
+    const protocol = req.headers.get('x-forwarded-proto') || url.protocol.replace(':', '');
     const deviceUrl = `${protocol}://${baseUrl}/geraete/${device.InventarCode}`;
 
     // QR-Code als Data-URL generieren

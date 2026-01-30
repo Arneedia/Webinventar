@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, KeyboardEvent } from 'react';
 import Link from 'next/link';
-import { Database, MonitorSmartphone, UserRound, History, AlertTriangle, Plus, RefreshCw, Package, Undo2, XCircle, X, ChevronRight, QrCode, MapPin, ClipboardList, ArrowUpRight, ArrowDownLeft, Repeat, FileText, User, Calendar, CheckCircle2, Clock, FileEdit, Archive, Edit2 } from 'lucide-react';
+import { Database, MonitorSmartphone, UserRound, History, AlertTriangle, Plus, RefreshCw, Package, Undo2, XCircle, X, ChevronRight, QrCode, MapPin, ClipboardList, ArrowUpRight, ArrowDownLeft, Repeat, FileText, User, Calendar, CheckCircle2, Clock, FileEdit, Archive, Edit2, ChevronUp, ChevronDown, ChevronsUpDown, Search } from 'lucide-react';
 import StickerModal from '../components/StickerModal';
 
 interface DeviceListItem {
@@ -192,6 +192,18 @@ export default function DeviceManagementPage() {
   // Nicht zugewiesene Geräte Sektion
   const [showUnassignedSection, setShowUnassignedSection] = useState(false);
 
+  // Pagination - Hauptliste
+  const [currentPage, setCurrentPage] = useState(1);
+  const rowsPerPage = 10;
+  const [mainSortColumn, setMainSortColumn] = useState<string | null>(null);
+  const [mainSortDirection, setMainSortDirection] = useState<'asc' | 'desc' | null>(null);
+
+  // Pagination - Nicht zugewiesene Geräte
+  const [unassignedCurrentPage, setUnassignedCurrentPage] = useState(1);
+  const [unassignedSearch, setUnassignedSearch] = useState('');
+  const [unassignedSortColumn, setUnassignedSortColumn] = useState<string | null>(null);
+  const [unassignedSortDirection, setUnassignedSortDirection] = useState<'asc' | 'desc' | null>(null);
+
   // Unassign Modal mit Raumauswahl
   const [showUnassignModal, setShowUnassignModal] = useState(false);
   const [unassignTargetRoomId, setUnassignTargetRoomId] = useState<string>('');
@@ -209,6 +221,7 @@ export default function DeviceManagementPage() {
     HWID: '',
     HSID: '',
     MODID: '',
+    RaumID: '',
   });
   const [editDeviceLoading, setEditDeviceLoading] = useState(false);
   const [editDeviceError, setEditDeviceError] = useState<string | null>(null);
@@ -223,6 +236,7 @@ export default function DeviceManagementPage() {
     EAN: '',
     IMEI1: '',
     IMEI2: '',
+    RaumID: '',
   });
 
   const formatDate = (dateStr?: string | null) => {
@@ -758,6 +772,7 @@ export default function DeviceManagementPage() {
       HWID: selectedDevice.hwId ? String(selectedDevice.hwId) : '',
       HSID: selectedDevice.hsId ? String(selectedDevice.hsId) : '',
       MODID: selectedDevice.modelId ? String(selectedDevice.modelId) : '',
+      RaumID: selectedDevice.raumId ? String(selectedDevice.raumId) : '',
     });
     setIsEditingDevice(true);
     setEditDeviceError(null);
@@ -783,6 +798,7 @@ export default function DeviceManagementPage() {
         HWID: editDeviceData.HWID ? Number(editDeviceData.HWID) : null,
         HSID: editDeviceData.HSID ? Number(editDeviceData.HSID) : null,
         MODID: editDeviceData.MODID ? Number(editDeviceData.MODID) : null,
+        StandardRaumID: editDeviceData.RaumID ? Number(editDeviceData.RaumID) : null,
       };
 
       const res = await fetch(`/api/devices/${selectedDeviceId}`, {
@@ -821,6 +837,7 @@ export default function DeviceManagementPage() {
         EAN: newDevice.EAN || null,
         IMEI1: newDevice.IMEI1 || null,
         IMEI2: newDevice.IMEI2 || null,
+        StandardRaumID: Number(newDevice.RaumID) || null,
       };
 
       const res = await fetch('/api/tables/GER', {
@@ -834,7 +851,7 @@ export default function DeviceManagementPage() {
         throw new Error(data.details || data.error || 'Fehler beim Erstellen des Geräts');
       }
 
-      setNewDevice({ HWID: '', HSID: '', MODID: '', SNO: '', Preis: '', Zugang: '', EAN: '', IMEI1: '', IMEI2: '' });
+      setNewDevice({ HWID: '', HSID: '', MODID: '', SNO: '', Preis: '', Zugang: '', EAN: '', IMEI1: '', IMEI2: '', RaumID: '' });
       await fetchDevices();
       setCreating(false);
     } catch (err) {
@@ -892,6 +909,120 @@ export default function DeviceManagementPage() {
 
     return true;
   });
+
+  // Sort main device list
+  const sortedFilteredDevices = [...filteredDevices].sort((a, b) => {
+    if (!mainSortColumn || !mainSortDirection) return 0;
+    
+    const aValue = (a as any)[mainSortColumn];
+    const bValue = (b as any)[mainSortColumn];
+    
+    if (aValue === null || aValue === undefined) return 1;
+    if (bValue === null || bValue === undefined) return -1;
+    
+    let comparison = 0;
+    if (typeof aValue === 'string' && typeof bValue === 'string') {
+      comparison = aValue.localeCompare(bValue, 'de-DE');
+    } else if (typeof aValue === 'number' && typeof bValue === 'number') {
+      comparison = aValue - bValue;
+    } else {
+      comparison = String(aValue).localeCompare(String(bValue), 'de-DE');
+    }
+    
+    return mainSortDirection === 'asc' ? comparison : -comparison;
+  });
+
+  // Calculate pagination
+  const totalPages = Math.ceil(sortedFilteredDevices.length / rowsPerPage);
+  const startIndex = (currentPage - 1) * rowsPerPage;
+  const endIndex = startIndex + rowsPerPage;
+  const paginatedDevices = sortedFilteredDevices.slice(startIndex, endIndex);
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [deviceSearch, filterUserId, statusFilter, showUnassignedOnly]);
+
+  // Unassigned devices filtering, sorting, and pagination
+  const unassignedDevices = devices.filter(d => !d.currentUserName && !d.abgang);
+  
+  // Filter by search term
+  const filteredUnassignedDevices = unassignedDevices.filter(d => {
+    if (!unassignedSearch.trim()) return true;
+    const term = unassignedSearch.toLowerCase();
+    return [
+      d.inventarCode,
+      d.sno,
+      d.hwName,
+      d.hsName,
+      d.modelName,
+      d.effectiveRoom,
+      d.raumName,
+    ].some(val => val && String(val).toLowerCase().includes(term));
+  });
+
+  // Sort unassigned devices
+  const sortedUnassignedDevices = [...filteredUnassignedDevices].sort((a, b) => {
+    if (!unassignedSortColumn || !unassignedSortDirection) return 0;
+    
+    const aValue = (a as any)[unassignedSortColumn];
+    const bValue = (b as any)[unassignedSortColumn];
+    
+    if (aValue === null || aValue === undefined) return 1;
+    if (bValue === null || bValue === undefined) return -1;
+    
+    let comparison = 0;
+    if (typeof aValue === 'string' && typeof bValue === 'string') {
+      comparison = aValue.localeCompare(bValue, 'de-DE');
+    } else if (typeof aValue === 'number' && typeof bValue === 'number') {
+      comparison = aValue - bValue;
+    } else {
+      comparison = String(aValue).localeCompare(String(bValue), 'de-DE');
+    }
+    
+    return unassignedSortDirection === 'asc' ? comparison : -comparison;
+  });
+
+  // Paginate unassigned devices
+  const unassignedTotalPages = Math.ceil(sortedUnassignedDevices.length / rowsPerPage);
+  const unassignedStartIndex = (unassignedCurrentPage - 1) * rowsPerPage;
+  const unassignedEndIndex = unassignedStartIndex + rowsPerPage;
+  const paginatedUnassignedDevices = sortedUnassignedDevices.slice(unassignedStartIndex, unassignedEndIndex);
+
+  // Reset unassigned page when search changes
+  useEffect(() => {
+    setUnassignedCurrentPage(1);
+  }, [unassignedSearch]);
+
+  // Handle unassigned device sorting
+  const handleUnassignedSort = (column: string) => {
+    if (unassignedSortColumn === column) {
+      if (unassignedSortDirection === 'asc') {
+        setUnassignedSortDirection('desc');
+      } else if (unassignedSortDirection === 'desc') {
+        setUnassignedSortDirection(null);
+        setUnassignedSortColumn(null);
+      }
+    } else {
+      setUnassignedSortColumn(column);
+      setUnassignedSortDirection('asc');
+    }
+  };
+
+  // Handle main device table sorting
+  const handleMainSort = (column: string) => {
+    if (mainSortColumn === column) {
+      if (mainSortDirection === 'asc') {
+        setMainSortDirection('desc');
+      } else if (mainSortDirection === 'desc') {
+        setMainSortDirection(null);
+        setMainSortColumn(null);
+      }
+    } else {
+      setMainSortColumn(column);
+      setMainSortDirection('asc');
+    }
+  };
 
   const selectedHwId = newDevice.HWID ? Number(newDevice.HWID) : null;
   const selectedHsId = newDevice.HSID ? Number(newDevice.HSID) : null;
@@ -1167,6 +1298,24 @@ export default function DeviceManagementPage() {
                       className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-primary"
                     />
                   </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Raum *</label>
+                    <select
+                      value={newDevice.RaumID}
+                      onChange={(e) => setNewDevice((prev) => ({ ...prev, RaumID: e.target.value }))}
+                      className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-primary"
+                      required
+                    >
+                      <option value="">Raum auswählen...</option>
+                      {roomOptions.map((room) => (
+                        <option key={room.id} value={room.id}>
+                          {room.name}
+                          {room.standort && ` (${room.standort})`}
+                          {room.branch && ` - ${room.branch}`}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
 
                 <div className="flex items-center justify-end gap-2 pt-2">
@@ -1296,18 +1445,88 @@ export default function DeviceManagementPage() {
                     <table className="w-full text-xs">
                       <thead className="bg-gray-50 border-b border-gray-200">
                         <tr>
-                          <th className="px-3 py-2 text-left font-semibold text-gray-600">Inventar-Nr.</th>
-                          <th className="px-3 py-2 text-left font-semibold text-gray-600">SNO</th>
-                          <th className="px-3 py-2 text-left font-semibold text-gray-600">Typ</th>
-                          <th className="px-3 py-2 text-left font-semibold text-gray-600">Hersteller</th>
-                          <th className="px-3 py-2 text-left font-semibold text-gray-600">Modell</th>
+                          <th 
+                            className="px-3 py-2 text-left font-semibold text-gray-600 cursor-pointer hover:bg-gray-100 select-none"
+                            onClick={() => handleMainSort('inventarCode')}
+                          >
+                            <div className="flex items-center gap-1">
+                              <span>Inventar-Nr.</span>
+                              {mainSortColumn === 'inventarCode' ? (
+                                mainSortDirection === 'asc' ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />
+                              ) : <ChevronsUpDown className="w-3.5 h-3.5 text-gray-400" />}
+                            </div>
+                          </th>
+                          <th 
+                            className="px-3 py-2 text-left font-semibold text-gray-600 cursor-pointer hover:bg-gray-100 select-none"
+                            onClick={() => handleMainSort('sno')}
+                          >
+                            <div className="flex items-center gap-1">
+                              <span>SNO</span>
+                              {mainSortColumn === 'sno' ? (
+                                mainSortDirection === 'asc' ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />
+                              ) : <ChevronsUpDown className="w-3.5 h-3.5 text-gray-400" />}
+                            </div>
+                          </th>
+                          <th 
+                            className="px-3 py-2 text-left font-semibold text-gray-600 cursor-pointer hover:bg-gray-100 select-none"
+                            onClick={() => handleMainSort('hwName')}
+                          >
+                            <div className="flex items-center gap-1">
+                              <span>Typ</span>
+                              {mainSortColumn === 'hwName' ? (
+                                mainSortDirection === 'asc' ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />
+                              ) : <ChevronsUpDown className="w-3.5 h-3.5 text-gray-400" />}
+                            </div>
+                          </th>
+                          <th 
+                            className="px-3 py-2 text-left font-semibold text-gray-600 cursor-pointer hover:bg-gray-100 select-none"
+                            onClick={() => handleMainSort('hsName')}
+                          >
+                            <div className="flex items-center gap-1">
+                              <span>Hersteller</span>
+                              {mainSortColumn === 'hsName' ? (
+                                mainSortDirection === 'asc' ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />
+                              ) : <ChevronsUpDown className="w-3.5 h-3.5 text-gray-400" />}
+                            </div>
+                          </th>
+                          <th 
+                            className="px-3 py-2 text-left font-semibold text-gray-600 cursor-pointer hover:bg-gray-100 select-none"
+                            onClick={() => handleMainSort('modelName')}
+                          >
+                            <div className="flex items-center gap-1">
+                              <span>Modell</span>
+                              {mainSortColumn === 'modelName' ? (
+                                mainSortDirection === 'asc' ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />
+                              ) : <ChevronsUpDown className="w-3.5 h-3.5 text-gray-400" />}
+                            </div>
+                          </th>
                           <th className="px-3 py-2 text-left font-semibold text-gray-600">Status</th>
-                          <th className="px-3 py-2 text-left font-semibold text-gray-600">Benutzer</th>
-                          <th className="px-3 py-2 text-left font-semibold text-gray-600">Raum</th>
+                          <th 
+                            className="px-3 py-2 text-left font-semibold text-gray-600 cursor-pointer hover:bg-gray-100 select-none"
+                            onClick={() => handleMainSort('currentUserName')}
+                          >
+                            <div className="flex items-center gap-1">
+                              <span>Benutzer</span>
+                              {mainSortColumn === 'currentUserName' ? (
+                                mainSortDirection === 'asc' ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />
+                              ) : <ChevronsUpDown className="w-3.5 h-3.5 text-gray-400" />}
+                            </div>
+                          </th>
+                          <th 
+                            className="px-3 py-2 text-left font-semibold text-gray-600 cursor-pointer hover:bg-gray-100 select-none"
+                            onClick={() => handleMainSort('effectiveRoom')}
+                          >
+                            <div className="flex items-center gap-1">
+                              <span>Raum</span>
+                              {mainSortColumn === 'effectiveRoom' ? (
+                                mainSortDirection === 'asc' ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />
+                              ) : <ChevronsUpDown className="w-3.5 h-3.5 text-gray-400" />}
+                            </div>
+                          </th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-100">
-                        {filteredDevices.map((d) => {
+                        {paginatedDevices.map((d) => {
                           const isSelected = d.id === selectedDeviceId;
                           const active = !d.abgang;
                           return (
@@ -1346,9 +1565,9 @@ export default function DeviceManagementPage() {
                                 <div className="font-medium text-gray-900">
                                   {d.effectiveRoom || d.raumName || '—'}
                                 </div>
-                                {d.raumId && (
+                                {d.raumStandort && (
                                   <div className="text-[11px] text-gray-500">
-                                    Raum-ID: {d.raumId}
+                                    {d.raumStandort}
                                   </div>
                                 )}
                                 {d.effectiveRoom && d.effectiveRoomSource === 'user' && d.raumName && d.raumName !== d.effectiveRoom && (
@@ -1373,7 +1592,7 @@ export default function DeviceManagementPage() {
 
                   {/* Mobile: Karten-Layout */}
                   <div className="md:hidden divide-y divide-gray-100">
-                    {filteredDevices.map((d) => {
+                    {paginatedDevices.map((d) => {
                       const isSelected = d.id === selectedDeviceId;
                       const active = !d.abgang;
                       return (
@@ -1432,12 +1651,63 @@ export default function DeviceManagementPage() {
                       </div>
                     )}
                   </div>
+
+                  {/* Pagination Controls */}
+                  {totalPages > 1 && (
+                    <div className="border-t border-gray-200 px-4 py-3 flex flex-col sm:flex-row items-center justify-between gap-3">
+                      <div className="text-xs text-gray-700">
+                        Zeige {startIndex + 1} bis {Math.min(endIndex, filteredDevices.length)} von {filteredDevices.length} Geräten
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                          disabled={currentPage === 1}
+                          className="px-3 py-1 text-xs border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          Zurück
+                        </button>
+                        <div className="flex items-center gap-1">
+                          {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
+                            if (
+                              page === 1 ||
+                              page === totalPages ||
+                              (page >= currentPage - 1 && page <= currentPage + 1)
+                            ) {
+                              return (
+                                <button
+                                  key={page}
+                                  onClick={() => setCurrentPage(page)}
+                                  className={`px-3 py-1 text-xs rounded-lg ${
+                                    currentPage === page
+                                      ? 'bg-primary text-white'
+                                      : 'border border-gray-300 hover:bg-gray-50'
+                                  }`}
+                                >
+                                  {page}
+                                </button>
+                              );
+                            } else if (page === currentPage - 2 || page === currentPage + 2) {
+                              return <span key={page} className="px-2 text-gray-400">...</span>;
+                            }
+                            return null;
+                          })}
+                        </div>
+                        <button
+                          onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                          disabled={currentPage === totalPages}
+                          className="px-3 py-1 text-xs border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          Weiter
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </>
               )}
             </div>
 
             {/* Nicht zugewiesene Geräte - Ausklappbare Sektion */}
-            {devices.filter(d => !d.currentUserName && !d.abgang).length > 0 && (
+            {unassignedDevices.length > 0 && (
               <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
                 <button
                   type="button"
@@ -1456,7 +1726,7 @@ export default function DeviceManagementPage() {
                   <div className="flex items-center gap-3">
                     <div className="px-3 py-1 bg-amber-100 rounded-full">
                       <span className="text-sm font-bold text-amber-700">
-                        {devices.filter(d => !d.currentUserName && !d.abgang).length}
+                        {unassignedDevices.length}
                       </span>
                     </div>
                     <ChevronRight className={`w-5 h-5 text-gray-400 transition-transform ${
@@ -1467,24 +1737,105 @@ export default function DeviceManagementPage() {
 
                 {showUnassignedSection && (
                   <div className="border-t border-gray-200">
+                    {/* Search Field */}
+                    <div className="px-4 py-3 bg-amber-50/50 border-b border-amber-100">
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                        <input
+                          type="text"
+                          placeholder="SNO, Inventar-Nr., Typ, Hersteller, Modell oder Raum suchen..."
+                          value={unassignedSearch}
+                          onChange={(e) => setUnassignedSearch(e.target.value)}
+                          className="w-full pl-9 pr-4 py-2 text-xs border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                        />
+                      </div>
+                    </div>
                     {/* Desktop: Tabelle */}
                     <div className="hidden md:block overflow-x-auto">
                       <table className="w-full text-xs">
                         <thead className="bg-amber-50 border-b border-amber-100">
                           <tr>
-                            <th className="px-3 py-2 text-left font-semibold text-gray-600">Inventar-Nr.</th>
-                            <th className="px-3 py-2 text-left font-semibold text-gray-600">SNO</th>
-                            <th className="px-3 py-2 text-left font-semibold text-gray-600">Typ</th>
-                            <th className="px-3 py-2 text-left font-semibold text-gray-600">Hersteller</th>
-                            <th className="px-3 py-2 text-left font-semibold text-gray-600">Modell</th>
-                            <th className="px-3 py-2 text-left font-semibold text-gray-600">Raum</th>
-                            <th className="px-3 py-2 text-left font-semibold text-gray-600">Zugang</th>
+                            <th 
+                              className="px-3 py-2 text-left font-semibold text-gray-600 cursor-pointer hover:bg-amber-100 select-none"
+                              onClick={() => handleUnassignedSort('inventarCode')}
+                            >
+                              <div className="flex items-center gap-1">
+                                <span>Inventar-Nr.</span>
+                                {unassignedSortColumn === 'inventarCode' ? (
+                                  unassignedSortDirection === 'asc' ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />
+                                ) : <ChevronsUpDown className="w-3.5 h-3.5 text-gray-400" />}
+                              </div>
+                            </th>
+                            <th 
+                              className="px-3 py-2 text-left font-semibold text-gray-600 cursor-pointer hover:bg-amber-100 select-none"
+                              onClick={() => handleUnassignedSort('sno')}
+                            >
+                              <div className="flex items-center gap-1">
+                                <span>SNO</span>
+                                {unassignedSortColumn === 'sno' ? (
+                                  unassignedSortDirection === 'asc' ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />
+                                ) : <ChevronsUpDown className="w-3.5 h-3.5 text-gray-400" />}
+                              </div>
+                            </th>
+                            <th 
+                              className="px-3 py-2 text-left font-semibold text-gray-600 cursor-pointer hover:bg-amber-100 select-none"
+                              onClick={() => handleUnassignedSort('hwName')}
+                            >
+                              <div className="flex items-center gap-1">
+                                <span>Typ</span>
+                                {unassignedSortColumn === 'hwName' ? (
+                                  unassignedSortDirection === 'asc' ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />
+                                ) : <ChevronsUpDown className="w-3.5 h-3.5 text-gray-400" />}
+                              </div>
+                            </th>
+                            <th 
+                              className="px-3 py-2 text-left font-semibold text-gray-600 cursor-pointer hover:bg-amber-100 select-none"
+                              onClick={() => handleUnassignedSort('hsName')}
+                            >
+                              <div className="flex items-center gap-1">
+                                <span>Hersteller</span>
+                                {unassignedSortColumn === 'hsName' ? (
+                                  unassignedSortDirection === 'asc' ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />
+                                ) : <ChevronsUpDown className="w-3.5 h-3.5 text-gray-400" />}
+                              </div>
+                            </th>
+                            <th 
+                              className="px-3 py-2 text-left font-semibold text-gray-600 cursor-pointer hover:bg-amber-100 select-none"
+                              onClick={() => handleUnassignedSort('modelName')}
+                            >
+                              <div className="flex items-center gap-1">
+                                <span>Modell</span>
+                                {unassignedSortColumn === 'modelName' ? (
+                                  unassignedSortDirection === 'asc' ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />
+                                ) : <ChevronsUpDown className="w-3.5 h-3.5 text-gray-400" />}
+                              </div>
+                            </th>
+                            <th 
+                              className="px-3 py-2 text-left font-semibold text-gray-600 cursor-pointer hover:bg-amber-100 select-none"
+                              onClick={() => handleUnassignedSort('effectiveRoom')}
+                            >
+                              <div className="flex items-center gap-1">
+                                <span>Raum</span>
+                                {unassignedSortColumn === 'effectiveRoom' ? (
+                                  unassignedSortDirection === 'asc' ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />
+                                ) : <ChevronsUpDown className="w-3.5 h-3.5 text-gray-400" />}
+                              </div>
+                            </th>
+                            <th 
+                              className="px-3 py-2 text-left font-semibold text-gray-600 cursor-pointer hover:bg-amber-100 select-none"
+                              onClick={() => handleUnassignedSort('zugang')}
+                            >
+                              <div className="flex items-center gap-1">
+                                <span>Zugang</span>
+                                {unassignedSortColumn === 'zugang' ? (
+                                  unassignedSortDirection === 'asc' ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />
+                                ) : <ChevronsUpDown className="w-3.5 h-3.5 text-gray-400" />}
+                              </div>
+                            </th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100">
-                          {devices
-                            .filter(d => !d.currentUserName && !d.abgang)
-                            .map((d) => {
+                          {paginatedUnassignedDevices.map((d) => {
                               const isSelected = d.id === selectedDeviceId;
                               return (
                                 <tr
@@ -1513,9 +1864,9 @@ export default function DeviceManagementPage() {
                                     <div className="font-medium text-gray-900">
                                       {d.effectiveRoom || d.raumName || '—'}
                                     </div>
-                                    {d.raumId && (
+                                    {d.raumStandort && (
                                       <div className="text-[11px] text-gray-500">
-                                        Raum-ID: {d.raumId}
+                                        {d.raumStandort}
                                       </div>
                                     )}
                                     {d.effectiveRoom && d.effectiveRoomSource === 'user' && d.raumName && d.raumName !== d.effectiveRoom && (
@@ -1538,9 +1889,7 @@ export default function DeviceManagementPage() {
 
                     {/* Mobile: Karten-Layout */}
                     <div className="md:hidden divide-y divide-gray-100">
-                      {devices
-                        .filter(d => !d.currentUserName && !d.abgang)
-                        .map((d) => {
+                      {paginatedUnassignedDevices.map((d) => {
                           const isSelected = d.id === selectedDeviceId;
                           return (
                             <div
@@ -1581,6 +1930,57 @@ export default function DeviceManagementPage() {
                           );
                         })}
                     </div>
+
+                    {/* Pagination Controls */}
+                    {unassignedTotalPages > 1 && (
+                      <div className="border-t border-amber-100 px-4 py-3 flex flex-col sm:flex-row items-center justify-between gap-3 bg-amber-50/30">
+                        <div className="text-xs text-gray-700">
+                          Zeige {unassignedStartIndex + 1} bis {Math.min(unassignedEndIndex, sortedUnassignedDevices.length)} von {sortedUnassignedDevices.length} Geräten
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => setUnassignedCurrentPage(prev => Math.max(1, prev - 1))}
+                            disabled={unassignedCurrentPage === 1}
+                            className="px-3 py-1 text-xs border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            Zurück
+                          </button>
+                          <div className="flex items-center gap-1">
+                            {Array.from({ length: unassignedTotalPages }, (_, i) => i + 1).map((page) => {
+                              if (
+                                page === 1 ||
+                                page === unassignedTotalPages ||
+                                (page >= unassignedCurrentPage - 1 && page <= unassignedCurrentPage + 1)
+                              ) {
+                                return (
+                                  <button
+                                    key={page}
+                                    onClick={() => setUnassignedCurrentPage(page)}
+                                    className={`px-3 py-1 text-xs rounded-lg ${
+                                      unassignedCurrentPage === page
+                                        ? 'bg-primary text-white'
+                                        : 'border border-gray-300 hover:bg-gray-50'
+                                    }`}
+                                  >
+                                    {page}
+                                  </button>
+                                );
+                              } else if (page === unassignedCurrentPage - 2 || page === unassignedCurrentPage + 2) {
+                                return <span key={page} className="px-2 text-gray-400">...</span>;
+                              }
+                              return null;
+                            })}
+                          </div>
+                          <button
+                            onClick={() => setUnassignedCurrentPage(prev => Math.min(unassignedTotalPages, prev + 1))}
+                            disabled={unassignedCurrentPage === unassignedTotalPages}
+                            className="px-3 py-1 text-xs border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            Weiter
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -1840,6 +2240,29 @@ export default function DeviceManagementPage() {
                               className="w-full px-2 py-1.5 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-primary"
                               placeholder="IMEI 2"
                             />
+                          </div>
+                          <div>
+                            <label className="block text-[11px] font-medium text-gray-700 mb-1">Raum</label>
+                            <select
+                              value={editDeviceData.RaumID}
+                              onChange={(e) => setEditDeviceData(prev => ({ ...prev, RaumID: e.target.value }))}
+                              className="w-full px-2 py-1.5 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-primary disabled:bg-gray-100 disabled:cursor-not-allowed"
+                              disabled={!!selectedDevice?.currentUserId}
+                            >
+                              <option value="">Kein Raum</option>
+                              {roomOptions.map((room) => (
+                                <option key={room.id} value={room.id}>
+                                  {room.name}
+                                  {room.standort && ` (${room.standort})`}
+                                  {room.branch && ` - ${room.branch}`}
+                                </option>
+                              ))}
+                            </select>
+                            {selectedDevice?.currentUserId && (
+                              <div className="text-[10px] text-gray-500 mt-1">
+                                Raum wird vom zugewiesenen Benutzer übernommen
+                              </div>
+                            )}
                           </div>
                         </div>
 
@@ -2233,7 +2656,7 @@ export default function DeviceManagementPage() {
           {/* Panel */}
           <div className="absolute inset-x-0 bottom-0 max-h-[90vh] bg-white rounded-t-2xl shadow-xl overflow-hidden flex flex-col animate-in slide-in-from-bottom duration-300">
             {/* Header */}
-            <div className="sticky top-0 bg-white border-b border-gray-100 px-4 py-3 flex items-center justify-between">
+            <div className="sticky top-0 bg-white border-b border-gray-100 px-4 py-3 flex items-center justify-between z-10">
               <div className="flex items-center gap-2">
                 <MonitorSmartphone className="w-5 h-5 text-primary-dark" />
                 <span className="font-semibold text-primary-dark">{selectedDevice.inventarCode}</span>
@@ -2250,58 +2673,275 @@ export default function DeviceManagementPage() {
 
             {/* Scrollable Content */}
             <div className="flex-1 overflow-y-auto overscroll-contain">
-              {/* Geräte-Info */}
+              {/* Gerätedaten & Bearbeiten */}
               <div className="p-4 border-b border-gray-100">
                 <div className="flex items-center justify-between mb-3">
-                  <div className="text-sm text-gray-700">
-                    <div>{selectedDevice.hwName || '-'}</div>
-                    <div>{selectedDevice.hsName || '-'}</div>
-                    <div>{selectedDevice.modelName || '-'}</div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setShowStickerModal(true)}
-                    className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-primary-dark bg-primary/10 rounded-lg hover:bg-primary/20"
-                  >
-                    <QrCode className="w-4 h-4" />
-                    Sticker
-                  </button>
+                  <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
+                    <UserRound className="w-4 h-4 text-primary-dark" />
+                    Gerätedaten
+                  </h3>
+                  {canEditDevices && !isEditingDevice && (
+                    <button
+                      type="button"
+                      onClick={handleStartEditDevice}
+                      className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-primary-dark bg-primary/10 rounded-lg hover:bg-primary/20"
+                    >
+                      <Edit2 className="w-3 h-3" />
+                      Bearbeiten
+                    </button>
+                  )}
                 </div>
 
-                <div className="grid grid-cols-2 gap-3 text-xs">
-                  <div className="bg-gray-50 rounded-lg p-2">
-                    <div className="text-gray-500 mb-0.5">Zugang</div>
-                    <div className="font-medium text-gray-900">
-                      {selectedDevice.zugang
-                        ? new Date(selectedDevice.zugang).toLocaleDateString('de-DE')
-                        : '—'}
+                {!isEditingDevice ? (
+                  <>
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="text-sm text-gray-700">
+                        <div className="font-medium text-gray-900 mb-1">{selectedDevice.sno || '—'}</div>
+                        <div>{selectedDevice.hwName || '-'}</div>
+                        <div>{selectedDevice.hsName || '-'}</div>
+                        <div>{selectedDevice.modelName || '-'}</div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setShowStickerModal(true)}
+                        className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-primary-dark bg-primary/10 rounded-lg hover:bg-primary/20"
+                      >
+                        <QrCode className="w-4 h-4" />
+                        Sticker
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3 text-xs">
+                      <div className="bg-gray-50 rounded-lg p-2">
+                        <div className="text-gray-500 mb-0.5">Zugang</div>
+                        <div className="font-medium text-gray-900">
+                          {selectedDevice.zugang ? new Date(selectedDevice.zugang).toLocaleDateString('de-DE') : '—'}
+                        </div>
+                      </div>
+                      <div className="bg-gray-50 rounded-lg p-2">
+                        <div className="text-gray-500 mb-0.5">Abgang</div>
+                        <div className="font-medium text-gray-900">
+                          {selectedDevice.abgang ? new Date(selectedDevice.abgang).toLocaleDateString('de-DE') : '—'}
+                        </div>
+                      </div>
+                      <div className="bg-gray-50 rounded-lg p-2">
+                        <div className="text-gray-500 mb-0.5">Preis</div>
+                        <div className="font-medium text-gray-900">
+                          {(selectedDevice as any).preis != null
+                            ? Number((selectedDevice as any).preis).toLocaleString('de-DE', { style: 'currency', currency: 'EUR' })
+                            : '—'}
+                        </div>
+                      </div>
+                      <div className="bg-gray-50 rounded-lg p-2">
+                        <div className="text-gray-500 mb-0.5">EAN</div>
+                        <div className="font-medium text-gray-900 truncate">{(selectedDevice as any).ean || '—'}</div>
+                      </div>
+                      <div className="bg-gray-50 rounded-lg p-2">
+                        <div className="text-gray-500 mb-0.5">IMEI 1</div>
+                        <div className="font-medium text-gray-900 truncate">{(selectedDevice as any).imei1 || '—'}</div>
+                      </div>
+                      <div className="bg-gray-50 rounded-lg p-2">
+                        <div className="text-gray-500 mb-0.5">IMEI 2</div>
+                        <div className="font-medium text-gray-900 truncate">{(selectedDevice as any).imei2 || '—'}</div>
+                      </div>
+                      <div className="bg-gray-50 rounded-lg p-2">
+                        <div className="text-gray-500 mb-0.5">Status</div>
+                        <div className={`font-medium ${selectedDevice.abgang ? 'text-gray-600' : 'text-emerald-600'}`}>
+                          {selectedDevice.abgang ? 'Ausgebucht' : 'Aktiv'}
+                        </div>
+                      </div>
+                      <div className="bg-gray-50 rounded-lg p-2">
+                        <div className="text-gray-500 mb-0.5">Benutzer</div>
+                        <div className="font-medium text-gray-900 truncate">
+                          {selectedDevice.currentUserName || '— keiner —'}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="mt-3 flex items-start gap-2 text-xs text-gray-700">
+                      <MapPin className="w-4 h-4 mt-0.5 text-primary-dark shrink-0" />
+                      <div className="flex-1">
+                        <div className="font-medium text-gray-900">
+                          {selectedDevice.effectiveRoom || selectedDevice.raumName || '— kein Raum hinterlegt —'}
+                        </div>
+                        <div className="text-[11px] text-gray-500">
+                          {selectedDevice.effectiveRoom
+                            ? selectedDevice.effectiveRoomSource === 'user'
+                              ? 'Raum des aktuellen Benutzers'
+                              : 'Standard-Raum des Geräts'
+                            : selectedDevice.raumName
+                              ? 'Standard-Raum des Geräts'
+                              : 'Bitte Raum zuweisen'}
+                        </div>
+                        {selectedDevice.raumStandort && (
+                          <div className="text-[11px] text-gray-500">Standort: {selectedDevice.raumStandort}</div>
+                        )}
+                        {selectedDevice.raumBranch && (
+                          <div className="text-[11px] text-gray-500">
+                            Geschäftsstelle: {selectedDevice.raumBranch}
+                            {selectedDevice.raumBranchCity ? ` (${selectedDevice.raumBranchCity})` : ''}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Seriennummer (SNO)</label>
+                      <input
+                        type="text"
+                        value={editDeviceData.SNO}
+                        onChange={(e) => setEditDeviceData(prev => ({ ...prev, SNO: e.target.value }))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                        placeholder="Seriennummer"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-2">
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">HW</label>
+                        <select
+                          value={editDeviceData.HWID}
+                          onChange={(e) => setEditDeviceData(prev => ({ ...prev, HWID: e.target.value }))}
+                          className="w-full px-2 py-2 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-primary"
+                        >
+                          <option value="">--</option>
+                          {hwOptions.map((hw) => (
+                            <option key={hw.id} value={hw.id}>{hw.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">HS</label>
+                        <select
+                          value={editDeviceData.HSID}
+                          onChange={(e) => setEditDeviceData(prev => ({ ...prev, HSID: e.target.value }))}
+                          className="w-full px-2 py-2 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-primary"
+                        >
+                          <option value="">--</option>
+                          {hsOptions.map((hs) => (
+                            <option key={hs.id} value={hs.id}>{hs.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">Modell</label>
+                        <select
+                          value={editDeviceData.MODID}
+                          onChange={(e) => setEditDeviceData(prev => ({ ...prev, MODID: e.target.value }))}
+                          className="w-full px-2 py-2 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-primary"
+                        >
+                          <option value="">--</option>
+                          {modOptions.map((mod) => (
+                            <option key={mod.id} value={mod.id}>{mod.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">Preis (€)</label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={editDeviceData.Preis}
+                          onChange={(e) => setEditDeviceData(prev => ({ ...prev, Preis: e.target.value }))}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                          placeholder="0.00"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">EAN</label>
+                        <input
+                          type="text"
+                          value={editDeviceData.EAN}
+                          onChange={(e) => setEditDeviceData(prev => ({ ...prev, EAN: e.target.value }))}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                          placeholder="EAN-Code"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">IMEI 1</label>
+                        <input
+                          type="text"
+                          value={editDeviceData.IMEI1}
+                          onChange={(e) => setEditDeviceData(prev => ({ ...prev, IMEI1: e.target.value }))}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                          placeholder="IMEI 1"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">IMEI 2</label>
+                        <input
+                          type="text"
+                          value={editDeviceData.IMEI2}
+                          onChange={(e) => setEditDeviceData(prev => ({ ...prev, IMEI2: e.target.value }))}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                          placeholder="IMEI 2"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Raum</label>
+                      <select
+                        value={editDeviceData.RaumID}
+                        onChange={(e) => setEditDeviceData(prev => ({ ...prev, RaumID: e.target.value }))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary disabled:bg-gray-100 disabled:cursor-not-allowed"
+                        disabled={!!selectedDevice?.currentUserId}
+                      >
+                        <option value="">Kein Raum</option>
+                        {roomOptions.map((room) => (
+                          <option key={room.id} value={room.id}>
+                            {room.name}
+                            {room.standort && ` (${room.standort})`}
+                            {room.branch && ` - ${room.branch}`}
+                          </option>
+                        ))}
+                      </select>
+                      {selectedDevice?.currentUserId && (
+                        <div className="text-xs text-gray-500 mt-1">
+                          Raum wird vom zugewiesenen Benutzer übernommen
+                        </div>
+                      )}
+                    </div>
+
+                    {editDeviceError && (
+                      <div className="text-xs text-red-600 flex items-center gap-1">
+                        <AlertTriangle className="w-3.5 h-3.5" />
+                        {editDeviceError}
+                      </div>
+                    )}
+
+                    <div className="flex gap-2 pt-2">
+                      <button
+                        type="button"
+                        onClick={handleSaveDeviceEdit}
+                        disabled={editDeviceLoading}
+                        className="flex-1 px-4 py-2.5 rounded-lg bg-primary text-white text-sm font-medium hover:bg-primary-dark disabled:bg-primary/50 disabled:cursor-not-allowed"
+                      >
+                        {editDeviceLoading ? 'Speichert...' : 'Speichern'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleCancelEditDevice}
+                        disabled={editDeviceLoading}
+                        className="flex-1 px-4 py-2.5 rounded-lg border border-gray-300 text-gray-700 text-sm font-medium hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        Abbrechen
+                      </button>
                     </div>
                   </div>
-                  <div className="bg-gray-50 rounded-lg p-2">
-                    <div className="text-gray-500 mb-0.5">Abgang</div>
-                    <div className="font-medium text-gray-900">
-                      {selectedDevice.abgang
-                        ? new Date(selectedDevice.abgang).toLocaleDateString('de-DE')
-                        : '—'}
-                    </div>
-                  </div>
-                  <div className="bg-gray-50 rounded-lg p-2">
-                    <div className="text-gray-500 mb-0.5">Status</div>
-                    <div className={`font-medium ${selectedDevice.abgang ? 'text-gray-600' : 'text-emerald-600'}`}>
-                      {selectedDevice.abgang ? 'Ausgebucht' : 'Aktiv'}
-                    </div>
-                  </div>
-                  <div className="bg-gray-50 rounded-lg p-2">
-                    <div className="text-gray-500 mb-0.5">Benutzer</div>
-                    <div className="font-medium text-gray-900 truncate">
-                      {selectedDevice.currentUserName || '— keiner —'}
-                    </div>
-                  </div>
-                </div>
+                )}
               </div>
 
               {/* Benutzer zuweisen */}
-              {!loadingUsers && canEditDevices && (
+              {!isEditingDevice && !loadingUsers && canEditDevices && (
                 <div className="p-4 border-b border-gray-100">
                   <label className="block text-sm font-medium text-gray-700 mb-2">Benutzer zuweisen</label>
                   <select
@@ -2335,6 +2975,111 @@ export default function DeviceManagementPage() {
                 </div>
               )}
 
+              {/* Zubehör */}
+              <div className="p-4 border-b border-gray-100">
+                <h3 className="text-sm font-medium text-gray-900 flex items-center gap-2 mb-3">
+                  <Package className="w-4 h-4 text-primary-dark" />
+                  Zubehör
+                </h3>
+
+                {canEditAccessories && (
+                  <div className="mb-4">
+                    <select
+                      value={selectedAccessoryId}
+                      onChange={(e) => setSelectedAccessoryId(e.target.value)}
+                      className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                    >
+                      <option value="">-- Zubehör wählen --</option>
+                      {accessoryOptions
+                        .filter((opt) => opt.stock > 0)
+                        .map((opt) => (
+                          <option key={opt.id} value={opt.id}>
+                            {opt.label} (Bestand: {opt.stock})
+                          </option>
+                        ))}
+                    </select>
+                    <button
+                      type="button"
+                      onClick={handleAssignAccessory}
+                      disabled={!selectedAccessoryId || accessoryActionLoading}
+                      className="w-full mt-2 px-4 py-2.5 rounded-lg bg-primary text-white text-sm font-medium hover:bg-primary-dark disabled:bg-primary/50 disabled:cursor-not-allowed"
+                    >
+                      {accessoryActionLoading ? 'Wird zugewiesen...' : 'Zuweisen & vom Lager abbuchen'}
+                    </button>
+                  </div>
+                )}
+
+                {accessoriesLoading ? (
+                  <div className="flex items-center justify-center py-4">
+                    <RefreshCw className="w-4 h-4 text-primary-dark animate-spin" />
+                  </div>
+                ) : deviceAccessories.filter((a) => a.status === 'ACTIVE').length === 0 ? (
+                  <p className="text-sm text-gray-500">Kein Zubehör zugewiesen.</p>
+                ) : (
+                  <ul className="space-y-2">
+                    {deviceAccessories
+                      .filter((a) => a.status === 'ACTIVE')
+                      .map((acc) => (
+                        <li
+                          key={acc.id}
+                          className="rounded-lg border border-gray-200 px-3 py-2 bg-gray-50 flex items-center justify-between gap-2"
+                        >
+                          <div className="flex-1 min-w-0">
+                            <div className="font-medium text-sm text-gray-900">{acc.accessoryLabel}</div>
+                            {acc.accessoryType && (
+                              <div className="text-xs text-gray-500">{acc.accessoryType}</div>
+                            )}
+                            <div className="text-xs text-gray-500">
+                              seit {acc.start ? new Date(acc.start).toLocaleDateString('de-DE') : '—'}
+                            </div>
+                          </div>
+                          {canEditAccessories && (
+                            <div className="flex gap-1">
+                              <button
+                                type="button"
+                                onClick={() => handleReturnAccessory(acc.id, true)}
+                                disabled={accessoryActionLoading}
+                                className="p-2 rounded-lg border border-gray-200 text-gray-500 hover:bg-emerald-50 hover:text-emerald-600 active:bg-emerald-100"
+                                title="Zurückgeben"
+                              >
+                                <Undo2 className="w-4 h-4" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleReturnAccessory(acc.id, false)}
+                                disabled={accessoryActionLoading}
+                                className="p-2 rounded-lg border border-gray-200 text-gray-500 hover:bg-red-50 hover:text-red-600 active:bg-red-100"
+                                title="Ausbuchen"
+                              >
+                                <XCircle className="w-4 h-4" />
+                              </button>
+                            </div>
+                          )}
+                        </li>
+                      ))}
+                  </ul>
+                )}
+
+                {deviceAccessories.filter((a) => a.status === 'RETURNED').length > 0 && (
+                  <div className="mt-4 pt-4 border-t border-gray-100">
+                    <p className="text-xs font-medium text-gray-700 mb-2">Zubehör-Historie</p>
+                    <ul className="space-y-1 text-xs text-gray-500 max-h-32 overflow-y-auto">
+                      {deviceAccessories
+                        .filter((a) => a.status === 'RETURNED')
+                        .map((acc) => (
+                          <li key={acc.id} className="flex justify-between">
+                            <span>{acc.accessoryLabel}</span>
+                            <span>
+                              {acc.start ? new Date(acc.start).toLocaleDateString('de-DE') : '?'} –{' '}
+                              {acc.end ? new Date(acc.end).toLocaleDateString('de-DE') : '?'}
+                            </span>
+                          </li>
+                        ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+
               {/* Verlauf */}
               <div className="p-4 border-b border-gray-100">
                 <h3 className="text-sm font-medium text-gray-900 flex items-center gap-2 mb-3">
@@ -2366,93 +3111,93 @@ export default function DeviceManagementPage() {
                 )}
               </div>
 
-              {/* Zubehör */}
-              <div className="p-4">
-                <h3 className="text-sm font-medium text-gray-900 flex items-center gap-2 mb-3">
-                  <Package className="w-4 h-4 text-primary-dark" />
-                  Zubehör
-                </h3>
-
-                {/* Zubehör zuweisen */}
-                {canEditAccessories && (
-                  <div className="mb-4">
-                    <select
-                      value={selectedAccessoryId}
-                      onChange={(e) => setSelectedAccessoryId(e.target.value)}
-                      className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              {/* Protokolle */}
+              {canViewProtocols && (
+                <div className="p-4 border-b border-gray-100">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-sm font-medium text-gray-900 flex items-center gap-2">
+                      <ClipboardList className="w-4 h-4 text-primary-dark" />
+                      Protokolle
+                    </h3>
+                    <Link
+                      href="/protokolle"
+                      className="text-xs font-medium text-primary-dark hover:underline"
                     >
-                      <option value="">-- Zubehör wählen --</option>
-                      {accessoryOptions
-                        .filter((opt) => opt.stock > 0)
-                        .map((opt) => (
-                          <option key={opt.id} value={opt.id}>
-                            {opt.label} (Bestand: {opt.stock})
-                          </option>
+                      Alle ansehen
+                    </Link>
+                  </div>
+
+                  {protocolsLoading ? (
+                    <div className="flex items-center justify-center py-4">
+                      <RefreshCw className="w-5 h-5 text-primary-dark animate-spin" />
+                    </div>
+                  ) : deviceProtocols.length === 0 ? (
+                    <p className="text-sm text-gray-500">Keine Protokolle vorhanden.</p>
+                  ) : (
+                    <>
+                      <ul className="space-y-2">
+                        {deviceProtocols.slice(0, 5).map((protocol) => (
+                          <li key={protocol.id}>
+                            <button
+                              type="button"
+                              onClick={() => setSelectedProtocolId(protocol.id)}
+                              className={`w-full text-left border border-gray-200 rounded-lg px-3 py-2 bg-gray-50 flex items-center gap-3 hover:bg-gray-100 transition-colors ${
+                                protocol.id === selectedProtocolId ? 'ring-2 ring-primary' : ''
+                              }`}
+                            >
+                              <div className="p-1.5 rounded-lg bg-white border border-gray-200">
+                                {renderProtocolTypeIcon(protocol.typ)}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="font-semibold text-sm text-primary-dark truncate">{protocol.protokollNr}</div>
+                                <div className="text-xs text-gray-500 truncate">
+                                  {protocol.benutzerName || 'Unbekannt'} • {formatDate(protocol.erstelltAm)}
+                                </div>
+                              </div>
+                              {renderProtocolStatusBadge(protocol.status)}
+                            </button>
+                          </li>
                         ))}
-                    </select>
-                    <button
-                      type="button"
-                      onClick={handleAssignAccessory}
-                      disabled={!selectedAccessoryId || accessoryActionLoading}
-                      className="w-full mt-2 px-4 py-2.5 rounded-lg bg-primary text-white text-sm font-medium hover:bg-primary-dark disabled:bg-primary/50 disabled:cursor-not-allowed"
-                    >
-                      {accessoryActionLoading ? 'Wird zugewiesen...' : 'Zuweisen'}
-                    </button>
-                  </div>
-                )}
-
-                {/* Zugewiesenes Zubehör */}
-                {accessoriesLoading ? (
-                  <div className="flex items-center justify-center py-4">
-                    <RefreshCw className="w-4 h-4 text-primary-dark animate-spin" />
-                  </div>
-                ) : deviceAccessories.filter((a) => a.status === 'ACTIVE').length === 0 ? (
-                  <p className="text-sm text-gray-500">Kein Zubehör zugewiesen.</p>
-                ) : (
-                  <ul className="space-y-2">
-                    {deviceAccessories
-                      .filter((a) => a.status === 'ACTIVE')
-                      .map((acc) => (
-                        <li
-                          key={acc.id}
-                          className="rounded-lg border border-gray-200 px-3 py-2 bg-gray-50 flex items-center justify-between gap-2"
-                        >
-                          <div className="flex-1 min-w-0">
-                            <div className="font-medium text-sm text-gray-900">{acc.accessoryLabel}</div>
-                            <div className="text-xs text-gray-500">
-                              seit {acc.start ? new Date(acc.start).toLocaleDateString('de-DE') : '—'}
+                      </ul>
+                      {selectedProtocolDetail && (
+                        <div className="mt-4 border border-gray-200 rounded-lg p-3 bg-white space-y-3">
+                          <div className="flex items-center justify-between gap-3">
+                            <div>
+                              <p className="text-xs text-gray-500">{getProtocolTypeLabel(selectedProtocolDetail.typ)}</p>
+                              <p className="text-sm font-semibold text-gray-900">{selectedProtocolDetail.protokollNr}</p>
+                            </div>
+                            <Link
+                              href={`/protokolle/${selectedProtocolDetail.id}`}
+                              className="text-xs font-medium text-primary-dark hover:underline"
+                            >
+                              Öffnen
+                            </Link>
+                          </div>
+                          <div className="grid grid-cols-2 gap-3 text-xs text-gray-600">
+                            <div>
+                              <p className="text-gray-500">Mitarbeiter</p>
+                              <p className="font-medium text-gray-900">{selectedProtocolDetail.benutzer?.name || 'Unbekannt'}</p>
+                            </div>
+                            <div>
+                              <p className="text-gray-500">Datum</p>
+                              <p className="font-medium text-gray-900">{formatDate(selectedProtocolDetail.erstelltAm)}</p>
                             </div>
                           </div>
-                          {canEditAccessories && (
-                            <div className="flex gap-1">
-                              <button
-                                type="button"
-                                onClick={() => handleReturnAccessory(acc.id, true)}
-                                disabled={accessoryActionLoading}
-                                className="p-2 rounded-lg border border-gray-200 text-gray-500 hover:bg-emerald-50 hover:text-emerald-600 active:bg-emerald-100"
-                                title="Zurückgeben"
-                              >
-                                <Undo2 className="w-4 h-4" />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleReturnAccessory(acc.id, false)}
-                                disabled={accessoryActionLoading}
-                                className="p-2 rounded-lg border border-gray-200 text-gray-500 hover:bg-red-50 hover:text-red-600 active:bg-red-100"
-                                title="Ausbuchen"
-                              >
-                                <XCircle className="w-4 h-4" />
-                              </button>
+                          {selectedProtocolDetail.bemerkung && (
+                            <div className="text-xs text-gray-600">
+                              <p className="text-gray-500 mb-1">Bemerkung</p>
+                              <p className="bg-gray-50 rounded-lg p-2 text-gray-700">{selectedProtocolDetail.bemerkung}</p>
                             </div>
                           )}
-                        </li>
-                      ))}
-                  </ul>
-                )}
-              </div>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              )}
 
               {/* Gerät ausbuchen */}
-              {canEditDevices && (
+              {canEditDevices && !isEditingDevice && (
                 <div className="p-4 border-t border-gray-100">
                   <button
                     type="button"

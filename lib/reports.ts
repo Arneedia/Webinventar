@@ -161,6 +161,16 @@ export async function executeReportDefinition(def: AnyReportDefinition): Promise
     throw new Error('Tabelle nicht gefunden');
   }
 
+  // Fix legacy RAUM relation name for GER table (should be StandardRaum)
+  if (config.name === 'GER' && config.foreignKeys) {
+    config.foreignKeys = config.foreignKeys.map(fk => {
+      if (fk.relationName === 'RAUM') {
+        return { ...fk, relationName: 'StandardRaum' };
+      }
+      return fk;
+    });
+  }
+
   const model: any = (prisma as any)[config.model];
   if (!model) {
     throw new Error('Prisma-Modell nicht gefunden');
