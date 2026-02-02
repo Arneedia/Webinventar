@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prismaClient';
 import { requireApiUser } from '@/lib/auth';
 import { AvailablePermissions } from '@/lib/permissionGroups';
+import { validateWODISNumber } from '@/lib/wodisNumber';
 
 interface RouteContext {
   params: Promise<{ id: string }>;
@@ -22,7 +23,7 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
     }
 
     const body = await req.json();
-    const { SNO, EAN, IMEI1, IMEI2, Preis, HWID, HSID, MODID, StandardRaumID } = body;
+    const { SNO, EAN, IMEI1, IMEI2, Preis, HWID, HSID, MODID, StandardRaumID, WODISNr } = body;
 
     // Build update data object with only provided fields
     const updateData: any = {};
@@ -36,6 +37,31 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
     if (HSID !== undefined) updateData.HSID = HSID;
     if (MODID !== undefined) updateData.MODID = MODID;
     if (StandardRaumID !== undefined) updateData.StandardRaumID = StandardRaumID;
+    
+    // Handle WODISNr update with validation
+    if (WODISNr !== undefined) {
+      if (WODISNr === null || WODISNr === '') {
+        updateData.WODISNr = null;
+      } else {
+        if (!validateWODISNumber(WODISNr)) {
+          return NextResponse.json(
+            { error: 'Ungültige WODIS Nr. Format: JJJJNNNNNN (z.B. 2026000001)' },
+            { status: 400 }
+          );
+        }
+        // Check if WODIS Nr. is already used by another device
+        const existingDevice = await prisma.gER.findUnique({
+          where: { WODISNr: WODISNr },
+        });
+        if (existingDevice && existingDevice.GerID !== deviceId) {
+          return NextResponse.json(
+            { error: 'Diese WODIS Nr. wird bereits von einem anderen Gerät verwendet' },
+            { status: 409 }
+          );
+        }
+        updateData.WODISNr = WODISNr;
+      }
+    }
 
     const updatedDevice = await prisma.gER.update({
       where: { GerID: deviceId },

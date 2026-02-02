@@ -59,6 +59,7 @@ export async function GET(req: NextRequest) {
       return {
         id: d.GerID,
         inventarCode: d.InventarCode,
+        wodisNr: (d as any).WODISNr ?? null,
         sno: d.SNO,
         zugang: d.Zugang,
         abgang: d.Abgang,

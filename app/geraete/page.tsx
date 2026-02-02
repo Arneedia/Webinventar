@@ -8,6 +8,7 @@ import StickerModal from '../components/StickerModal';
 interface DeviceListItem {
   id: number;
   inventarCode: string;
+  wodisNr: string | null;
   sno: string;
   zugang: string;
   abgang: string | null;
@@ -222,6 +223,7 @@ export default function DeviceManagementPage() {
     HSID: '',
     MODID: '',
     RaumID: '',
+    WODISNr: '',
   });
   const [editDeviceLoading, setEditDeviceLoading] = useState(false);
   const [editDeviceError, setEditDeviceError] = useState<string | null>(null);
@@ -237,6 +239,7 @@ export default function DeviceManagementPage() {
     IMEI1: '',
     IMEI2: '',
     RaumID: '',
+    WODISNr: '',
   });
 
   const formatDate = (dateStr?: string | null) => {
@@ -773,6 +776,7 @@ export default function DeviceManagementPage() {
       HSID: selectedDevice.hsId ? String(selectedDevice.hsId) : '',
       MODID: selectedDevice.modelId ? String(selectedDevice.modelId) : '',
       RaumID: selectedDevice.raumId ? String(selectedDevice.raumId) : '',
+      WODISNr: (selectedDevice as any).wodisNr || '',
     });
     setIsEditingDevice(true);
     setEditDeviceError(null);
@@ -799,6 +803,7 @@ export default function DeviceManagementPage() {
         HSID: editDeviceData.HSID ? Number(editDeviceData.HSID) : null,
         MODID: editDeviceData.MODID ? Number(editDeviceData.MODID) : null,
         StandardRaumID: editDeviceData.RaumID ? Number(editDeviceData.RaumID) : null,
+        WODISNr: editDeviceData.WODISNr || null,
       };
 
       const res = await fetch(`/api/devices/${selectedDeviceId}`, {
@@ -838,6 +843,7 @@ export default function DeviceManagementPage() {
         IMEI1: newDevice.IMEI1 || null,
         IMEI2: newDevice.IMEI2 || null,
         StandardRaumID: Number(newDevice.RaumID) || null,
+        WODISNr: newDevice.WODISNr || null,
       };
 
       const res = await fetch('/api/tables/GER', {
@@ -851,7 +857,7 @@ export default function DeviceManagementPage() {
         throw new Error(data.details || data.error || 'Fehler beim Erstellen des Geräts');
       }
 
-      setNewDevice({ HWID: '', HSID: '', MODID: '', SNO: '', Preis: '', Zugang: '', EAN: '', IMEI1: '', IMEI2: '', RaumID: '' });
+      setNewDevice({ HWID: '', HSID: '', MODID: '', SNO: '', Preis: '', Zugang: '', EAN: '', IMEI1: '', IMEI2: '', RaumID: '', WODISNr: '' });
       await fetchDevices();
       setCreating(false);
     } catch (err) {
@@ -1247,6 +1253,18 @@ export default function DeviceManagementPage() {
                       className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-primary"
                       required
                     />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">WODIS Nr. (optional)</label>
+                    <input
+                      type="text"
+                      value={newDevice.WODISNr}
+                      onChange={(e) => setNewDevice((prev) => ({ ...prev, WODISNr: e.target.value }))}
+                      placeholder="z.B. 2026000001 (wird automatisch generiert)"
+                      className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-primary"
+                      maxLength={10}
+                    />
+                    <p className="text-[10px] text-gray-500 mt-0.5">Format: JJJJNNNNNN (Jahr + 6-stellige Nummer). Leer lassen für automatische Vergabe.</p>
                   </div>
                   <div>
                     <label className="block text-xs font-medium text-gray-700 mb-1">Preis (optional)</label>
@@ -2027,6 +2045,9 @@ export default function DeviceManagementPage() {
                             </button>
                           </div>
                           <div className="font-medium text-gray-900 mb-1">{selectedDevice.sno}</div>
+                          {selectedDevice.wodisNr && (
+                            <div className="text-xs text-gray-600">WODIS Nr.: {selectedDevice.wodisNr}</div>
+                          )}
                           <div>{selectedDevice.hwName || '-'}</div>
                           <div>{selectedDevice.hsName || '-'}</div>
                           <div>{selectedDevice.modelName || '-'}</div>
@@ -2044,6 +2065,18 @@ export default function DeviceManagementPage() {
                             onChange={(e) => setEditDeviceData(prev => ({ ...prev, SNO: e.target.value }))}
                             className="w-full px-2 py-1.5 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-primary"
                             placeholder="Seriennummer"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-[11px] font-medium text-gray-700 mb-1">WODIS Nr.</label>
+                          <input
+                            type="text"
+                            value={editDeviceData.WODISNr}
+                            onChange={(e) => setEditDeviceData(prev => ({ ...prev, WODISNr: e.target.value }))}
+                            className="w-full px-2 py-1.5 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-primary"
+                            placeholder="z.B. 2026000001"
+                            maxLength={10}
                           />
                         </div>
 
@@ -2697,6 +2730,9 @@ export default function DeviceManagementPage() {
                     <div className="flex items-center justify-between mb-3">
                       <div className="text-sm text-gray-700">
                         <div className="font-medium text-gray-900 mb-1">{selectedDevice.sno || '—'}</div>
+                        {selectedDevice.wodisNr && (
+                          <div className="text-xs text-gray-600 mb-1">WODIS Nr.: {selectedDevice.wodisNr}</div>
+                        )}
                         <div>{selectedDevice.hwName || '-'}</div>
                         <div>{selectedDevice.hsName || '-'}</div>
                         <div>{selectedDevice.modelName || '-'}</div>
@@ -2795,6 +2831,18 @@ export default function DeviceManagementPage() {
                         onChange={(e) => setEditDeviceData(prev => ({ ...prev, SNO: e.target.value }))}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                         placeholder="Seriennummer"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">WODIS Nr.</label>
+                      <input
+                        type="text"
+                        value={editDeviceData.WODISNr}
+                        onChange={(e) => setEditDeviceData(prev => ({ ...prev, WODISNr: e.target.value }))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                        placeholder="z.B. 2026000001"
+                        maxLength={10}
                       />
                     </div>
 

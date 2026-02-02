@@ -108,6 +108,7 @@ model GER {
   StandardRaumID Int?
   SNO            String
   InventarCode   String   @unique
+  WODISNr        String?  @unique
   Preis          Decimal?
   Zugang         DateTime
   Abgang         DateTime?
