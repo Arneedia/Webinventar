@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import PaginatedTable, { TableColumn } from '@/app/components/PaginatedTable';
+import SearchableSelect from '@/app/components/SearchableSelect';
 
 interface RoomRecord {
   RaumID: number;
@@ -244,22 +245,22 @@ export default function RoomsManager() {
             />
           </label>
 
-          <label className="flex flex-col gap-1 text-sm">
+          <div className="flex flex-col gap-1 text-sm">
             <span className="text-gray-700">Geschäftsstelle</span>
-            <select
+            <SearchableSelect
+              options={geschaeftsstellen
+                .map((gs) => ({
+                  value: gs.GSID,
+                  label: gs.GSName ?? `GS #${gs.GSID}`,
+                }))
+                .sort((a, b) => a.label.localeCompare(b.label, 'de-DE'))}
               value={form.GSID}
-              onChange={(e) => handleChange('GSID', e.target.value)}
+              onChange={(value) => handleChange('GSID', value)}
+              placeholder="Keine Geschäftsstelle"
+              searchPlaceholder="Geschäftsstelle suchen..."
               disabled={loadingLookups}
-              className="rounded-lg border border-gray-200 bg-white px-3 py-2 focus:border-primary focus:outline-none"
-            >
-              <option value="">Keine Geschäftsstelle</option>
-              {geschaeftsstellen.map((gs) => (
-                <option key={gs.GSID} value={gs.GSID}>
-                  {gs.GSName ?? `GS #${gs.GSID}`}
-                </option>
-              ))}
-            </select>
-          </label>
+            />
+          </div>
 
           <label className="flex flex-col gap-1 text-sm">
             <span className="text-gray-700">Gefahrenstellen</span>

@@ -38,6 +38,7 @@ export interface CatalogFilterState {
 }
 
 export interface DropdownFilterState {
+  typeFilter?: string;
   hwFilter: string;
   hsFilter: string;
   modFilter: string;

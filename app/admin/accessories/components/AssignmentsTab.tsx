@@ -1,6 +1,7 @@
 import { ClipboardCheck, RefreshCcw, UserPlus, Users } from "lucide-react";
 import type { AccessoryAssignmentSummary } from "@/lib/accessories";
 import type { AssignmentFilterState, AssignmentFormState, SelectOption } from "../types";
+import SearchableSelect from "@/app/components/SearchableSelect";
 
 interface AssignmentsTabProps {
   assignments: AccessoryAssignmentSummary[];
@@ -53,54 +54,39 @@ export default function AssignmentsTab({
         </div>
 
         <form onSubmit={onSubmit} className="mt-4 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          <label className="text-sm text-gray-600">
-            Benutzer
-            <select
+          <div className="text-sm text-gray-600">
+            <label className="block mb-1">Benutzer</label>
+            <SearchableSelect
+              options={userOptions}
               value={form.BenutzerID}
-              onChange={(event) => onFormChange("BenutzerID", event.target.value)}
-              className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-primary focus:outline-none"
-            >
-              <option value="">Benutzer auswählen</option>
-              {userOptions.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </label>
+              onChange={(value) => onFormChange("BenutzerID", value)}
+              placeholder="Benutzer auswählen"
+              searchPlaceholder="Benutzer suchen..."
+            />
+          </div>
 
-          <label className="text-sm text-gray-600">
-            Zubehör *
-            <select
-              required
+          <div className="text-sm text-gray-600">
+            <label className="block mb-1">Zubehör *</label>
+            <SearchableSelect
+              options={accessoryOptions}
               value={form.ZubehoerID}
-              onChange={(event) => onFormChange("ZubehoerID", event.target.value)}
-              className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-primary focus:outline-none"
-            >
-              <option value="">Zubehör auswählen</option>
-              {accessoryOptions.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </label>
+              onChange={(value) => onFormChange("ZubehoerID", value)}
+              placeholder="Zubehör auswählen"
+              searchPlaceholder="Zubehör suchen..."
+              required
+            />
+          </div>
 
-          <label className="text-sm text-gray-600">
-            Gerät (optional)
-            <select
+          <div className="text-sm text-gray-600">
+            <label className="block mb-1">Gerät (optional)</label>
+            <SearchableSelect
+              options={deviceOptions}
               value={form.GerID}
-              onChange={(event) => onFormChange("GerID", event.target.value)}
-              className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-primary focus:outline-none"
-            >
-              <option value="">Kein Gerät</option>
-              {deviceOptions.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </label>
+              onChange={(value) => onFormChange("GerID", value)}
+              placeholder="Kein Gerät"
+              searchPlaceholder="Gerät suchen..."
+            />
+          </div>
 
           <label className="text-sm text-gray-600">
             Start

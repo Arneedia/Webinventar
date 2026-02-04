@@ -101,22 +101,37 @@ export default function CatalogTab({
             />
           </label>
 
-          <label className="text-sm text-gray-600">
-            Typ *
-            <select
-              required
-              value={form.ZTID}
-              onChange={(event) => onFormChange("ZTID", event.target.value)}
-              className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-primary-dark focus:outline-none"
-            >
-              <option value="">Typ wählen</option>
-              {types.map((type) => (
-                <option key={type.id} value={type.id}>
-                  {type.name}
-                </option>
-              ))}
-            </select>
-          </label>
+          <div className="text-sm text-gray-600">
+            <span className="block mb-1">Typ *</span>
+            <div className="space-y-1">
+              <input
+                type="text"
+                placeholder="Typ suchen..."
+                value={dropdownFilters.typeFilter || ''}
+                onChange={(event) => onDropdownFilterChange("typeFilter", event.target.value)}
+                className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-primary-dark focus:outline-none"
+              />
+              <select
+                required
+                value={form.ZTID}
+                onChange={(event) => onFormChange("ZTID", event.target.value)}
+                className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-primary-dark focus:outline-none"
+              >
+                <option value="">Typ wählen</option>
+                {types
+                  .filter((type) => {
+                    const filter = dropdownFilters.typeFilter?.toLowerCase() || '';
+                    return !filter || type.name.toLowerCase().includes(filter);
+                  })
+                  .sort((a, b) => a.name.localeCompare(b.name, 'de-DE'))
+                  .map((type) => (
+                    <option key={type.id} value={type.id}>
+                      {type.name}
+                    </option>
+                  ))}
+              </select>
+            </div>
+          </div>
 
           <div className="text-sm text-gray-600">
             <span className="block mb-1">Hardware-Typ *</span>

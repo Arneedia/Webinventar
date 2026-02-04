@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState, KeyboardEvent } from 'react';
 import Link from 'next/link';
 import { Database, MonitorSmartphone, UserRound, History, AlertTriangle, Plus, RefreshCw, Package, Undo2, XCircle, X, ChevronRight, QrCode, MapPin, ClipboardList, ArrowUpRight, ArrowDownLeft, Repeat, FileText, User, Calendar, CheckCircle2, Clock, FileEdit, Archive, Edit2, ChevronUp, ChevronDown, ChevronsUpDown, Search } from 'lucide-react';
 import StickerModal from '../components/StickerModal';
+import SearchableSelect from '../components/SearchableSelect';
 
 interface DeviceListItem {
   id: number;
@@ -1487,6 +1488,17 @@ export default function DeviceManagementPage() {
                           </th>
                           <th 
                             className="px-3 py-2 text-left font-semibold text-gray-600 cursor-pointer hover:bg-gray-100 select-none"
+                            onClick={() => handleMainSort('wodisNr')}
+                          >
+                            <div className="flex items-center gap-1">
+                              <span>WODIS Nr.</span>
+                              {mainSortColumn === 'wodisNr' ? (
+                                mainSortDirection === 'asc' ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />
+                              ) : <ChevronsUpDown className="w-3.5 h-3.5 text-gray-400" />}
+                            </div>
+                          </th>
+                          <th 
+                            className="px-3 py-2 text-left font-semibold text-gray-600 cursor-pointer hover:bg-gray-100 select-none"
                             onClick={() => handleMainSort('hwName')}
                           >
                             <div className="flex items-center gap-1">
@@ -1563,6 +1575,7 @@ export default function DeviceManagementPage() {
                               <td className={`px-3 py-2 font-medium ${isSelected ? 'text-gray-900' : 'text-gray-800'}`}>
                                 {d.sno}
                               </td>
+                              <td className="px-3 py-2 text-gray-700">{(d as any).wodisNr || '-'}</td>
                               <td className="px-3 py-2 text-gray-700">{d.hwName || '-'}</td>
                               <td className="px-3 py-2 text-gray-700">{d.hsName || '-'}</td>
                               <td className="px-3 py-2 text-gray-700">{d.modelName || '-'}</td>
@@ -1642,6 +1655,9 @@ export default function DeviceManagementPage() {
                                   {active ? 'Aktiv' : 'Aus'}
                                 </span>
                               </div>
+                              {(d as any).wodisNr && (
+                                <div className="text-xs text-gray-500 mb-1">WODIS: {(d as any).wodisNr}</div>
+                              )}
                               <div className="text-xs text-gray-600 truncate">
                                 {[d.hwName, d.hsName, d.modelName].filter(Boolean).join(' · ') || '-'}
                               </div>
@@ -1797,6 +1813,17 @@ export default function DeviceManagementPage() {
                             </th>
                             <th 
                               className="px-3 py-2 text-left font-semibold text-gray-600 cursor-pointer hover:bg-amber-100 select-none"
+                              onClick={() => handleUnassignedSort('wodisNr')}
+                            >
+                              <div className="flex items-center gap-1">
+                                <span>WODIS Nr.</span>
+                                {unassignedSortColumn === 'wodisNr' ? (
+                                  unassignedSortDirection === 'asc' ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />
+                                ) : <ChevronsUpDown className="w-3.5 h-3.5 text-gray-400" />}
+                              </div>
+                            </th>
+                            <th 
+                              className="px-3 py-2 text-left font-semibold text-gray-600 cursor-pointer hover:bg-amber-100 select-none"
                               onClick={() => handleUnassignedSort('hwName')}
                             >
                               <div className="flex items-center gap-1">
@@ -1875,6 +1902,7 @@ export default function DeviceManagementPage() {
                                   }`}>
                                     {d.sno}
                                   </td>
+                                  <td className="px-3 py-2 text-gray-700">{(d as any).wodisNr || '-'}</td>
                                   <td className="px-3 py-2 text-gray-700">{d.hwName || '-'}</td>
                                   <td className="px-3 py-2 text-gray-700">{d.hsName || '-'}</td>
                                   <td className="px-3 py-2 text-gray-700">{d.modelName || '-'}</td>
@@ -1932,6 +1960,9 @@ export default function DeviceManagementPage() {
                                       Verfügbar
                                     </span>
                                   </div>
+                                  {(d as any).wodisNr && (
+                                    <div className="text-xs text-gray-500 mb-1">WODIS: {(d as any).wodisNr}</div>
+                                  )}
                                   <div className="text-xs text-gray-600 truncate">
                                     {[d.hwName, d.hsName, d.modelName].filter(Boolean).join(' · ') || '-'}
                                   </div>
@@ -2083,48 +2114,36 @@ export default function DeviceManagementPage() {
                         <div className="grid grid-cols-3 gap-2">
                           <div>
                             <label className="block text-[11px] font-medium text-gray-700 mb-1">HW</label>
-                            <select
+                            <SearchableSelect
+                              options={hwOptions.map(hw => ({ value: hw.id, label: hw.name }))}
                               value={editDeviceData.HWID}
-                              onChange={(e) => setEditDeviceData(prev => ({ ...prev, HWID: e.target.value }))}
-                              className="w-full px-2 py-1.5 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-primary"
-                            >
-                              <option value="">--</option>
-                              {hwOptions.map((hw) => (
-                                <option key={hw.id} value={hw.id}>
-                                  {hw.name}
-                                </option>
-                              ))}
-                            </select>
+                              onChange={(value) => setEditDeviceData(prev => ({ ...prev, HWID: value }))}
+                              placeholder="--"
+                              searchPlaceholder="HW suchen..."
+                              className="text-xs"
+                            />
                           </div>
                           <div>
                             <label className="block text-[11px] font-medium text-gray-700 mb-1">HS</label>
-                            <select
+                            <SearchableSelect
+                              options={hsOptions.map(hs => ({ value: hs.id, label: hs.name }))}
                               value={editDeviceData.HSID}
-                              onChange={(e) => setEditDeviceData(prev => ({ ...prev, HSID: e.target.value }))}
-                              className="w-full px-2 py-1.5 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-primary"
-                            >
-                              <option value="">--</option>
-                              {hsOptions.map((hs) => (
-                                <option key={hs.id} value={hs.id}>
-                                  {hs.name}
-                                </option>
-                              ))}
-                            </select>
+                              onChange={(value) => setEditDeviceData(prev => ({ ...prev, HSID: value }))}
+                              placeholder="--"
+                              searchPlaceholder="HS suchen..."
+                              className="text-xs"
+                            />
                           </div>
                           <div>
                             <label className="block text-[11px] font-medium text-gray-700 mb-1">Modell</label>
-                            <select
+                            <SearchableSelect
+                              options={modOptions.map(mod => ({ value: mod.id, label: mod.name }))}
                               value={editDeviceData.MODID}
-                              onChange={(e) => setEditDeviceData(prev => ({ ...prev, MODID: e.target.value }))}
-                              className="w-full px-2 py-1.5 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-primary"
-                            >
-                              <option value="">--</option>
-                              {modOptions.map((mod) => (
-                                <option key={mod.id} value={mod.id}>
-                                  {mod.name}
-                                </option>
-                              ))}
-                            </select>
+                              onChange={(value) => setEditDeviceData(prev => ({ ...prev, MODID: value }))}
+                              placeholder="--"
+                              searchPlaceholder="Modell suchen..."
+                              className="text-xs"
+                            />
                           </div>
                         </div>
                       </div>
@@ -2276,21 +2295,18 @@ export default function DeviceManagementPage() {
                           </div>
                           <div>
                             <label className="block text-[11px] font-medium text-gray-700 mb-1">Raum</label>
-                            <select
+                            <SearchableSelect
+                              options={roomOptions.map(room => ({
+                                value: room.id,
+                                label: `${room.name}${room.standort ? ` (${room.standort})` : ''}${room.branch ? ` - ${room.branch}` : ''}`
+                              }))}
                               value={editDeviceData.RaumID}
-                              onChange={(e) => setEditDeviceData(prev => ({ ...prev, RaumID: e.target.value }))}
-                              className="w-full px-2 py-1.5 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-primary disabled:bg-gray-100 disabled:cursor-not-allowed"
+                              onChange={(value) => setEditDeviceData(prev => ({ ...prev, RaumID: value }))}
+                              placeholder="Kein Raum"
+                              searchPlaceholder="Raum suchen..."
                               disabled={!!selectedDevice?.currentUserId}
-                            >
-                              <option value="">Kein Raum</option>
-                              {roomOptions.map((room) => (
-                                <option key={room.id} value={room.id}>
-                                  {room.name}
-                                  {room.standort && ` (${room.standort})`}
-                                  {room.branch && ` - ${room.branch}`}
-                                </option>
-                              ))}
-                            </select>
+                              className="text-xs"
+                            />
                             {selectedDevice?.currentUserId && (
                               <div className="text-[10px] text-gray-500 mt-1">
                                 Raum wird vom zugewiesenen Benutzer übernommen
@@ -2330,18 +2346,14 @@ export default function DeviceManagementPage() {
                     {!isEditingDevice && !loadingUsers && canEditDevices && (
                       <div className="mb-3 text-xs space-y-2">
                         <label className="block text-xs font-medium text-gray-700">Benutzer zuweisen</label>
-                        <select
+                        <SearchableSelect
+                          options={users.map(u => ({ value: u.id, label: `${u.name} (ID ${u.id})` }))}
                           value={assignUserId}
-                          onChange={(e) => setAssignUserId(e.target.value)}
-                          className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-primary"
-                        >
-                          <option value="">-- Benutzer wählen --</option>
-                          {users.map((u) => (
-                            <option key={u.id} value={u.id}>
-                              {u.name} (ID {u.id})
-                            </option>
-                          ))}
-                        </select>
+                          onChange={(value) => setAssignUserId(value)}
+                          placeholder="-- Benutzer wählen --"
+                          searchPlaceholder="Benutzer suchen..."
+                          className="text-xs"
+                        />
                         <div className="flex gap-2">
                           <button
                             type="button"
@@ -2398,20 +2410,19 @@ export default function DeviceManagementPage() {
                     {canEditAccessories && (
                       <div className="mb-3 text-xs space-y-2">
                         <label className="block text-xs font-medium text-gray-700">Zubehör aus Lager zuweisen</label>
-                        <select
-                          value={selectedAccessoryId}
-                          onChange={(e) => setSelectedAccessoryId(e.target.value)}
-                          className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-primary"
-                        >
-                          <option value="">-- Zubehör wählen --</option>
-                          {accessoryOptions
+                        <SearchableSelect
+                          options={accessoryOptions
                             .filter((opt) => opt.stock > 0)
-                            .map((opt) => (
-                              <option key={opt.id} value={opt.id}>
-                                {opt.label} (Bestand: {opt.stock})
-                              </option>
-                            ))}
-                        </select>
+                            .map((opt) => ({
+                              value: opt.id,
+                              label: `${opt.label} (Bestand: ${opt.stock})`
+                            }))}
+                          value={selectedAccessoryId}
+                          onChange={(value) => setSelectedAccessoryId(value)}
+                          placeholder="-- Zubehör wählen --"
+                          searchPlaceholder="Zubehör suchen..."
+                          className="text-xs"
+                        />
                         <button
                           type="button"
                           onClick={handleAssignAccessory}
@@ -2849,42 +2860,36 @@ export default function DeviceManagementPage() {
                     <div className="grid grid-cols-3 gap-2">
                       <div>
                         <label className="block text-xs font-medium text-gray-700 mb-1">HW</label>
-                        <select
+                        <SearchableSelect
+                          options={hwOptions.map(hw => ({ value: hw.id, label: hw.name }))}
                           value={editDeviceData.HWID}
-                          onChange={(e) => setEditDeviceData(prev => ({ ...prev, HWID: e.target.value }))}
-                          className="w-full px-2 py-2 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-primary"
-                        >
-                          <option value="">--</option>
-                          {hwOptions.map((hw) => (
-                            <option key={hw.id} value={hw.id}>{hw.name}</option>
-                          ))}
-                        </select>
+                          onChange={(value) => setEditDeviceData(prev => ({ ...prev, HWID: value }))}
+                          placeholder="--"
+                          searchPlaceholder="HW suchen..."
+                          className="text-xs"
+                        />
                       </div>
                       <div>
                         <label className="block text-xs font-medium text-gray-700 mb-1">HS</label>
-                        <select
+                        <SearchableSelect
+                          options={hsOptions.map(hs => ({ value: hs.id, label: hs.name }))}
                           value={editDeviceData.HSID}
-                          onChange={(e) => setEditDeviceData(prev => ({ ...prev, HSID: e.target.value }))}
-                          className="w-full px-2 py-2 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-primary"
-                        >
-                          <option value="">--</option>
-                          {hsOptions.map((hs) => (
-                            <option key={hs.id} value={hs.id}>{hs.name}</option>
-                          ))}
-                        </select>
+                          onChange={(value) => setEditDeviceData(prev => ({ ...prev, HSID: value }))}
+                          placeholder="--"
+                          searchPlaceholder="HS suchen..."
+                          className="text-xs"
+                        />
                       </div>
                       <div>
                         <label className="block text-xs font-medium text-gray-700 mb-1">Modell</label>
-                        <select
+                        <SearchableSelect
+                          options={modOptions.map(mod => ({ value: mod.id, label: mod.name }))}
                           value={editDeviceData.MODID}
-                          onChange={(e) => setEditDeviceData(prev => ({ ...prev, MODID: e.target.value }))}
-                          className="w-full px-2 py-2 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-primary"
-                        >
-                          <option value="">--</option>
-                          {modOptions.map((mod) => (
-                            <option key={mod.id} value={mod.id}>{mod.name}</option>
-                          ))}
-                        </select>
+                          onChange={(value) => setEditDeviceData(prev => ({ ...prev, MODID: value }))}
+                          placeholder="--"
+                          searchPlaceholder="Modell suchen..."
+                          className="text-xs"
+                        />
                       </div>
                     </div>
 
@@ -2937,21 +2942,18 @@ export default function DeviceManagementPage() {
 
                     <div>
                       <label className="block text-xs font-medium text-gray-700 mb-1">Raum</label>
-                      <select
+                      <SearchableSelect
+                        options={roomOptions.map(room => ({
+                          value: room.id,
+                          label: `${room.name}${room.standort ? ` (${room.standort})` : ''}${room.branch ? ` - ${room.branch}` : ''}`
+                        }))}
                         value={editDeviceData.RaumID}
-                        onChange={(e) => setEditDeviceData(prev => ({ ...prev, RaumID: e.target.value }))}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary disabled:bg-gray-100 disabled:cursor-not-allowed"
+                        onChange={(value) => setEditDeviceData(prev => ({ ...prev, RaumID: value }))}
+                        placeholder="Kein Raum"
+                        searchPlaceholder="Raum suchen..."
                         disabled={!!selectedDevice?.currentUserId}
-                      >
-                        <option value="">Kein Raum</option>
-                        {roomOptions.map((room) => (
-                          <option key={room.id} value={room.id}>
-                            {room.name}
-                            {room.standort && ` (${room.standort})`}
-                            {room.branch && ` - ${room.branch}`}
-                          </option>
-                        ))}
-                      </select>
+                        className="text-sm"
+                      />
                       {selectedDevice?.currentUserId && (
                         <div className="text-xs text-gray-500 mt-1">
                           Raum wird vom zugewiesenen Benutzer übernommen

@@ -107,55 +107,67 @@ export default function AccessoriesManager() {
 
   const hwOptions = useMemo<SelectOption[]>(
     () =>
-      (hwTable?.data ?? []).map((row) => ({
-        value: row.HWID,
-        label: row.HWName?.trim() || `Hardware ${row.HWID}`,
-      })),
+      (hwTable?.data ?? [])
+        .map((row) => ({
+          value: row.HWID,
+          label: row.HWName?.trim() || `Hardware ${row.HWID}`,
+        }))
+        .sort((a, b) => a.label.localeCompare(b.label, 'de-DE')),
     [hwTable?.data],
   );
 
   const hsOptions = useMemo<SelectOption[]>(
     () =>
-      (hsTable?.data ?? []).map((row) => ({
-        value: row.HSID,
-        label: row.HSName?.trim() || `Hersteller ${row.HSID}`,
-      })),
+      (hsTable?.data ?? [])
+        .map((row) => ({
+          value: row.HSID,
+          label: row.HSName?.trim() || `Hersteller ${row.HSID}`,
+        }))
+        .sort((a, b) => a.label.localeCompare(b.label, 'de-DE')),
     [hsTable?.data],
   );
 
   const modOptions = useMemo<SelectOption[]>(
     () =>
-      (modTable?.data ?? []).map((row) => ({
-        value: row.ModID,
-        label: [row.ModName, row.ModellNummer].filter(Boolean).join(" · ") || `Modell ${row.ModID}`,
-      })),
+      (modTable?.data ?? [])
+        .map((row) => ({
+          value: row.ModID,
+          label: [row.ModName, row.ModellNummer].filter(Boolean).join(" · ") || `Modell ${row.ModID}`,
+        }))
+        .sort((a, b) => a.label.localeCompare(b.label, 'de-DE')),
     [modTable?.data],
   );
 
   const userOptions = useMemo<SelectOption[]>(
     () =>
-      (userTable?.data ?? []).map((row) => ({
-        value: row.BenutzerID,
-        label: row.BenutzerName?.trim() || `Benutzer ${row.BenutzerID}`,
-      })),
+      (userTable?.data ?? [])
+        .map((row) => ({
+          value: row.BenutzerID,
+          label: row.BenutzerName?.trim() || `Benutzer ${row.BenutzerID}`,
+        }))
+        .sort((a, b) => a.label.localeCompare(b.label, 'de-DE')),
     [userTable?.data],
   );
 
   const deviceOptions = useMemo<SelectOption[]>(
     () =>
-      (gerTable?.data ?? []).map((row) => ({
-        value: row.GerID,
-        label: row.SNO?.trim() || `Gerät #${row.GerID}`,
-      })),
+      (gerTable?.data ?? [])
+        .map((row) => ({
+          value: row.GerID,
+          label: row.SNO?.trim() || `Gerät #${row.GerID}`,
+        }))
+        .sort((a, b) => a.label.localeCompare(b.label, 'de-DE')),
     [gerTable?.data],
   );
 
   const accessoryOptions = useMemo<SelectOption[]>(
     () =>
-      (overview?.accessories ?? []).map((item) => ({
-        value: item.id,
-        label: item.description?.trim() || `Zubehör #${item.id}`,
-      })),
+      (overview?.accessories ?? [])
+        .map((item) => ({
+          value: item.id,
+          label: item.description?.trim() || `Zubehör #${item.id}`,
+        }))
+        .sort((a, b) => a.label.localeCompare(b.label, 'de-DE')),
     [overview?.accessories],
   );
 
@@ -183,7 +195,7 @@ export default function AccessoriesManager() {
     Ende: "",
   });
   const [catalogFilters, setCatalogFilters] = useState<CatalogFilterState>({ search: "", type: "" });
-  const [dropdownFilters, setDropdownFilters] = useState<DropdownFilterState>({ hwFilter: "", hsFilter: "", modFilter: "" });
+  const [dropdownFilters, setDropdownFilters] = useState<DropdownFilterState>({ typeFilter: "", hwFilter: "", hsFilter: "", modFilter: "" });
   const [assignmentFilters, setAssignmentFilters] = useState<AssignmentFilterState>({ status: "all", search: "" });
 
   useEffect(() => {
@@ -259,48 +271,54 @@ export default function AccessoriesManager() {
   };
 
   const filteredHwOptions = useMemo<SelectOption[]>(() => {
-    return hwOptions.filter((o) => {
-      if (!optionMatchesSearch(o.label, o.value, dropdownFilters.hwFilter)) {
-        return false;
-      }
-      if (!shouldRestrictHw) {
-        return true;
-      }
-      if (relationSets.allowedHwIds.size === 0) {
-        return false;
-      }
-      return relationSets.allowedHwIds.has(o.value);
-    });
+    return hwOptions
+      .filter((o) => {
+        if (!optionMatchesSearch(o.label, o.value, dropdownFilters.hwFilter)) {
+          return false;
+        }
+        if (!shouldRestrictHw) {
+          return true;
+        }
+        if (relationSets.allowedHwIds.size === 0) {
+          return false;
+        }
+        return relationSets.allowedHwIds.has(o.value);
+      })
+      .sort((a, b) => a.label.localeCompare(b.label, 'de-DE'));
   }, [hwOptions, dropdownFilters.hwFilter, shouldRestrictHw, relationSets.allowedHwIds]);
 
   const filteredHsOptions = useMemo<SelectOption[]>(() => {
-    return hsOptions.filter((o) => {
-      if (!optionMatchesSearch(o.label, o.value, dropdownFilters.hsFilter)) {
-        return false;
-      }
-      if (!shouldRestrictHs) {
-        return true;
-      }
-      if (relationSets.allowedHsIds.size === 0) {
-        return false;
-      }
-      return relationSets.allowedHsIds.has(o.value);
-    });
+    return hsOptions
+      .filter((o) => {
+        if (!optionMatchesSearch(o.label, o.value, dropdownFilters.hsFilter)) {
+          return false;
+        }
+        if (!shouldRestrictHs) {
+          return true;
+        }
+        if (relationSets.allowedHsIds.size === 0) {
+          return false;
+        }
+        return relationSets.allowedHsIds.has(o.value);
+      })
+      .sort((a, b) => a.label.localeCompare(b.label, 'de-DE'));
   }, [hsOptions, dropdownFilters.hsFilter, shouldRestrictHs, relationSets.allowedHsIds]);
 
   const filteredModOptions = useMemo<SelectOption[]>(() => {
-    return modOptions.filter((o) => {
-      if (!optionMatchesSearch(o.label, o.value, dropdownFilters.modFilter)) {
-        return false;
-      }
-      if (!shouldRestrictMod) {
-        return true;
-      }
-      if (relationSets.allowedModIds.size === 0) {
-        return false;
-      }
-      return relationSets.allowedModIds.has(o.value);
-    });
+    return modOptions
+      .filter((o) => {
+        if (!optionMatchesSearch(o.label, o.value, dropdownFilters.modFilter)) {
+          return false;
+        }
+        if (!shouldRestrictMod) {
+          return true;
+        }
+        if (relationSets.allowedModIds.size === 0) {
+          return false;
+        }
+        return relationSets.allowedModIds.has(o.value);
+      })
+      .sort((a, b) => a.label.localeCompare(b.label, 'de-DE'));
   }, [modOptions, dropdownFilters.modFilter, shouldRestrictMod, relationSets.allowedModIds]);
 
   const filteredAccessories = useMemo<AccessoryItemSummary[]>(() => {
@@ -661,11 +679,10 @@ export default function AccessoriesManager() {
         <InventoryTab
           accessoryOptions={accessoryOptions}
           movements={overview?.inventoryMovements ?? []}
+          assignments={overview?.assignments ?? []}
           form={movementForm}
           onFormChange={handleMovementFormChange}
           onSubmit={handleInventoryMovement}
-          onDelete={handleDeleteMovement}
-          onUpdateQuantity={handleUpdateMovementQuantity}
         />
       )}
 
