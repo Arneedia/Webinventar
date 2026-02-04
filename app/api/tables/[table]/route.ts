@@ -164,6 +164,17 @@ export async function POST(req: NextRequest, context: RouteContext) {
       }
     }
 
+    // Automatische Beschreibung für Zubehör-Tabelle aus ZT-Name
+    if (table.toUpperCase() === 'ZUBEHOER' && !data.Beschreibung && data.ZTID) {
+      const zt = await prisma.zT.findUnique({ 
+        where: { ID: Number(data.ZTID) },
+        select: { ZTName: true }
+      });
+      if (zt?.ZTName) {
+        data.Beschreibung = zt.ZTName;
+      }
+    }
+
     await model.create({ data });
 
     return NextResponse.json({ success: true });
