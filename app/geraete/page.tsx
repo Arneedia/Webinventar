@@ -595,7 +595,7 @@ export default function DeviceManagementPage() {
         id: row.BenutzerID,
         name: row.BenutzerName || `Benutzer ${row.BenutzerID}`,
       }));
-      setUsers(options);
+      setUsers(options.sort((a, b) => a.name.localeCompare(b.name, 'de')));
     } catch {
       setUsers([]);
     } finally {
@@ -612,7 +612,7 @@ export default function DeviceManagementPage() {
         id: row.HWID,
         name: row.HWName || `Typ ${row.HWID}`,
       }));
-      setHwOptions(options);
+      setHwOptions(options.sort((a, b) => a.name.localeCompare(b.name, 'de')));
     } catch {
       setHwOptions([]);
     }
@@ -627,7 +627,7 @@ export default function DeviceManagementPage() {
         id: row.HSID,
         name: row.HSName || `Hersteller ${row.HSID}`,
       }));
-      setHsOptions(options);
+      setHsOptions(options.sort((a, b) => a.name.localeCompare(b.name, 'de')));
     } catch {
       setHsOptions([]);
     }
@@ -646,7 +646,7 @@ export default function DeviceManagementPage() {
           name: label,
         };
       });
-      setModOptions(options);
+      setModOptions(options.sort((a, b) => a.name.localeCompare(b.name, 'de')));
     } catch {
       setModOptions([]);
     }
