@@ -147,12 +147,12 @@ model ZT {
 model Zubehoer {
   ZubehoerID        Int                @id @default(autoincrement())
   ZTID              Int
-  HWID              Int
+  HWID              Int?
   ModID             Int?
   HSID              Int?
   Beschreibung      String?
   ZT                ZT                 @relation(fields: [ZTID], references: [ID])
-  HW                HW                 @relation(fields: [HWID], references: [HWID])
+  HW                HW?                @relation(fields: [HWID], references: [HWID])
   MOD               MOD?               @relation(fields: [ModID], references: [ModID])
   HS                HS?                @relation(fields: [HSID], references: [HSID])
   ZubehoerBenutzer  ZubehoerBenutzer[]

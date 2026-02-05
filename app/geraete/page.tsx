@@ -425,7 +425,7 @@ export default function DeviceManagementPage() {
             .filter(Boolean) ?? [],
         notiz: room.Notiz ?? null,
       }));
-      setRoomOptions(options);
+      setRoomOptions(options.sort((a, b) => a.name.localeCompare(b.name, 'de')));
     } catch {
       setRoomOptions([]);
     } finally {
@@ -1319,21 +1319,18 @@ export default function DeviceManagementPage() {
                   </div>
                   <div>
                     <label className="block text-xs font-medium text-gray-700 mb-1">Raum *</label>
-                    <select
+                    <SearchableSelect
+                      options={roomOptions.map(room => ({
+                        value: room.id,
+                        label: `${room.name}${room.standort ? ` (${room.standort})` : ''}${room.branch ? ` - ${room.branch}` : ''}`
+                      }))}
                       value={newDevice.RaumID}
-                      onChange={(e) => setNewDevice((prev) => ({ ...prev, RaumID: e.target.value }))}
-                      className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-primary"
+                      onChange={(value) => setNewDevice((prev) => ({ ...prev, RaumID: value }))}
+                      placeholder="Raum auswählen..."
+                      searchPlaceholder="Raum suchen..."
                       required
-                    >
-                      <option value="">Raum auswählen...</option>
-                      {roomOptions.map((room) => (
-                        <option key={room.id} value={room.id}>
-                          {room.name}
-                          {room.standort && ` (${room.standort})`}
-                          {room.branch && ` - ${room.branch}`}
-                        </option>
-                      ))}
-                    </select>
+                      className="text-xs"
+                    />
                   </div>
                 </div>
 
