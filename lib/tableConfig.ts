@@ -224,13 +224,13 @@ export const tables: TableConfig[] = [
     model: 'zubehoerInventar',
     columns: [
       { name: 'InventarID', type: 'int', nullable: false, identity: true },
-      { name: 'ZubehoerID', type: 'int', nullable: false },
+      { name: 'ZTID', type: 'int', nullable: false },
       { name: 'Menge', type: 'int', nullable: false },
       { name: 'Zugang', type: 'date', nullable: false },
       { name: 'Abgang', type: 'date', nullable: true },
     ],
     foreignKeys: [
-      { column: 'ZubehoerID', refTable: 'Zubehoer', relationName: 'Zubehoer', displayColumn: 'Beschreibung' },
+      { column: 'ZTID', refTable: 'ZT', relationName: 'ZT', displayColumn: 'ZTName' },
     ],
   },
   {
