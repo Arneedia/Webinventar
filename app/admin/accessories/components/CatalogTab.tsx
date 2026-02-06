@@ -86,7 +86,7 @@ export default function CatalogTab({
           <h2 className="flex items-center gap-2 text-lg font-semibold text-gray-900">
             <Package className="h-5 w-5 text-primary-dark" /> Zubehör hinzufügen
           </h2>
-          <p className="text-sm text-gray-500">Typ, Hardware, Hersteller und Modell verbinden.</p>
+          <p className="text-sm text-gray-500">Typ auswählen. Hardware, Hersteller und Modell sind optional (z.B. für universelle Kabel).</p>
         </div>
 
         <form onSubmit={onSave} className="mt-4 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -134,7 +134,7 @@ export default function CatalogTab({
           </div>
 
           <div className="text-sm text-gray-600">
-            <span className="block mb-1">Hardware-Typ *</span>
+            <span className="block mb-1">Hardware-Typ (optional)</span>
             <div className="space-y-1">
               <input
                 type="text"
@@ -144,12 +144,11 @@ export default function CatalogTab({
                 className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-primary-dark focus:outline-none"
               />
               <select
-                required
                 value={form.HWID}
                 onChange={(event) => onFormChange("HWID", event.target.value)}
                 className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-primary-dark focus:outline-none"
               >
-                <option value="">-- Hardware-Typ wählen --</option>
+                <option value="">-- Kein Hardware-Typ (für alle) --</option>
                 {hwOptions.map((opt) => (
                   <option key={opt.value} value={opt.value}>
                     {opt.label} (ID {opt.value})
@@ -174,7 +173,7 @@ export default function CatalogTab({
                 onChange={(event) => onFormChange("HSID", event.target.value)}
                 className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-primary-dark focus:outline-none"
               >
-                <option value="">-- Hersteller wählen (optional) --</option>
+                <option value="">-- Kein Hersteller (für alle) --</option>
                 {hsOptions.map((opt) => (
                   <option key={opt.value} value={opt.value}>
                     {opt.label} (ID {opt.value})
@@ -199,7 +198,7 @@ export default function CatalogTab({
                 onChange={(event) => onFormChange("ModID", event.target.value)}
                 className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-primary-dark focus:outline-none"
               >
-                <option value="">-- Modell wählen (optional) --</option>
+                <option value="">-- Kein Modell (für alle) --</option>
                 {modOptions.map((opt) => (
                   <option key={opt.value} value={opt.value}>
                     {opt.label} (ID {opt.value})
