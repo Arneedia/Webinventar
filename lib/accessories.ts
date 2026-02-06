@@ -10,7 +10,7 @@ export interface AccessoryItemSummary {
   id: number;
   description: string | null;
   type: { id: number; name: string | null };
-  hardware: { id: number; name: string | null };
+  hardware: { id: number | null; name: string | null };
   manufacturer: { id: number | null; name: string | null };
   model: { id: number | null; name: string | null; modellNummer: string | null };
   stock: number;
