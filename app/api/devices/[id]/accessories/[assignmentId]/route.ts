@@ -30,9 +30,10 @@ export async function PUT(req: NextRequest, context: RouteContext) {
     const body = await req.json().catch(() => ({}));
     const returnToStock = body.returnToStock === true;
 
-    // Zuordnung laden
+    // Zuordnung laden (mit Zubehör-Info für ZTID)
     const assignment = await prisma.zubehoerBenutzer.findFirst({
       where: { ID: assignId, GerID: deviceId },
+      include: { Zubehoer: { select: { ZTID: true } } },
     });
 
     if (!assignment) {
@@ -52,10 +53,12 @@ export async function PUT(req: NextRequest, context: RouteContext) {
     });
 
     // Optional: Bestand wieder erhöhen (Menge in bestehendem Eintrag erhöhen oder neuen anlegen)
-    if (returnToStock) {
+    if (returnToStock && assignment.Zubehoer) {
+      const ztid = assignment.Zubehoer.ZTID;
+      
       const existingEntry = await prisma.zubehoerInventar.findFirst({
         where: {
-          ZubehoerID: assignment.ZubehoerID,
+          ZTID: ztid,
           Abgang: null,
         },
         orderBy: { Zugang: "desc" },
@@ -69,7 +72,7 @@ export async function PUT(req: NextRequest, context: RouteContext) {
       } else {
         await prisma.zubehoerInventar.create({
           data: {
-            ZubehoerID: assignment.ZubehoerID,
+            ZTID: ztid,
             Menge: 1,
             Zugang: now,
           },
@@ -112,9 +115,10 @@ export async function DELETE(req: NextRequest, context: RouteContext) {
     const url = new URL(req.url);
     const returnToStock = url.searchParams.get("returnToStock") === "true";
 
-    // Zuordnung laden
+    // Zuordnung laden (mit Zubehör-Info für ZTID)
     const assignment = await prisma.zubehoerBenutzer.findFirst({
       where: { ID: assignId, GerID: deviceId },
+      include: { Zubehoer: { select: { ZTID: true } } },
     });
 
     if (!assignment) {
@@ -127,10 +131,12 @@ export async function DELETE(req: NextRequest, context: RouteContext) {
     });
 
     // Optional: Bestand wieder erhöhen (nur wenn Zuordnung noch aktiv war)
-    if (returnToStock && !assignment.Ende) {
+    if (returnToStock && !assignment.Ende && assignment.Zubehoer) {
+      const ztid = assignment.Zubehoer.ZTID;
+      
       const existingEntry = await prisma.zubehoerInventar.findFirst({
         where: {
-          ZubehoerID: assignment.ZubehoerID,
+          ZTID: ztid,
           Abgang: null,
         },
         orderBy: { Zugang: "desc" },
@@ -144,7 +150,7 @@ export async function DELETE(req: NextRequest, context: RouteContext) {
       } else {
         await prisma.zubehoerInventar.create({
           data: {
-            ZubehoerID: assignment.ZubehoerID,
+            ZTID: ztid,
             Menge: 1,
             Zugang: new Date(),
           },

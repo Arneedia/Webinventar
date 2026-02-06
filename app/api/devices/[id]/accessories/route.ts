@@ -89,10 +89,20 @@ export async function POST(req: NextRequest, context: RouteContext) {
       ? Number(body.BenutzerID)
       : null;
 
+    // Zubehör-Katalog-Eintrag laden, um ZTID zu erhalten
+    const accessory = await prisma.zubehoer.findUnique({
+      where: { ZubehoerID: accessoryId },
+      select: { ZTID: true },
+    });
+
+    if (!accessory) {
+      return NextResponse.json({ error: "Zubehör nicht gefunden" }, { status: 404 });
+    }
+
     // Inventar-Eintrag mit Bestand > 0 finden (ohne Abgang, Menge >= 1)
     const inventoryEntry = await prisma.zubehoerInventar.findFirst({
       where: {
-        ZubehoerID: accessoryId,
+        ZTID: accessory.ZTID,
         Abgang: null,
         Menge: { gte: 1 },
       },
