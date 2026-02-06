@@ -171,6 +171,18 @@ export default function AccessoriesManager() {
     [overview?.accessories],
   );
 
+  // Type-based options for inventory (grouped by type)
+  const typeOptions = useMemo<SelectOption[]>(
+    () =>
+      (overview?.types ?? [])
+        .map((type) => ({
+          value: type.id,
+          label: type.name,
+        }))
+        .sort((a, b) => a.label.localeCompare(b.label, 'de-DE')),
+    [overview?.types],
+  );
+
   const [newTypeName, setNewTypeName] = useState("");
   const [editingTypeId, setEditingTypeId] = useState<number | null>(null);
   const [newAccessory, setNewAccessory] = useState<AccessoryFormState>({
@@ -182,7 +194,7 @@ export default function AccessoriesManager() {
   });
   const [editingAccessoryId, setEditingAccessoryId] = useState<number | null>(null);
   const [movementForm, setMovementForm] = useState<MovementFormState>({
-    ZubehoerID: "",
+    ZTID: "",
     Menge: "1",
     direction: "IN",
     date: "",
@@ -534,7 +546,7 @@ export default function AccessoriesManager() {
         {
           method: "POST",
           body: JSON.stringify({
-            ZubehoerID: Number(movementForm.ZubehoerID),
+            ZTID: Number(movementForm.ZTID),
             Menge: Number(movementForm.Menge),
             Zugang: movementForm.direction === "IN" ? movementForm.date : movementForm.date,
             Abgang: movementForm.direction === "OUT" ? movementForm.date : null,
@@ -677,7 +689,7 @@ export default function AccessoriesManager() {
 
       {activeTab === "inventory" && (
         <InventoryTab
-          accessoryOptions={accessoryOptions}
+          typeOptions={typeOptions}
           movements={overview?.inventoryMovements ?? []}
           assignments={overview?.assignments ?? []}
           form={movementForm}

@@ -18,7 +18,7 @@ export interface AccessoryFormState {
 }
 
 export interface MovementFormState {
-  ZubehoerID: string;
+  ZTID: string;
   Menge: string;
   direction: "IN" | "OUT";
   date: string;

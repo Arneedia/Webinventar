@@ -138,9 +138,10 @@ model BenutzerGER {
 
 // Zubehör-Typen
 model ZT {
-  ID       Int        @id @default(autoincrement())
-  ZTName   String
-  Zubehoer Zubehoer[]
+  ID               Int                @id @default(autoincrement())
+  ZTName           String
+  Zubehoer         Zubehoer[]
+  ZubehoerInventar ZubehoerInventar[]
 }
 
 // Zubehör
@@ -156,7 +157,6 @@ model Zubehoer {
   MOD               MOD?               @relation(fields: [ModID], references: [ModID])
   HS                HS?                @relation(fields: [HSID], references: [HSID])
   ZubehoerBenutzer  ZubehoerBenutzer[]
-  ZubehoerInventar  ZubehoerInventar[]
   ZubehoerBewegung  ZubehoerBewegung[]
   UebergabePositionen UebergabePosition[]
 
@@ -181,11 +181,11 @@ model ZubehoerBenutzer {
 // Zubehör-Inventar
 model ZubehoerInventar {
   InventarID Int       @id @default(autoincrement())
-  ZubehoerID Int
+  ZTID       Int
   Menge      Int
   Zugang     DateTime
   Abgang     DateTime?
-  Zubehoer   Zubehoer  @relation(fields: [ZubehoerID], references: [ZubehoerID])
+  ZT         ZT        @relation(fields: [ZTID], references: [ID])
 
   @@map("ZubehörInventar")
 }

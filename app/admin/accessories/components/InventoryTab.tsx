@@ -5,7 +5,7 @@ import { useMemo } from "react";
 import SearchableSelect from "@/app/components/SearchableSelect";
 
 interface InventoryTabProps {
-  accessoryOptions: SelectOption[];
+  typeOptions: SelectOption[];
   movements: InventoryMovementSummary[];
   assignments: AccessoryAssignmentSummary[];
   form: MovementFormState;
@@ -29,15 +29,18 @@ const formatDate = (value: string) => {
 };
 
 export default function InventoryTab({
-  accessoryOptions,
+  typeOptions,
   movements,
   assignments,
   form,
   onFormChange,
   onSubmit,
 }: InventoryTabProps) {
-  const assignedByAccessory = useMemo(() => {
+  const assignedByType = useMemo(() => {
     const map = new Map<number, number>();
+    // Note: assignments still reference catalog entries (ZubehoerID)
+    // We need to group by type, but for now we'll keep the existing logic
+    // This will be updated once we have type info in assignments
     assignments.forEach((assignment) => {
       if (assignment.status === 'ACTIVE') {
         map.set(assignment.accessoryId, (map.get(assignment.accessoryId) ?? 0) + 1);
@@ -61,13 +64,13 @@ export default function InventoryTab({
 
         <form onSubmit={onSubmit} className="mt-4 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           <div className="text-sm text-gray-600 lg:col-span-2">
-            <label className="block mb-1">Zubehör *</label>
+            <label className="block mb-1">Zubehör-Typ *</label>
             <SearchableSelect
-              options={accessoryOptions}
-              value={form.ZubehoerID}
-              onChange={(value) => onFormChange("ZubehoerID", value)}
-              placeholder="Zubehör auswählen"
-              searchPlaceholder="Zubehör suchen..."
+              options={typeOptions}
+              value={form.ZTID}
+              onChange={(value) => onFormChange("ZTID", value)}
+              placeholder="Typ auswählen"
+              searchPlaceholder="Typ suchen..."
               required
             />
           </div>
@@ -119,32 +122,32 @@ export default function InventoryTab({
       <section className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm space-y-4">
         <div>
           <h2 className="text-lg font-semibold text-gray-900">Bestandsübersicht</h2>
-          <p className="text-sm text-gray-500">Verfügbare Mengen und Zuordnungen je Zubehör.</p>
+          <p className="text-sm text-gray-500">Verfügbare Mengen und Zuordnungen je Zubehör-Typ.</p>
         </div>
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-100 text-sm">
             <thead>
               <tr className="bg-gray-50 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
-                <th className="px-4 py-3">Zubehör</th>
+                <th className="px-4 py-3">Zubehör-Typ</th>
                 <th className="px-4 py-3 text-center">Verfügbar</th>
                 <th className="px-4 py-3 text-center">Vergeben</th>
                 <th className="px-4 py-3 text-center">Gesamt</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {accessoryOptions.length === 0 && (
+              {typeOptions.length === 0 && (
                 <tr>
                   <td colSpan={4} className="px-4 py-6 text-center text-sm text-gray-500">
-                    Noch kein Zubehör angelegt.
+                    Noch keine Zubehör-Typen angelegt.
                   </td>
                 </tr>
               )}
-              {accessoryOptions.map((option) => {
+              {typeOptions.map((option) => {
                 const totalStock = movements
-                  .filter((m) => m.accessoryId === option.value)
+                  .filter((m) => m.typeId === option.value)
                   .reduce((sum, m) => sum + (m.direction === 'IN' ? m.quantity : -m.quantity), 0);
                 
-                const assigned = assignedByAccessory.get(option.value) ?? 0;
+                const assigned = assignedByType.get(option.value) ?? 0;
                 const available = Math.max(0, totalStock - assigned);
                 
                 return (

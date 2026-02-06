@@ -19,7 +19,8 @@ export interface AccessoryItemSummary {
 
 export interface InventoryMovementSummary {
   id: number;
-  accessoryId: number;
+  typeId: number;
+  typeName: string;
   quantity: number;
   direction: 'IN' | 'OUT';
   date: string;
@@ -80,10 +81,10 @@ export async function getAccessoryOverview(): Promise<AccessoryOverviewPayload> 
     }),
     prisma.zubehoerInventar.findMany({
       include: {
-        Zubehoer: {
+        ZT: {
           select: {
-            ZubehoerID: true,
-            Beschreibung: true,
+            ID: true,
+            ZTName: true,
           },
         },
       },
@@ -110,10 +111,10 @@ export async function getAccessoryOverview(): Promise<AccessoryOverviewPayload> 
     }),
   ]);
 
-  const stockByAccessory = new Map<number, number>();
+  const stockByType = new Map<number, number>();
   for (const entry of inventoryEntries) {
     const delta = entry.Abgang ? -entry.Menge : entry.Menge;
-    stockByAccessory.set(entry.ZubehoerID, (stockByAccessory.get(entry.ZubehoerID) ?? 0) + delta);
+    stockByType.set(entry.ZTID, (stockByType.get(entry.ZTID) ?? 0) + delta);
   }
 
   const assignmentStats = new Map<number, { total: number; active: number }>();
@@ -143,17 +144,18 @@ export async function getAccessoryOverview(): Promise<AccessoryOverviewPayload> 
       name: item.MOD?.ModName ?? null,
       modellNummer: item.MOD?.ModellNummer ?? null,
     },
-    stock: stockByAccessory.get(item.ZubehoerID) ?? 0,
+    stock: stockByType.get(item.ZTID) ?? 0,
     assignments: assignmentStats.get(item.ZubehoerID) ?? { total: 0, active: 0 },
   }));
 
   const inventorySummaries: InventoryMovementSummary[] = inventoryEntries.map((entry) => ({
     id: entry.InventarID,
-    accessoryId: entry.ZubehoerID,
+    typeId: entry.ZTID,
+    typeName: entry.ZT?.ZTName ?? `Typ #${entry.ZTID}`,
     quantity: entry.Menge,
     direction: entry.Abgang ? 'OUT' : 'IN',
     date: formatDate(entry.Abgang ?? entry.Zugang) ?? new Date().toISOString(),
-    note: buildAccessoryLabel(entry.Zubehoer?.Beschreibung ?? null, entry.ZubehoerID),
+    note: entry.ZT?.ZTName ?? null,
   }));
 
   const assignmentSummaries: AccessoryAssignmentSummary[] = assignments.map((assignment) => ({
