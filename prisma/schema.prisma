@@ -106,7 +106,7 @@ model GER {
   HSID           Int
   MODID          Int
   StandardRaumID Int?
-  SNO            String
+  SNO            String?
   InventarCode   String   @unique
   WODISNr        String?  @unique
   Preis          Decimal?

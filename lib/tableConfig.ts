@@ -137,7 +137,7 @@ export const tables: TableConfig[] = [
       { name: 'HSID', type: 'int', nullable: false },
       { name: 'MODID', type: 'int', nullable: false },
       { name: 'StandardRaumID', type: 'int', nullable: true },
-      { name: 'SNO', type: 'varchar', nullable: false, maxLength: 50 },
+      { name: 'SNO', type: 'varchar', nullable: true, maxLength: 50 },
       { name: 'InventarCode', type: 'varchar', nullable: false, maxLength: 20 },
       { name: 'Preis', type: 'decimal', nullable: true, precision: 18, scale: 2 },
       { name: 'Zugang', type: 'date', nullable: false },
