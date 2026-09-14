@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link2, Plus, RefreshCw, X } from 'lucide-react';
+import SearchableSelect from '@/app/components/SearchableSelect';
+import SearchableMultiSelect from '@/app/components/SearchableMultiSelect';
 
 interface HsModRelation {
   HSID: number;
@@ -80,7 +82,7 @@ export default function RelationsManager() {
   const [accessoryFilterAccessory, setAccessoryFilterAccessory] = useState('');
   const [accessoryStatusFilter, setAccessoryStatusFilter] = useState<'all' | 'active' | 'returned'>('all');
 
-  const [newHsModRelation, setNewHsModRelation] = useState({ HSID: '', ModID: '', HWID: '' });
+  const [newHsModRelation, setNewHsModRelation] = useState({ HSID: '', ModIDs: [] as (string | number)[], HWID: '' });
   const [creatingHsMod, setCreatingHsMod] = useState(false);
   const [newAccessoryRelation, setNewAccessoryRelation] = useState(createAccessoryFormDefaults());
   const [creatingAccessory, setCreatingAccessory] = useState(false);
@@ -161,11 +163,11 @@ export default function RelationsManager() {
         fetchOptions('Zubehoer', (row) => ({ id: row.ZubehoerID, name: row.Beschreibung || `Zubehör ${row.ZubehoerID}` })),
         fetchOptions('Benutzer', (row) => ({ id: row.BenutzerID, name: row.BenutzerName || `Benutzer ${row.BenutzerID}` })),
       ]);
-      setHwOptions(hw);
-      setHsOptions(hs);
-      setModOptions(mod);
-      setAccessoryOptions(accessories);
-      setUserOptions(users);
+      setHwOptions(hw.sort((a: SelectOption, b: SelectOption) => a.name.localeCompare(b.name, 'de')));
+      setHsOptions(hs.sort((a: SelectOption, b: SelectOption) => a.name.localeCompare(b.name, 'de')));
+      setModOptions(mod.sort((a: SelectOption, b: SelectOption) => a.name.localeCompare(b.name, 'de')));
+      setAccessoryOptions(accessories.sort((a: SelectOption, b: SelectOption) => a.name.localeCompare(b.name, 'de')));
+      setUserOptions(users.sort((a: SelectOption, b: SelectOption) => a.name.localeCompare(b.name, 'de')));
     } catch (err) {
       console.error(err);
       setError('Konnte Stammdaten nicht laden');
@@ -201,26 +203,46 @@ export default function RelationsManager() {
   const handleCreateHsMod = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     resetFeedback();
-    setCreatingHsMod(true);
 
-    try {
-      const res = await fetch('/api/relations/hs-mod', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newHsModRelation),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || 'Zuordnung konnte nicht erstellt werden');
-      }
-      setNewHsModRelation({ HSID: '', ModID: '', HWID: '' });
-      setSuccess('Zuordnung erstellt');
-      await loadHsModRelations();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unbekannter Fehler beim Erstellen');
-    } finally {
-      setCreatingHsMod(false);
+    const { HSID, ModIDs, HWID } = newHsModRelation;
+    if (!HSID || ModIDs.length === 0) {
+      setError('Bitte Hersteller und mindestens ein Modell auswählen.');
+      return;
     }
+
+    setCreatingHsMod(true);
+    const errors: string[] = [];
+    let created = 0;
+
+    for (const modId of ModIDs) {
+      try {
+        const res = await fetch('/api/relations/hs-mod', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ HSID, ModID: String(modId), HWID }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          const modLabel = modOptions.find((m) => m.id === Number(modId))?.name ?? `Modell ${modId}`;
+          errors.push(`${modLabel}: ${data.error || 'Fehler'}`);
+        } else {
+          created++;
+        }
+      } catch {
+        errors.push(`Modell ${modId}: Netzwerkfehler`);
+      }
+    }
+
+    if (created > 0) {
+      setSuccess(`${created} Zuordnung${created > 1 ? 'en' : ''} erstellt`);
+      setNewHsModRelation({ HSID: '', ModIDs: [], HWID: '' });
+    }
+    if (errors.length > 0) {
+      setError(errors.join(' | '));
+    }
+
+    await loadHsModRelations();
+    setCreatingHsMod(false);
   };
 
   const handleCreateAccessory = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -584,52 +606,36 @@ export default function RelationsManager() {
         <form className="grid gap-4 md:grid-cols-3" onSubmit={handleCreateHsMod}>
           <label className="flex flex-col gap-1 text-sm">
             <span className="text-gray-600">Hersteller *</span>
-            <select
-              required
+            <SearchableSelect
+              options={hsOptions.map(opt => ({ value: opt.id, label: opt.name }))}
               value={newHsModRelation.HSID}
-              onChange={(e) => setNewHsModRelation((prev) => ({ ...prev, HSID: e.target.value }))}
-              className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm focus:border-primary focus:outline-none"
-            >
-              <option value="">Hersteller wählen</option>
-              {hsOptions.map((opt) => (
-                <option key={opt.id} value={opt.id}>
-                  {opt.name}
-                </option>
-              ))}
-            </select>
+              onChange={(value) => setNewHsModRelation((prev) => ({ ...prev, HSID: value }))}
+              placeholder="Hersteller wählen"
+              searchPlaceholder="Hersteller suchen..."
+              required
+            />
           </label>
 
-          <label className="flex flex-col gap-1 text-sm">
-            <span className="text-gray-600">Modell *</span>
-            <select
-              required
-              value={newHsModRelation.ModID}
-              onChange={(e) => setNewHsModRelation((prev) => ({ ...prev, ModID: e.target.value }))}
-              className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm focus:border-primary focus:outline-none"
-            >
-              <option value="">Modell wählen</option>
-              {modOptions.map((opt) => (
-                <option key={opt.id} value={opt.id}>
-                  {opt.name}
-                </option>
-              ))}
-            </select>
-          </label>
+          <div className="flex flex-col gap-1 text-sm">
+            <span className="text-gray-600">Modelle * <span className="text-xs text-gray-400">(Mehrfachauswahl)</span></span>
+            <SearchableMultiSelect
+              options={modOptions.map(opt => ({ value: opt.id, label: opt.name }))}
+              selectedValues={newHsModRelation.ModIDs}
+              onChange={(values) => setNewHsModRelation((prev) => ({ ...prev, ModIDs: values }))}
+              placeholder="Keine Modelle gefunden"
+              searchPlaceholder="Modell suchen..."
+            />
+          </div>
 
           <label className="flex flex-col gap-1 text-sm">
             <span className="text-gray-600">Hardware-Typ (optional)</span>
-            <select
+            <SearchableSelect
+              options={hwOptions.map(opt => ({ value: opt.id, label: opt.name }))}
               value={newHsModRelation.HWID}
-              onChange={(e) => setNewHsModRelation((prev) => ({ ...prev, HWID: e.target.value }))}
-              className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm focus:border-primary focus:outline-none"
-            >
-              <option value="">— kein Hardware-Typ —</option>
-              {hwOptions.map((opt) => (
-                <option key={opt.id} value={opt.id}>
-                  {opt.name}
-                </option>
-              ))}
-            </select>
+              onChange={(value) => setNewHsModRelation((prev) => ({ ...prev, HWID: value }))}
+              placeholder="— kein Hardware-Typ —"
+              searchPlaceholder="Hardware-Typ suchen..."
+            />
           </label>
 
           <div className="md:col-span-3 flex items-center justify-end gap-3">
@@ -652,36 +658,26 @@ export default function RelationsManager() {
       <form className="grid gap-4 md:grid-cols-2" onSubmit={handleCreateAccessory}>
         <label className="flex flex-col gap-1 text-sm">
           <span className="text-gray-600">Benutzer *</span>
-          <select
-            required
+          <SearchableSelect
+            options={userOptions.map(opt => ({ value: opt.id, label: opt.name }))}
             value={newAccessoryRelation.BenutzerID}
-            onChange={(e) => setNewAccessoryRelation((prev) => ({ ...prev, BenutzerID: e.target.value }))}
-            className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm focus:border-gray-500 focus:outline-none"
-          >
-            <option value="">Benutzer wählen</option>
-            {userOptions.map((opt) => (
-              <option key={opt.id} value={opt.id}>
-                {opt.name}
-              </option>
-            ))}
-          </select>
+            onChange={(value) => setNewAccessoryRelation((prev) => ({ ...prev, BenutzerID: value }))}
+            placeholder="Benutzer wählen"
+            searchPlaceholder="Benutzer suchen..."
+            required
+          />
         </label>
 
         <label className="flex flex-col gap-1 text-sm">
           <span className="text-gray-600">Zubehör *</span>
-          <select
-            required
+          <SearchableSelect
+            options={accessoryOptions.map(opt => ({ value: opt.id, label: opt.name }))}
             value={newAccessoryRelation.ZubehoerID}
-            onChange={(e) => setNewAccessoryRelation((prev) => ({ ...prev, ZubehoerID: e.target.value }))}
-            className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm focus:border-gray-500 focus:outline-none"
-          >
-            <option value="">Zubehör wählen</option>
-            {accessoryOptions.map((opt) => (
-              <option key={opt.id} value={opt.id}>
-                {opt.name}
-              </option>
-            ))}
-          </select>
+            onChange={(value) => setNewAccessoryRelation((prev) => ({ ...prev, ZubehoerID: value }))}
+            placeholder="Zubehör wählen"
+            searchPlaceholder="Zubehör suchen..."
+            required
+          />
         </label>
 
         <label className="flex flex-col gap-1 text-sm">

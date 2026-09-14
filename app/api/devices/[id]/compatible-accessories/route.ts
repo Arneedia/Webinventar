@@ -44,14 +44,18 @@ export async function GET(req: NextRequest, context: RouteContext) {
     // Alle Zubehör-Artikel laden
     const allAccessories = await prisma.zubehoer.findMany({
       include: {
-        ZT: { select: { ZTName: true } },
+        ZT: { 
+          select: { 
+            ZTName: true,
+            ZubehoerInventar: {
+              where: { Abgang: null },
+              select: { Menge: true },
+            },
+          } 
+        },
         HW: { select: { HWName: true } },
         HS: { select: { HSName: true } },
         MOD: { select: { ModName: true } },
-        ZubehoerInventar: {
-          where: { Abgang: null },
-          select: { Menge: true },
-        },
       },
     });
 
@@ -77,7 +81,7 @@ export async function GET(req: NextRequest, context: RouteContext) {
 
     // Bestand berechnen und Ergebnis formatieren
     const result = compatible.map((acc) => {
-      const stock = acc.ZubehoerInventar.reduce((sum, inv) => sum + inv.Menge, 0);
+      const stock = acc.ZT?.ZubehoerInventar?.reduce((sum, inv) => sum + inv.Menge, 0) ?? 0;
       
       // Label zusammenbauen
       const parts: string[] = [];

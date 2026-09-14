@@ -423,7 +423,7 @@ async function seedUsersAndAssignments() {
 
     await prisma.zubehoerInventar.createMany({
       data: accessories.map((acc, idx) => ({
-        ZubehoerID: acc.ZubehoerID,
+        ZTID: acc.ZTID,
         Menge: 5 + idx * 2,
         Zugang: lastMonth,
       })),

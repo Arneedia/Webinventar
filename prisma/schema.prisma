@@ -110,7 +110,7 @@ model GER {
   HSID           Int
   MODID          Int
   StandardRaumID Int?
-  SNO            String
+  SNO            String?
   InventarCode   String   @unique
   WODISNr        String?  @unique
   Preis          Decimal?
@@ -142,25 +142,25 @@ model BenutzerGER {
 
 // ZubehÃ¶r-Typen
 model ZT {
-  ID       Int        @id @default(autoincrement())
-  ZTName   String
-  Zubehoer Zubehoer[]
+  ID               Int                @id @default(autoincrement())
+  ZTName           String
+  Zubehoer         Zubehoer[]
+  ZubehoerInventar ZubehoerInventar[]
 }
 
 // ZubehÃ¶r
 model Zubehoer {
   ZubehoerID        Int                @id @default(autoincrement())
   ZTID              Int
-  HWID              Int
+  HWID              Int?
   ModID             Int?
   HSID              Int?
   Beschreibung      String?
   ZT                ZT                 @relation(fields: [ZTID], references: [ID])
-  HW                HW                 @relation(fields: [HWID], references: [HWID])
+  HW                HW?                @relation(fields: [HWID], references: [HWID])
   MOD               MOD?               @relation(fields: [ModID], references: [ModID])
   HS                HS?                @relation(fields: [HSID], references: [HSID])
   ZubehoerBenutzer  ZubehoerBenutzer[]
-  ZubehoerInventar  ZubehoerInventar[]
   ZubehoerBewegung  ZubehoerBewegung[]
   UebergabePositionen UebergabePosition[]
 
@@ -185,11 +185,11 @@ model ZubehoerBenutzer {
 // ZubehÃ¶r-Inventar
 model ZubehoerInventar {
   InventarID Int       @id @default(autoincrement())
-  ZubehoerID Int
+  ZTID       Int
   Menge      Int
   Zugang     DateTime
   Abgang     DateTime?
-  Zubehoer   Zubehoer  @relation(fields: [ZubehoerID], references: [ZubehoerID])
+  ZT         ZT        @relation(fields: [ZTID], references: [ID])
 
   @@map("ZubehÃ¶rInventar")
 }

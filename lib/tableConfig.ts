@@ -137,7 +137,7 @@ export const tables: TableConfig[] = [
       { name: 'HSID', type: 'int', nullable: false },
       { name: 'MODID', type: 'int', nullable: false },
       { name: 'StandardRaumID', type: 'int', nullable: true },
-      { name: 'SNO', type: 'varchar', nullable: false, maxLength: 50 },
+      { name: 'SNO', type: 'varchar', nullable: true, maxLength: 50 },
       { name: 'InventarCode', type: 'varchar', nullable: false, maxLength: 20 },
       { name: 'Preis', type: 'decimal', nullable: true, precision: 18, scale: 2 },
       { name: 'Zugang', type: 'date', nullable: false },
@@ -188,7 +188,7 @@ export const tables: TableConfig[] = [
     columns: [
       { name: 'ZubehoerID', type: 'int', nullable: false, identity: true },
       { name: 'ZTID', type: 'int', nullable: false },
-      { name: 'HWID', type: 'int', nullable: false },
+      { name: 'HWID', type: 'int', nullable: true },
       { name: 'ModID', type: 'int', nullable: true },
       { name: 'HSID', type: 'int', nullable: true },
       { name: 'Beschreibung', type: 'nvarchar', nullable: true, maxLength: 1000 },
@@ -224,13 +224,13 @@ export const tables: TableConfig[] = [
     model: 'zubehoerInventar',
     columns: [
       { name: 'InventarID', type: 'int', nullable: false, identity: true },
-      { name: 'ZubehoerID', type: 'int', nullable: false },
+      { name: 'ZTID', type: 'int', nullable: false },
       { name: 'Menge', type: 'int', nullable: false },
       { name: 'Zugang', type: 'date', nullable: false },
       { name: 'Abgang', type: 'date', nullable: true },
     ],
     foreignKeys: [
-      { column: 'ZubehoerID', refTable: 'Zubehoer', relationName: 'Zubehoer', displayColumn: 'Beschreibung' },
+      { column: 'ZTID', refTable: 'ZT', relationName: 'ZT', displayColumn: 'ZTName' },
     ],
   },
   {

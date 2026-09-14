@@ -124,6 +124,8 @@ export async function POST(req: NextRequest, context: RouteContext) {
       const existing = await prisma.gER.findMany({
         where: { InventarCode: { startsWith: prefix + '-' } },
         select: { InventarCode: true },
+        orderBy: { InventarCode: 'desc' },
+        take: 100, // Nur die letzten 100 für Performance
       });
 
       let maxSeq = 0;
@@ -135,7 +137,28 @@ export async function POST(req: NextRequest, context: RouteContext) {
         }
       }
 
-      data.InventarCode = formatInventarCode(prefix, maxSeq + 1);
+      // Versuche bis zu 10 mal eine freie Nummer zu finden
+      let attempts = 0;
+      let foundFree = false;
+      while (!foundFree && attempts < 10) {
+        const candidateCode = formatInventarCode(prefix, maxSeq + 1 + attempts);
+        const exists = await prisma.gER.findUnique({
+          where: { InventarCode: candidateCode },
+        });
+        if (!exists) {
+          data.InventarCode = candidateCode;
+          foundFree = true;
+        } else {
+          attempts++;
+        }
+      }
+
+      if (!foundFree) {
+        return NextResponse.json(
+          { error: 'Konnte keinen freien InventarCode generieren. Bitte manuell eingeben.' },
+          { status: 500 }
+        );
+      }
     }
 
     // Automatische WODIS Nr.-Generierung für GER-Tabelle
