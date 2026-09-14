@@ -1172,78 +1172,39 @@ export default function DeviceManagementPage() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="block text-xs font-medium text-gray-700 mb-1">Hardware-Typ</label>
-                    <div className="space-y-1">
-                      <input
-                        type="text"
-                        placeholder="Hardware-Typ suchen..."
-                        value={hwFilter}
-                        onChange={(e) => setHwFilter(e.target.value)}
-                        className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-primary"
-                      />
-                      <select
-                        value={newDevice.HWID}
-                        onChange={(e) => setNewDevice((prev) => ({ ...prev, HWID: e.target.value }))}
-                        className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-primary"
-                        required
-                      >
-                        <option value="">-- Hardware-Typ wählen --</option>
-                        {filteredHwOptions.map((opt) => (
-                          <option key={opt.id} value={opt.id}>
-                            {opt.name} (ID {opt.id})
-                          </option>
-                        ))}
-                      </select>
-                    </div>
+                    <SearchableSelect
+                      options={hwOptions.map(opt => ({ value: opt.id, label: `${opt.name} (ID ${opt.id})` }))}
+                      value={newDevice.HWID}
+                      onChange={(value) => setNewDevice((prev) => ({ ...prev, HWID: value }))}
+                      placeholder="-- Hardware-Typ wählen --"
+                      searchPlaceholder="Hardware-Typ suchen..."
+                      required
+                      className="text-xs"
+                    />
                   </div>
                   <div>
                     <label className="block text-xs font-medium text-gray-700 mb-1">Hersteller</label>
-                    <div className="space-y-1">
-                      <input
-                        type="text"
-                        placeholder="Hersteller suchen..."
-                        value={hsFilter}
-                        onChange={(e) => setHsFilter(e.target.value)}
-                        className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-primary"
-                      />
-                      <select
-                        value={newDevice.HSID}
-                        onChange={(e) => setNewDevice((prev) => ({ ...prev, HSID: e.target.value }))}
-                        className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-primary"
-                        required
-                      >
-                        <option value="">-- Hersteller wählen --</option>
-                        {filteredHsOptions.map((opt) => (
-                          <option key={opt.id} value={opt.id}>
-                            {opt.name} (ID {opt.id})
-                          </option>
-                        ))}
-                      </select>
-                    </div>
+                    <SearchableSelect
+                      options={hsOptions.map(opt => ({ value: opt.id, label: `${opt.name} (ID ${opt.id})` }))}
+                      value={newDevice.HSID}
+                      onChange={(value) => setNewDevice((prev) => ({ ...prev, HSID: value }))}
+                      placeholder="-- Hersteller wählen --"
+                      searchPlaceholder="Hersteller suchen..."
+                      required
+                      className="text-xs"
+                    />
                   </div>
                   <div>
                     <label className="block text-xs font-medium text-gray-700 mb-1">Modell</label>
-                    <div className="space-y-1">
-                      <input
-                        type="text"
-                        placeholder="Modell suchen..."
-                        value={modFilter}
-                        onChange={(e) => setModFilter(e.target.value)}
-                        className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-primary"
-                      />
-                      <select
-                        value={newDevice.MODID}
-                        onChange={(e) => setNewDevice((prev) => ({ ...prev, MODID: e.target.value }))}
-                        className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-primary"
-                        required
-                      >
-                        <option value="">-- Modell wählen --</option>
-                        {filteredModOptions.map((opt) => (
-                          <option key={opt.id} value={opt.id}>
-                            {opt.name} (ID {opt.id})
-                          </option>
-                        ))}
-                      </select>
-                    </div>
+                    <SearchableSelect
+                      options={modOptions.map(opt => ({ value: opt.id, label: `${opt.name} (ID ${opt.id})` }))}
+                      value={newDevice.MODID}
+                      onChange={(value) => setNewDevice((prev) => ({ ...prev, MODID: value }))}
+                      placeholder="-- Modell wählen --"
+                      searchPlaceholder="Modell suchen..."
+                      required
+                      className="text-xs"
+                    />
                   </div>
                   <div>
                     <label className="block text-xs font-medium text-gray-700 mb-1">Seriennummer (SNO)</label>
@@ -1319,21 +1280,18 @@ export default function DeviceManagementPage() {
                   </div>
                   <div>
                     <label className="block text-xs font-medium text-gray-700 mb-1">Raum *</label>
-                    <select
+                    <SearchableSelect
+                      options={roomOptions.map(room => ({
+                        value: room.id,
+                        label: `${room.name}${room.standort ? ` (${room.standort})` : ''}${room.branch ? ` - ${room.branch}` : ''}`
+                      }))}
                       value={newDevice.RaumID}
-                      onChange={(e) => setNewDevice((prev) => ({ ...prev, RaumID: e.target.value }))}
-                      className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-primary"
+                      onChange={(value) => setNewDevice((prev) => ({ ...prev, RaumID: value }))}
+                      placeholder="Raum auswählen..."
+                      searchPlaceholder="Raum suchen..."
                       required
-                    >
-                      <option value="">Raum auswählen...</option>
-                      {roomOptions.map((room) => (
-                        <option key={room.id} value={room.id}>
-                          {room.name}
-                          {room.standort && ` (${room.standort})`}
-                          {room.branch && ` - ${room.branch}`}
-                        </option>
-                      ))}
-                    </select>
+                      className="text-xs"
+                    />
                   </div>
                 </div>
 

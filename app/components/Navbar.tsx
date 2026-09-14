@@ -15,6 +15,11 @@ export default async function Navbar() {
       show: !user || user.role === Roles.ADMIN || userHasPermission(user, AvailablePermissions.DEVICES_VIEW),
     },
     {
+      href: '/bueroinventar',
+      label: 'Büroinventar',
+      show: !user || user.role === Roles.ADMIN || userHasPermission(user, AvailablePermissions.DEVICES_VIEW),
+    },
+    {
       href: '/scan',
       label: 'Scannen',
       show: true,

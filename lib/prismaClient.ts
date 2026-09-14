@@ -37,7 +37,7 @@ function createPrismaClient(): PrismaClient {
 
 export const prisma = globalForPrisma.prisma ?? createPrismaClient();
 
-// Cache Prisma Client in allen Umgebungen (nicht nur Development)
-if (!globalForPrisma.prisma) {
+// Cache Prisma Client nur in Development-Umgebung
+if (process.env.NODE_ENV === 'development' && !globalForPrisma.prisma) {
   globalForPrisma.prisma = prisma;
 }

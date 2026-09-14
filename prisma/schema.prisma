@@ -1,4 +1,4 @@
-// Prisma Schema für die lokale Inventar-Datenbank
+// Prisma Schema fÃ¼r die lokale Inventar-Datenbank
 
 generator client {
   provider = "prisma-client-js"
@@ -23,7 +23,7 @@ model STAT {
   Benutzer   Benutzer[]
 }
 
-// Geschäftsstellen
+// GeschÃ¤ftsstellen
 model GS {
   GSID      Int        @id @default(autoincrement())
   GSName    String?
@@ -84,9 +84,12 @@ model Benutzer {
   ZubehoerBewegung   ZubehoerBewegung[]
   UebergabeProtokolle UebergabeProtokoll[]
   AufgabenAssigned    UebergabeAufgabe[] @relation("AufgabeAssignedBenutzer")
+  BueroInventar      BueroInventar[]
+  BueroBewegungVon   BueroBewegung[] @relation("BueroBewegungVon")
+  BueroBewegungNach  BueroBewegung[] @relation("BueroBewegungNach")
 }
 
-// Räume (Stammdaten für Geräte-Standorte)
+// RÃ¤ume (Stammdaten fÃ¼r GerÃ¤te-Standorte)
 model RAUM {
   RaumID         Int        @id @default(autoincrement())
   RaumName       String?
@@ -97,9 +100,10 @@ model RAUM {
   Benutzer       Benutzer[] @relation("BenutzerRaum")
   GeraeteStandard GER[]     @relation("GeraetStandardRaum")
   RaumGefahrenstellen RaumGefahrenstelle[]
+  BueroInventar   BueroInventar[]
 }
 
-// Geräte
+// GerÃ¤te
 model GER {
   GerID          Int      @id @default(autoincrement())
   HWID           Int
@@ -125,7 +129,7 @@ model GER {
   UebergabePositionen  UebergabePosition[]
 }
 
-// Benutzer-Geräte Zuordnung
+// Benutzer-GerÃ¤te Zuordnung
 model BenutzerGER {
   ID         Int       @id @default(autoincrement())
   BenutzerID Int
@@ -136,14 +140,14 @@ model BenutzerGER {
   GER        GER       @relation(fields: [GERID], references: [GerID])
 }
 
-// Zubehör-Typen
+// ZubehÃ¶r-Typen
 model ZT {
   ID       Int        @id @default(autoincrement())
   ZTName   String
   Zubehoer Zubehoer[]
 }
 
-// Zubehör
+// ZubehÃ¶r
 model Zubehoer {
   ZubehoerID        Int                @id @default(autoincrement())
   ZTID              Int
@@ -160,10 +164,10 @@ model Zubehoer {
   ZubehoerBewegung  ZubehoerBewegung[]
   UebergabePositionen UebergabePosition[]
 
-  @@map("Zubehör")
+  @@map("ZubehÃ¶r")
 }
 
-// Zubehör-Benutzer Zuordnung
+// ZubehÃ¶r-Benutzer Zuordnung
 model ZubehoerBenutzer {
   ID         Int       @id @default(autoincrement())
   BenutzerID Int?
@@ -175,10 +179,10 @@ model ZubehoerBenutzer {
   Zubehoer   Zubehoer  @relation(fields: [ZubehoerID], references: [ZubehoerID])
   GER        GER?      @relation(fields: [GerID], references: [GerID])
 
-  @@map("ZubehörBenutzer")
+  @@map("ZubehÃ¶rBenutzer")
 }
 
-// Zubehör-Inventar
+// ZubehÃ¶r-Inventar
 model ZubehoerInventar {
   InventarID Int       @id @default(autoincrement())
   ZubehoerID Int
@@ -187,10 +191,10 @@ model ZubehoerInventar {
   Abgang     DateTime?
   Zubehoer   Zubehoer  @relation(fields: [ZubehoerID], references: [ZubehoerID])
 
-  @@map("ZubehörInventar")
+  @@map("ZubehÃ¶rInventar")
 }
 
-// Zubehör-Bewegungen (Tracking)
+// ZubehÃ¶r-Bewegungen (Tracking)
 model ZubehoerBewegung {
   ID          Int       @id @default(autoincrement())
   ZubehoerID  Int
@@ -204,7 +208,7 @@ model ZubehoerBewegung {
   GER         GER?      @relation(fields: [GerID], references: [GerID])
   Benutzer    Benutzer? @relation(fields: [BenutzerID], references: [BenutzerID])
 
-  @@map("ZubehörBewegung")
+  @@map("ZubehÃ¶rBewegung")
 }
 
 // Hardware-Hersteller Zuordnung
@@ -229,7 +233,7 @@ model HS_MOD {
   @@id([HSID, ModID])
 }
 
-// Web-User für Login/Autorisierung
+// Web-User fÃ¼r Login/Autorisierung
 model WebUser {
   id                 Int                       @id @default(autoincrement())
   email              String                    @unique
@@ -246,7 +250,7 @@ model WebUser {
   updatedAt          DateTime                  @updatedAt
 }
 
-// Rechtegruppen für granulare Berechtigungen
+// Rechtegruppen fÃ¼r granulare Berechtigungen
 model PermissionGroup {
   id          Int                       @id @default(autoincrement())
   name        String                    @unique
@@ -278,7 +282,7 @@ model Session {
   expiresAt DateTime
 }
 
-// Übergabeprotokolle für Geräte-Ausgabe und -Rücknahme
+// Ãœbergabeprotokolle fÃ¼r GerÃ¤te-Ausgabe und -RÃ¼cknahme
 model UebergabeProtokoll {
   ID              Int       @id @default(autoincrement())
   ProtokollNr     String    @unique  // z.B. "UP-2024-00042"
@@ -305,20 +309,20 @@ model UebergabeProtokoll {
   Aufgaben        UebergabeAufgabe[]
 }
 
-// Einzelne Positionen im Protokoll (Geräte + Zubehör)
+// Einzelne Positionen im Protokoll (GerÃ¤te + ZubehÃ¶r)
 model UebergabePosition {
   ID              Int       @id @default(autoincrement())
   ProtokollID     Int
   
-  // Entweder Gerät ODER Zubehör (eines von beiden muss gesetzt sein)
+  // Entweder GerÃ¤t ODER ZubehÃ¶r (eines von beiden muss gesetzt sein)
   GerID           Int?
   ZubehoerID      Int?
   
-  // Zustand bei Übergabe: NEU, GUT, GEBRAUCHSSPUREN, BESCHAEDIGT
+  // Zustand bei Ãœbergabe: NEU, GUT, GEBRAUCHSSPUREN, BESCHAEDIGT
   Zustand         String    @default("GUT")
   ZustandNotiz    String?
   
-  // Bei Rückgabe: Vollständigkeit
+  // Bei RÃ¼ckgabe: VollstÃ¤ndigkeit
   Vollstaendig    Boolean   @default(true)
   FehlendTeile    String?   // z.B. "Ladekabel fehlt"
   
@@ -404,3 +408,52 @@ model RaumGefahrenstelle {
 
   @@unique([RaumID, GefahrenstelleID])
 }
+
+// Büroinventar-Kategorien
+model BueroKategorie {
+  ID           Int            @id @default(autoincrement())
+  Name         String         @unique
+  Beschreibung String?
+  Inventar     BueroInventar[]
+}
+
+// Büroinventar
+model BueroInventar {
+  ID              Int              @id @default(autoincrement())
+  KategorieID     Int
+  Bezeichnung     String
+  Beschreibung    String?
+  InventarNr      String?          @unique
+  Seriennummer    String?
+  Hersteller      String?
+  Modell          String?
+  Anschaffungsdatum DateTime?
+  Anschaffungspreis Decimal?
+  Zustand         String?
+  RaumID          Int?
+  BenutzerID      Int?
+  Notiz           String?
+  Kategorie       BueroKategorie   @relation(fields: [KategorieID], references: [ID])
+  Raum            RAUM?            @relation(fields: [RaumID], references: [RaumID])
+  Benutzer        Benutzer?        @relation(fields: [BenutzerID], references: [BenutzerID])
+  Bewegungen      BueroBewegung[]
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+}
+
+// Büroinventar-Bewegungen (Tracking)
+model BueroBewegung {
+  ID              Int            @id @default(autoincrement())
+  InventarID      Int
+  Typ             String
+  VonBenutzerID   Int?
+  NachBenutzerID  Int?
+  VonRaumID       Int?
+  NachRaumID      Int?
+  Bemerkung       String?
+  Zeitpunkt       DateTime       @default(now())
+  Inventar        BueroInventar  @relation(fields: [InventarID], references: [ID])
+  VonBenutzer     Benutzer?      @relation("BueroBewegungVon", fields: [VonBenutzerID], references: [BenutzerID])
+  NachBenutzer    Benutzer?      @relation("BueroBewegungNach", fields: [NachBenutzerID], references: [BenutzerID])
+}
+

@@ -1,0 +1,48 @@
+﻿// Büroinventar-Kategorien
+model BueroKategorie {
+  ID           Int            @id @default(autoincrement())
+  Name         String         @unique
+  Beschreibung String?
+  Inventar     BueroInventar[]
+}
+
+// Büroinventar
+model BueroInventar {
+  ID              Int              @id @default(autoincrement())
+  KategorieID     Int
+  Bezeichnung     String
+  Beschreibung    String?
+  InventarNr      String?          @unique
+  Seriennummer    String?
+  Hersteller      String?
+  Modell          String?
+  Anschaffungsdatum DateTime?
+  Anschaffungspreis Decimal?
+  Zustand         String?
+  RaumID          Int?
+  BenutzerID      Int?
+  Notiz           String?
+  Kategorie       BueroKategorie   @relation(fields: [KategorieID], references: [ID])
+  Raum            RAUM?            @relation(fields: [RaumID], references: [RaumID])
+  Benutzer        Benutzer?        @relation(fields: [BenutzerID], references: [BenutzerID])
+  Bewegungen      BueroBewegung[]
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+}
+
+// Büroinventar-Bewegungen (Tracking)
+model BueroBewegung {
+  ID              Int            @id @default(autoincrement())
+  InventarID      Int
+  Typ             String
+  VonBenutzerID   Int?
+  NachBenutzerID  Int?
+  VonRaumID       Int?
+  NachRaumID      Int?
+  Bemerkung       String?
+  Zeitpunkt       DateTime       @default(now())
+  Inventar        BueroInventar  @relation(fields: [InventarID], references: [ID])
+  VonBenutzer     Benutzer?      @relation("BueroBewegungVon", fields: [VonBenutzerID], references: [BenutzerID])
+  NachBenutzer    Benutzer?      @relation("BueroBewegungNach", fields: [NachBenutzerID], references: [BenutzerID])
+}
+
