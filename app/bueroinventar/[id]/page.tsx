@@ -5,7 +5,7 @@ import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { Package, ArrowLeft, Save, Loader2 } from 'lucide-react';
 import SearchableSelect from '../../components/SearchableSelect';
-import AutocompleteInput from '../../components/AutocompleteInput';
+import SearchableSelectWithCustom from '../../components/SearchableSelectWithCustom';
 
 interface Category {
   ID: number;
@@ -23,6 +23,17 @@ interface RoomOption {
   name: string;
   standort: string | null;
   branch: string | null;
+}
+
+interface ManufacturerOption {
+  id: number;
+  name: string;
+}
+
+interface ModelOption {
+  id: number;
+  name: string;
+  nummer: string | null;
 }
 
 interface OfficeItem {
@@ -55,6 +66,8 @@ export default function EditOfficeInventoryPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [users, setUsers] = useState<UserOption[]>([]);
   const [rooms, setRooms] = useState<RoomOption[]>([]);
+  const [manufacturers, setManufacturers] = useState<ManufacturerOption[]>([]);
+  const [models, setModels] = useState<ModelOption[]>([]);
 
   const [formData, setFormData] = useState({
     kategorieId: '',
@@ -77,43 +90,42 @@ export default function EditOfficeInventoryPage() {
     loadCategories();
     loadUsers();
     loadRooms();
+    loadManufacturers();
+    loadAllModels();
   }, [id]);
 
-  async function searchManufacturers(query: string): Promise<string[]> {
+  // Hersteller laden
+  async function loadManufacturers() {
     try {
-      const params = new URLSearchParams({ search: query });
-      if (formData.kategorieId) {
-        params.append('kategorieId', formData.kategorieId);
-      }
-      const res = await fetch(`/api/office-manufacturers?${params}`);
+      const res = await fetch('/api/office-manufacturers?includeAll=true');
       if (res.ok) {
         const data = await res.json();
-        return data.manufacturers.map((m: any) => m.name);
+        const manufacturersArray = data.manufacturers || [];
+        setManufacturers(manufacturersArray.sort((a: ManufacturerOption, b: ManufacturerOption) => 
+          a.name.localeCompare(b.name, 'de')
+        ));
       }
     } catch (err) {
-      console.error('Fehler beim Suchen der Hersteller:', err);
+      console.error('Fehler beim Laden der Hersteller:', err);
     }
-    return [];
   }
 
-  async function searchModels(query: string): Promise<string[]> {
+  // Alle Modelle laden
+  async function loadAllModels() {
     try {
-      const params = new URLSearchParams({ search: query });
-      if (formData.kategorieId) {
-        params.append('kategorieId', formData.kategorieId);
-      }
-      if (formData.hersteller) {
-        params.append('hersteller', formData.hersteller);
-      }
-      const res = await fetch(`/api/office-models?${params}`);
+      const res = await fetch('/api/tables/MOD');
       if (res.ok) {
         const data = await res.json();
-        return data.models.map((m: any) => m.name);
+        const modArray = data.data || [];
+        setModels(modArray.map((m: any) => ({ 
+          id: m.ModID, 
+          name: m.ModName || `Modell ${m.ModID}`,
+          nummer: m.ModellNummer
+        })).sort((a: ModelOption, b: ModelOption) => a.name.localeCompare(b.name, 'de')));
       }
     } catch (err) {
-      console.error('Fehler beim Suchen der Modelle:', err);
+      console.error('Fehler beim Laden der Modelle:', err);
     }
-    return [];
   }
 
   async function loadItem() {
@@ -231,10 +243,28 @@ export default function EditOfficeInventoryPage() {
         throw new Error(data.details || data.error || 'Fehler beim Speichern');
       }
 
-      setSuccess('Erfolgreich gespeichert!');
+      const responseData = await res.json();
+
+      // Erfolgsm eldung mit Info über erstellte Relationen
+      let successMsg = 'Erfolgreich gespeichert!';
+      if (responseData._meta?.herstellerCreated || responseData._meta?.modellCreated) {
+        successMsg += ' (';
+        if (responseData._meta.herstellerCreated) successMsg += 'Hersteller angelegt';
+        if (responseData._meta.herstellerCreated && responseData._meta.modellCreated) successMsg += ', ';
+        if (responseData._meta.modellCreated) successMsg += 'Modell angelegt';
+        if (responseData._meta.relationCreated) successMsg += ', Verknüpfung erstellt';
+        successMsg += ')';
+      }
+
+      setSuccess(successMsg);
+      
+      // Listen neu laden
+      await loadManufacturers();
+      await loadAllModels();
+      
       setTimeout(() => {
         router.push('/bueroinventar');
-      }, 1500);
+      }, 2000);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Fehler beim Speichern');
     } finally {
@@ -353,28 +383,34 @@ export default function EditOfficeInventoryPage() {
 
           {/* Hersteller */}
           <div>
-            <AutocompleteInput
-              label="Hersteller"
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Hersteller
+            </label>
+            <SearchableSelectWithCustom
+              options={manufacturers.map(m => ({ value: String(m.id), label: m.name }))}
               value={formData.hersteller}
               onChange={(value) => setFormData(prev => ({ ...prev, hersteller: value }))}
-              onSearch={searchManufacturers}
-              placeholder="Hersteller eingeben oder auswählen..."
+              placeholder="-- Hersteller wählen --"
+              searchPlaceholder="Hersteller suchen..."
+              customPlaceholder="Neuen Hersteller eingeben..."
+              allowCustom={true}
             />
           </div>
 
           {/* Modell */}
           <div>
-            <AutocompleteInput
-              label="Modell"
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Modell
+            </label>
+            <SearchableSelectWithCustom
+              options={models.map(m => ({ value: String(m.id), label: m.name }))}
               value={formData.modell}
               onChange={(value) => setFormData(prev => ({ ...prev, modell: value }))}
-              onSearch={searchModels}
-              placeholder="Modell eingeben oder auswählen..."
-              disabled={!formData.hersteller}
+              placeholder="-- Modell wählen --"
+              searchPlaceholder="Modell suchen..."
+              customPlaceholder="Neues Modell eingeben..."
+              allowCustom={true}
             />
-            {!formData.hersteller && (
-              <p className="text-xs text-gray-500 mt-1">Bitte zuerst Hersteller auswählen</p>
-            )}
           </div>
 
           {/* Seriennummer */}

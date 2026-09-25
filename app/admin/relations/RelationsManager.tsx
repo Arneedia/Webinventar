@@ -30,18 +30,28 @@ interface SelectOption {
   name: string;
 }
 
-type TabKey = 'HS_MOD' | 'ZB_USER';
+type TabKey = 'HS_MOD' | 'ZB_USER' | 'HS_BUERO' | 'MOD_BUERO';
 
 const tabs: { key: TabKey; label: string; description: string }[] = [
   {
     key: 'HS_MOD',
-    label: 'Hersteller → Modell',
-    description: 'Verknüpft Hersteller und Modelle inkl. optionalem Hardware-Typ.',
+    label: 'Hersteller → Modell (Geräte)',
+    description: 'Verknüpft Hersteller und Modelle für die Geräteverwaltung inkl. optionalem Hardware-Typ.',
   },
   {
     key: 'ZB_USER',
     label: 'Zubehör → Benutzer',
     description: 'Verwalte die Tabelle "Zubehör-Benutzer Zuordnung" mit Start- und Enddatum.',
+  },
+  {
+    key: 'HS_BUERO',
+    label: 'Hersteller (Büroinventar)',
+    description: 'Verwalte Hersteller für das Büroinventar.',
+  },
+  {
+    key: 'MOD_BUERO',
+    label: 'Modelle (Büroinventar)',
+    description: 'Verwalte Modelle für das Büroinventar.',
   },
 ];
 
@@ -73,6 +83,8 @@ export default function RelationsManager() {
   const [modOptions, setModOptions] = useState<SelectOption[]>([]);
   const [accessoryOptions, setAccessoryOptions] = useState<SelectOption[]>([]);
   const [userOptions, setUserOptions] = useState<SelectOption[]>([]);
+  const [bueroHsOptions, setBueroHsOptions] = useState<SelectOption[]>([]);
+  const [bueroModOptions, setBueroModOptions] = useState<SelectOption[]>([]);
 
   const [hsModFilterSearch, setHsModFilterSearch] = useState('');
   const [hsModFilterHw, setHsModFilterHw] = useState('');
@@ -82,8 +94,11 @@ export default function RelationsManager() {
   const [accessoryFilterAccessory, setAccessoryFilterAccessory] = useState('');
   const [accessoryStatusFilter, setAccessoryStatusFilter] = useState<'all' | 'active' | 'returned'>('all');
 
-  const [newHsModRelation, setNewHsModRelation] = useState({ HSID: '', ModIDs: [] as (string | number)[], HWID: '' });
+  const [newHsModRelation, setNewHsModRelation] = useState({ HSID: '', ModIDs: [] as (string | number)[], HWID: '', Bereich: 'GERAETE' as 'GERAETE' | 'BUERO' });
   const [creatingHsMod, setCreatingHsMod] = useState(false);
+  const [newBueroHs, setNewBueroHs] = useState({ Name: '' });
+  const [newBueroMod, setNewBueroMod] = useState({ Name: '', Nummer: '' });
+  const [creatingBueroItem, setCreatingBueroItem] = useState(false);
   const [newAccessoryRelation, setNewAccessoryRelation] = useState(createAccessoryFormDefaults());
   const [creatingAccessory, setCreatingAccessory] = useState(false);
 
@@ -168,6 +183,10 @@ export default function RelationsManager() {
       setModOptions(mod.sort((a: SelectOption, b: SelectOption) => a.name.localeCompare(b.name, 'de')));
       setAccessoryOptions(accessories.sort((a: SelectOption, b: SelectOption) => a.name.localeCompare(b.name, 'de')));
       setUserOptions(users.sort((a: SelectOption, b: SelectOption) => a.name.localeCompare(b.name, 'de')));
+      
+      // Kopiere für Büroinventar (später können separate Tabellen verwendet werden)
+      setBueroHsOptions(hs.sort((a: SelectOption, b: SelectOption) => a.name.localeCompare(b.name, 'de')));
+      setBueroModOptions(mod.sort((a: SelectOption, b: SelectOption) => a.name.localeCompare(b.name, 'de')));
     } catch (err) {
       console.error(err);
       setError('Konnte Stammdaten nicht laden');
@@ -176,6 +195,8 @@ export default function RelationsManager() {
       setModOptions([]);
       setAccessoryOptions([]);
       setUserOptions([]);
+      setBueroHsOptions([]);
+      setBueroModOptions([]);
     }
   }, []);
 
@@ -204,9 +225,14 @@ export default function RelationsManager() {
     event.preventDefault();
     resetFeedback();
 
-    const { HSID, ModIDs, HWID } = newHsModRelation;
+    const { HSID, ModIDs, HWID, Bereich } = newHsModRelation;
     if (!HSID || ModIDs.length === 0) {
       setError('Bitte Hersteller und mindestens ein Modell auswählen.');
+      return;
+    }
+    
+    if (Bereich === 'BUERO') {
+      setError('Büroinventar-Zuordnungen werden direkt beim Anlegen von Inventargegenständen erstellt.');
       return;
     }
 
@@ -235,7 +261,7 @@ export default function RelationsManager() {
 
     if (created > 0) {
       setSuccess(`${created} Zuordnung${created > 1 ? 'en' : ''} erstellt`);
-      setNewHsModRelation({ HSID: '', ModIDs: [], HWID: '' });
+      setNewHsModRelation({ HSID: '', ModIDs: [], HWID: '', Bereich: 'GERAETE' });
     }
     if (errors.length > 0) {
       setError(errors.join(' | '));
@@ -476,12 +502,26 @@ export default function RelationsManager() {
         loading: loadingHsMod,
       };
     }
+    if (activeTab === 'HS_BUERO') {
+      return {
+        total: bueroHsOptions.length,
+        filtered: bueroHsOptions.length,
+        loading: false,
+      };
+    }
+    if (activeTab === 'MOD_BUERO') {
+      return {
+        total: bueroModOptions.length,
+        filtered: bueroModOptions.length,
+        loading: false,
+      };
+    }
     return {
       total: accessoryRelations.length,
       filtered: filteredAccessoryRelations.length,
       loading: loadingAccessory,
     };
-  }, [activeTab, hsModRelations.length, filteredHsModRelations.length, loadingHsMod, accessoryRelations.length, filteredAccessoryRelations.length, loadingAccessory]);
+  }, [activeTab, hsModRelations.length, filteredHsModRelations.length, loadingHsMod, accessoryRelations.length, filteredAccessoryRelations.length, loadingAccessory, bueroHsOptions.length, bueroModOptions.length]);
 
   const renderFilterBar = () => {
     if (activeTab === 'HS_MOD') {
@@ -638,6 +678,20 @@ export default function RelationsManager() {
             />
           </label>
 
+          <div className="md:col-span-3">
+            <label className="flex flex-col gap-1 text-sm">
+              <span className="text-gray-600">Bereich *</span>
+              <select
+                value={newHsModRelation.Bereich}
+                onChange={(e) => setNewHsModRelation((prev) => ({ ...prev, Bereich: e.target.value as 'GERAETE' | 'BUERO' }))}
+                className="rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-primary focus:outline-none"
+              >
+                <option value="GERAETE">Geräteverwaltung</option>
+                <option value="BUERO">Büroinventar</option>
+              </select>
+            </label>
+          </div>
+
           <div className="md:col-span-3 flex items-center justify-end gap-3">
             {error && <p className="text-sm text-red-600">{error}</p>}
             {success && <p className="text-sm text-emerald-600">{success}</p>}
@@ -651,6 +705,48 @@ export default function RelationsManager() {
             </button>
           </div>
         </form>
+      );
+    }
+
+    if (activeTab === 'HS_BUERO') {
+      return (
+        <div className="space-y-4">
+          <p className="text-sm text-gray-600">
+            Hersteller für das Büroinventar werden direkt in der Stammdatenverwaltung (HS-Tabelle) angelegt.
+            Diese Liste zeigt alle verfügbaren Hersteller.
+          </p>
+          <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+            <h3 className="font-medium text-gray-900 mb-2">Verfügbare Hersteller ({bueroHsOptions.length})</h3>
+            <div className="max-h-64 overflow-y-auto space-y-1">
+              {bueroHsOptions.map(opt => (
+                <div key={opt.id} className="text-sm text-gray-700 px-2 py-1 hover:bg-white rounded">
+                  {opt.name} <span className="text-gray-400">(ID: {opt.id})</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    if (activeTab === 'MOD_BUERO') {
+      return (
+        <div className="space-y-4">
+          <p className="text-sm text-gray-600">
+            Modelle für das Büroinventar werden direkt in der Stammdatenverwaltung (MOD-Tabelle) angelegt.
+            Diese Liste zeigt alle verfügbaren Modelle.
+          </p>
+          <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+            <h3 className="font-medium text-gray-900 mb-2">Verfügbare Modelle ({bueroModOptions.length})</h3>
+            <div className="max-h-64 overflow-y-auto space-y-1">
+              {bueroModOptions.map(opt => (
+                <div key={opt.id} className="text-sm text-gray-700 px-2 py-1 hover:bg-white rounded">
+                  {opt.name} <span className="text-gray-400">(ID: {opt.id})</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
       );
     }
 
@@ -718,6 +814,56 @@ export default function RelationsManager() {
   };
 
   const renderTable = () => {
+    if (activeTab === 'HS_BUERO') {
+      return (
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-100 text-sm">
+            <thead>
+              <tr className="bg-gray-50 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+                <th className="px-4 py-3">ID</th>
+                <th className="px-4 py-3">Hersteller</th>
+                <th className="px-4 py-3">Verwendung</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {bueroHsOptions.map((opt) => (
+                <tr key={opt.id} className="hover:bg-gray-50">
+                  <td className="px-4 py-3 text-gray-500">{opt.id}</td>
+                  <td className="px-4 py-3 font-medium text-gray-900">{opt.name}</td>
+                  <td className="px-4 py-3 text-sm text-gray-600">Geräte & Büroinventar</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      );
+    }
+
+    if (activeTab === 'MOD_BUERO') {
+      return (
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-100 text-sm">
+            <thead>
+              <tr className="bg-gray-50 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+                <th className="px-4 py-3">ID</th>
+                <th className="px-4 py-3">Modell</th>
+                <th className="px-4 py-3">Verwendung</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {bueroModOptions.map((opt) => (
+                <tr key={opt.id} className="hover:bg-gray-50">
+                  <td className="px-4 py-3 text-gray-500">{opt.id}</td>
+                  <td className="px-4 py-3 font-medium text-gray-900">{opt.name}</td>
+                  <td className="px-4 py-3 text-sm text-gray-600">Geräte & Büroinventar</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      );
+    }
+
     if (activeTab === 'HS_MOD') {
       if (loadingHsMod) {
         return (

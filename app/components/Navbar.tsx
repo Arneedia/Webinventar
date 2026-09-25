@@ -112,6 +112,11 @@ export default async function Navbar() {
       label: 'Sticker-Vorlagen',
       show: !!user && (user.role === Roles.ADMIN || userHasPermission(user, AvailablePermissions.MASTER_DATA_EDIT)),
     },
+    {
+      href: '/admin/office-master-data',
+      label: 'Büro-Stammdaten',
+      show: !!user && (user.role === Roles.ADMIN || userHasPermission(user, AvailablePermissions.MASTER_DATA_EDIT)),
+    },
   ];
 
   const showAdminMenu = adminLinks.some((l) => l.show);

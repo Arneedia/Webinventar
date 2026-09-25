@@ -3,7 +3,7 @@ import { prisma } from '@/lib/prismaClient';
 import { requireApiUser } from '@/lib/auth';
 import { AvailablePermissions } from '@/lib/permissionGroups';
 
-// Hersteller abrufen (unique Liste aus BueroInventar)
+// Hersteller abrufen (aus HS-Tabelle + unique Liste aus BueroInventar)
 export async function GET(req: NextRequest) {
   const auth = await requireApiUser(req, AvailablePermissions.DEVICES_VIEW);
   if (!auth.authorized) {
@@ -14,8 +14,35 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const kategorieId = searchParams.get('kategorieId');
     const search = searchParams.get('search');
+    const includeAll = searchParams.get('includeAll') === 'true';
 
-    // Hole alle eindeutigen Hersteller
+    // Wenn includeAll=true, hole alle Hersteller aus HS-Tabelle
+    if (includeAll) {
+      const whereClause: any = {};
+      
+      if (search) {
+        whereClause.HSName = {
+          contains: search,
+          mode: 'insensitive',
+        };
+      }
+
+      const hsRecords = await prisma.hS.findMany({
+        where: whereClause,
+        orderBy: {
+          HSName: 'asc',
+        },
+      });
+
+      const manufacturers = hsRecords.map((hs) => ({
+        id: hs.HSID,
+        name: hs.HSName || `Hersteller ${hs.HSID}`,
+      }));
+
+      return NextResponse.json({ manufacturers });
+    }
+
+    // Ansonsten: Hole eindeutige Hersteller aus BueroInventar
     const whereClause: any = {
       Hersteller: { not: null },
     };
