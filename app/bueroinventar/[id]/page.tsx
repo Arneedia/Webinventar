@@ -113,7 +113,7 @@ export default function EditOfficeInventoryPage() {
   // Alle Modelle laden
   async function loadAllModels() {
     try {
-      const res = await fetch('/api/tables/MOD');
+      const res = await fetch('/api/tables/MOD?bereich=BUERO');
       if (res.ok) {
         const data = await res.json();
         const modArray = data.data || [];
@@ -387,7 +387,7 @@ export default function EditOfficeInventoryPage() {
               Hersteller
             </label>
             <SearchableSelectWithCustom
-              options={manufacturers.map(m => ({ value: String(m.id), label: m.name }))}
+              options={manufacturers.map(m => ({ value: m.name, label: m.name }))}
               value={formData.hersteller}
               onChange={(value) => setFormData(prev => ({ ...prev, hersteller: value }))}
               placeholder="-- Hersteller wählen --"
@@ -403,7 +403,7 @@ export default function EditOfficeInventoryPage() {
               Modell
             </label>
             <SearchableSelectWithCustom
-              options={models.map(m => ({ value: String(m.id), label: m.name }))}
+              options={models.map(m => ({ value: m.name, label: m.name }))}
               value={formData.modell}
               onChange={(value) => setFormData(prev => ({ ...prev, modell: value }))}
               placeholder="-- Modell wählen --"

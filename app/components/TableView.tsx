@@ -8,6 +8,8 @@ interface TableColumnConfig {
   type: string;
   nullable: boolean;
   identity?: boolean;
+  defaultValue?: string;
+  options?: { value: string; label: string }[];
 }
 
 interface TableConfig {
@@ -47,7 +49,7 @@ function RecordForm({ config, initialData, onSave, onCancel }: RecordFormProps) 
     if (initialData) return { ...initialData };
     const initial: Record<string, unknown> = {};
     config.columns.forEach(col => {
-      initial[col.name] = '';
+      initial[col.name] = col.defaultValue ?? '';
     });
     return initial;
   });
@@ -107,7 +109,19 @@ function RecordForm({ config, initialData, onSave, onCancel }: RecordFormProps) 
                 {col.name}
                 {!col.nullable && <span className="text-red-500 ml-1">*</span>}
               </label>
-              {col.type === 'date' ? (
+              {col.options ? (
+                <select
+                  value={String(formData[col.name] ?? '')}
+                  onChange={(e) => setFormData(prev => ({ ...prev, [col.name]: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                  required={!col.nullable}
+                >
+                  {col.nullable && <option value="">-</option>}
+                  {col.options.map((opt) => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  ))}
+                </select>
+              ) : col.type === 'date' ? (
                 <input
                   type="date"
                   value={formData[col.name] ? String(formData[col.name]).split('T')[0] : ''}

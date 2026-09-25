@@ -57,7 +57,10 @@ export async function PUT(req: NextRequest, context: RouteContext) {
     for (const col of updateColumns) {
       let value = body[col.name];
       if (value === '' || value === undefined) {
-        value = null;
+        value = col.defaultValue ?? null;
+      }
+      if (col.options && value !== null && !col.options.some((o) => o.value === value)) {
+        return NextResponse.json({ error: `Ungültiger Wert für ${col.name}` }, { status: 400 });
       }
       if (value !== null && col.type === 'date' && typeof value === 'string') {
         const parsed = new Date(value);

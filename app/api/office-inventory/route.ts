@@ -52,6 +52,8 @@ export async function GET(req: NextRequest) {
       benutzerId: item.BenutzerID,
       benutzerName: item.Benutzer?.BenutzerName ?? null,
       notiz: item.Notiz,
+      abgang: item.Abgang,
+      abgangGrund: item.AbgangGrund,
       createdAt: item.createdAt,
       updatedAt: item.updatedAt,
       letzteBewegungenCount: item.Bewegungen.length,

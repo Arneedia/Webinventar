@@ -36,16 +36,24 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json();
-    const { name, beschreibung } = body;
+    const name = typeof body.name === 'string' ? body.name.trim() : '';
+    const beschreibung = typeof body.beschreibung === 'string' ? body.beschreibung.trim() : '';
 
     if (!name) {
       return NextResponse.json({ error: 'Name ist erforderlich' }, { status: 400 });
     }
 
+    const duplicate = await prisma.bueroKategorie.findFirst({
+      where: { Name: { equals: name, mode: 'insensitive' } },
+    });
+    if (duplicate) {
+      return NextResponse.json({ error: `Kategorie „${name}“ existiert bereits` }, { status: 409 });
+    }
+
     const category = await prisma.bueroKategorie.create({
       data: {
         Name: name,
-        Beschreibung: beschreibung,
+        Beschreibung: beschreibung || null,
       },
     });
 

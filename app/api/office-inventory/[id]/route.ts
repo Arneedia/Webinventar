@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prismaClient';
 import { requireApiUser } from '@/lib/auth';
 import { AvailablePermissions } from '@/lib/permissionGroups';
+import { ensureOfficeMasterData } from '@/lib/officeMasterData';
 
 // Einzelnes Büroinventar abrufen
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -76,93 +77,11 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     if (!current) {
       return NextResponse.json({ error: 'Nicht gefunden' }, { status: 404 });
     }
-
-    let hsId: number | null = null;
-    let modId: number | null = null;
-    let herstellerCreated = false;
-    let modellCreated = false;
-    let relationCreated = false;
-
-    // Hersteller verarbeiten (wenn angegeben)
-    if (hersteller && hersteller.trim()) {
-      const herstellerName = hersteller.trim();
-      
-      // Prüfen ob Hersteller bereits existiert
-      let existingHs = await prisma.hS.findFirst({
-        where: {
-          HSName: {
-            equals: herstellerName,
-            mode: 'insensitive',
-          },
-        },
-      });
-
-      if (existingHs) {
-        hsId = existingHs.HSID;
-      } else {
-        // Neuen Hersteller anlegen
-        const newHs = await prisma.hS.create({
-          data: {
-            HSName: herstellerName,
-          },
-        });
-        hsId = newHs.HSID;
-        herstellerCreated = true;
-      }
+    if (current.Abgang) {
+      return NextResponse.json({ error: 'Abgeschriebene Einträge können nicht bearbeitet werden' }, { status: 409 });
     }
 
-    // Modell verarbeiten (wenn angegeben)
-    if (modell && modell.trim()) {
-      const modellName = modell.trim();
-      
-      // Prüfen ob Modell bereits existiert
-      let existingMod = await prisma.mOD.findFirst({
-        where: {
-          ModName: {
-            equals: modellName,
-            mode: 'insensitive',
-          },
-        },
-      });
-
-      if (existingMod) {
-        modId = existingMod.ModID;
-      } else {
-        // Neues Modell anlegen
-        const newMod = await prisma.mOD.create({
-          data: {
-            ModName: modellName,
-          },
-        });
-        modId = newMod.ModID;
-        modellCreated = true;
-      }
-    }
-
-    // HS_MOD Verknüpfung erstellen (wenn beide vorhanden)
-    if (hsId && modId) {
-      // Prüfen ob Verknüpfung bereits existiert
-      const existingRelation = await prisma.hS_MOD.findUnique({
-        where: {
-          HSID_ModID: {
-            HSID: hsId,
-            ModID: modId,
-          },
-        },
-      });
-
-      // Nur erstellen wenn noch nicht vorhanden
-      if (!existingRelation) {
-        await prisma.hS_MOD.create({
-          data: {
-            HSID: hsId,
-            ModID: modId,
-            HWID: null, // Für Büroinventar kein Hardware-Typ
-          },
-        });
-        relationCreated = true;
-      }
-    }
+    const { herstellerCreated, modellCreated, relationCreated } = await ensureOfficeMasterData(hersteller, modell);
 
     const item = await prisma.bueroInventar.update({
       where: { ID: parseInt(id) },
@@ -214,30 +133,5 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   } catch (error) {
     console.error('Database error (PATCH /api/office-inventory/[id]):', error);
     return NextResponse.json({ error: 'Fehler beim Aktualisieren', details: String(error) }, { status: 500 });
-  }
-}
-
-// Büroinventar löschen
-export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const auth = await requireApiUser(req, AvailablePermissions.DEVICES_DELETE);
-  if (!auth.authorized) {
-    return NextResponse.json({ error: auth.message }, { status: auth.status });
-  }
-
-  try {
-    const { id } = await params;
-
-    await prisma.bueroBewegung.deleteMany({
-      where: { InventarID: parseInt(id) },
-    });
-
-    await prisma.bueroInventar.delete({
-      where: { ID: parseInt(id) },
-    });
-
-    return NextResponse.json({ success: true });
-  } catch (error) {
-    console.error('Database error (DELETE /api/office-inventory/[id]):', error);
-    return NextResponse.json({ error: 'Fehler beim Löschen', details: String(error) }, { status: 500 });
   }
 }

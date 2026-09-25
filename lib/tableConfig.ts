@@ -1,5 +1,7 @@
 // Tabellen-Konfiguration für die Inventar-Datenbank (für generische UI und API)
 
+import { BEREICHE, BEREICH_LABELS } from './masterDataBereich';
+
 export type ColumnType = 'int' | 'varchar' | 'decimal' | 'date' | 'nvarchar';
 
 export interface TableColumn {
@@ -10,7 +12,18 @@ export interface TableColumn {
   maxLength?: number;
   precision?: number;
   scale?: number;
+  defaultValue?: string;
+  options?: { value: string; label: string }[];
 }
+
+const bereichColumn: TableColumn = {
+  name: 'Bereich',
+  type: 'varchar',
+  nullable: false,
+  maxLength: 10,
+  defaultValue: 'BEIDE',
+  options: BEREICHE.map((value) => ({ value, label: BEREICH_LABELS[value] })),
+};
 
 export interface ForeignKeyConfig {
   column: string;
@@ -82,6 +95,7 @@ export const tables: TableConfig[] = [
     columns: [
       { name: 'HSID', type: 'int', nullable: false, identity: true },
       { name: 'HSName', type: 'varchar', nullable: true, maxLength: 255 },
+      bereichColumn,
     ],
   },
   {
@@ -93,6 +107,7 @@ export const tables: TableConfig[] = [
       { name: 'ModID', type: 'int', nullable: false, identity: true },
       { name: 'ModName', type: 'varchar', nullable: true, maxLength: 255 },
       { name: 'ModellNummer', type: 'varchar', nullable: true, maxLength: 50 },
+      bereichColumn,
     ],
   },
   {

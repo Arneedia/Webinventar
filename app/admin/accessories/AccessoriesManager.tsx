@@ -90,11 +90,11 @@ export default function AccessoriesManager() {
   );
 
   const { data: hwTable } = useSWR<TableResponse<HWRow>>("/api/tables/HW", jsonFetcher);
-  const { data: hsTable } = useSWR<TableResponse<HSRow>>("/api/tables/HS", jsonFetcher);
-  const { data: modTable } = useSWR<TableResponse<MODRow>>("/api/tables/MOD", jsonFetcher);
+  const { data: hsTable } = useSWR<TableResponse<HSRow>>("/api/tables/HS?bereich=GERAETE", jsonFetcher);
+  const { data: modTable } = useSWR<TableResponse<MODRow>>("/api/tables/MOD?bereich=GERAETE", jsonFetcher);
   const { data: userTable } = useSWR<TableResponse<BenutzerRow>>("/api/tables/Benutzer", jsonFetcher);
   const { data: gerTable } = useSWR<TableResponse<GERRow>>("/api/tables/GER", jsonFetcher);
-  const { data: hsModTable } = useSWR<{ data: HsModRelation[] }>("/api/tables/HS_MOD", jsonFetcher);
+  const { data: hsModTable } = useSWR<{ data: HsModRelation[] }>("/api/tables/HS_MOD?bereich=GERAETE", jsonFetcher);
 
   const hsModRelations = useMemo<HsModRelation[]>(
     () => (hsModTable?.data ?? []).map((row) => ({

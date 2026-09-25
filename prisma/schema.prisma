@@ -50,6 +50,7 @@ model HW {
 model HS {
   HSID     Int      @id @default(autoincrement())
   HSName   String?
+  Bereich  String   @default("BEIDE") // GERAETE, BUERO, BEIDE
   GER      GER[]
   HW_HS    HW_HS[]
   HS_MOD   HS_MOD[]
@@ -61,6 +62,7 @@ model MOD {
   ModID        Int      @id @default(autoincrement())
   ModName      String?
   ModellNummer String?
+  Bereich      String   @default("BEIDE") // GERAETE, BUERO, BEIDE
   GER          GER[]
   HS_MOD       HS_MOD[]
   Zubehoer     Zubehoer[]
@@ -229,8 +231,20 @@ model HS_MOD {
   HS    HS   @relation(fields: [HSID], references: [HSID])
   MOD   MOD  @relation(fields: [ModID], references: [ModID])
   HW    HW?  @relation(fields: [HWID], references: [HWID])
+  Kategorien KAT_HS_MOD[]
 
   @@id([HSID, ModID])
+}
+
+// Büroinventar-Kategorie ↔ Hersteller-Modell Zuordnung
+model KAT_HS_MOD {
+  KategorieID Int
+  HSID        Int
+  ModID       Int
+  Kategorie   BueroKategorie @relation(fields: [KategorieID], references: [ID], onDelete: Cascade)
+  HsMod       HS_MOD         @relation(fields: [HSID, ModID], references: [HSID, ModID], onDelete: Cascade)
+
+  @@id([KategorieID, HSID, ModID])
 }
 
 // Web-User fÃ¼r Login/Autorisierung
@@ -415,6 +429,7 @@ model BueroKategorie {
   Name         String         @unique
   Beschreibung String?
   Inventar     BueroInventar[]
+  HsModZuordnungen KAT_HS_MOD[]
 }
 
 // Büroinventar
@@ -433,6 +448,8 @@ model BueroInventar {
   RaumID          Int?
   BenutzerID      Int?
   Notiz           String?
+  Abgang          DateTime?
+  AbgangGrund     String?
   Kategorie       BueroKategorie   @relation(fields: [KategorieID], references: [ID])
   Raum            RAUM?            @relation(fields: [RaumID], references: [RaumID])
   Benutzer        Benutzer?        @relation(fields: [BenutzerID], references: [BenutzerID])

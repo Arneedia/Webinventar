@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prismaClient';
 import { requireApiUser } from '@/lib/auth';
 import { AvailablePermissions } from '@/lib/permissionGroups';
+import { bereichWhere } from '@/lib/masterDataBereich';
 
 // Modelle abrufen (aus MOD-Tabelle mit HS_MOD-Zuordnungen + unique Liste aus BueroInventar)
 export async function GET(req: NextRequest) {
@@ -26,6 +27,7 @@ export async function GET(req: NextRequest) {
       const hsModRelations = await prisma.hS_MOD.findMany({
         where: {
           HSID: hsId,
+          MOD: bereichWhere('BUERO'),
         },
         include: {
           MOD: true,

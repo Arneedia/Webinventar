@@ -22,6 +22,8 @@ interface SearchableSelectWithCustomProps {
   allowCustom?: boolean;
 }
 
+const CUSTOM = '__custom__';
+
 export default function SearchableSelectWithCustom({
   options,
   value,
@@ -37,13 +39,11 @@ export default function SearchableSelectWithCustom({
   allowCustom = true,
 }: SearchableSelectWithCustomProps) {
   const [searchTerm, setSearchTerm] = useState('');
-  const [customValue, setCustomValue] = useState('');
-  const [useCustom, setUseCustom] = useState(false);
+  const [customMode, setCustomMode] = useState(false);
 
   const filteredAndSortedOptions = useMemo(() => {
     let filtered = options;
 
-    // Filter by search term
     if (searchTerm.trim()) {
       const term = searchTerm.toLowerCase();
       filtered = options.filter(
@@ -53,35 +53,28 @@ export default function SearchableSelectWithCustom({
       );
     }
 
-    // Sort alphabetically if enabled
     if (sortAlphabetically) {
-      filtered = [...filtered].sort((a, b) =>
-        a.label.localeCompare(b.label, 'de-DE')
-      );
+      filtered = [...filtered].sort((a, b) => a.label.localeCompare(b.label, 'de-DE'));
     }
 
     return filtered;
   }, [options, searchTerm, sortAlphabetically]);
 
+  const valueExistsInOptions = options.some((opt) => String(opt.value) === value);
+  // Freitext-Modus: explizit gewählt oder ein vorhandener Wert, der nicht in der Liste steht
+  const isCustom = allowCustom && (customMode || (value !== '' && !valueExistsInOptions));
+
   const handleSelectChange = (selectedValue: string) => {
-    if (selectedValue === '__custom__') {
-      setUseCustom(true);
-      onChange(customValue);
-    } else {
-      setUseCustom(false);
-      onChange(selectedValue);
+    if (selectedValue === CUSTOM) {
+      setCustomMode(true);
+      onChange(searchTerm.trim());
+      return;
     }
+    setCustomMode(false);
+    onChange(selectedValue);
   };
 
-  const handleCustomValueChange = (newCustomValue: string) => {
-    setCustomValue(newCustomValue);
-    if (useCustom) {
-      onChange(newCustomValue);
-    }
-  };
-
-  // Prüfen ob der aktuelle Wert in den Optionen existiert
-  const valueExistsInOptions = options.some(opt => String(opt.value) === value || opt.label === value);
+  const inputClass = `w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-primary-dark focus:outline-none disabled:bg-gray-100 disabled:cursor-not-allowed ${className}`;
 
   return (
     <div className="space-y-1">
@@ -91,14 +84,14 @@ export default function SearchableSelectWithCustom({
         value={searchTerm}
         onChange={(e) => setSearchTerm(e.target.value)}
         disabled={disabled}
-        className={`w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed ${className}`}
+        className={inputClass}
       />
       <select
-        value={useCustom || !valueExistsInOptions ? '__custom__' : value}
+        value={isCustom ? CUSTOM : value}
         onChange={(e) => handleSelectChange(e.target.value)}
-        required={required && !allowCustom}
+        required={required && !isCustom}
         disabled={disabled}
-        className={`w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed ${className}`}
+        className={inputClass}
       >
         <option value="">{emptyLabel || placeholder}</option>
         {filteredAndSortedOptions.map((opt) => (
@@ -107,23 +100,19 @@ export default function SearchableSelectWithCustom({
           </option>
         ))}
         {allowCustom && (
-          <option value="__custom__">
-            {useCustom || !valueExistsInOptions ? '✓ Eigener Wert' : '+ Eigenen Wert eingeben'}
-          </option>
+          <option value={CUSTOM}>{isCustom ? '✓ Eigener Wert' : '+ Eigenen Wert eingeben'}</option>
         )}
       </select>
-      {allowCustom && (useCustom || !valueExistsInOptions) && (
+      {isCustom && (
         <input
           type="text"
           placeholder={customPlaceholder}
-          value={useCustom || !valueExistsInOptions ? value : customValue}
-          onChange={(e) => {
-            setUseCustom(true);
-            handleCustomValueChange(e.target.value);
-          }}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
           required={required}
           disabled={disabled}
-          className={`w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed ${className}`}
+          autoFocus={customMode}
+          className={inputClass}
         />
       )}
     </div>

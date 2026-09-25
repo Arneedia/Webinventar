@@ -5,6 +5,7 @@ import { requireApiUser } from '@/lib/auth';
 import { AvailablePermissions } from '@/lib/permissionGroups';
 import { formatInventarCode } from '@/lib/hardwareCodes';
 import { generateNextWODISNumber, validateWODISNumber } from '@/lib/wodisNumber';
+import { bereichWhere, isBereichScope } from '@/lib/masterDataBereich';
 
 interface RouteContext {
   params: Promise<{ table: string }>;
@@ -37,7 +38,15 @@ export async function GET(req: NextRequest, context: RouteContext) {
       }
     }
 
-    const rows: any[] = await model.findMany({ include });
+    // Optional nach Bereich (Geräte/Büro) filtern: ?bereich=GERAETE|BUERO
+    const bereich = req.nextUrl.searchParams.get('bereich');
+    let where: Record<string, unknown> | undefined;
+    if (isBereichScope(bereich)) {
+      if (config.name === 'HS' || config.name === 'MOD') where = bereichWhere(bereich);
+      if (config.name === 'HS_MOD') where = { HS: bereichWhere(bereich), MOD: bereichWhere(bereich) };
+    }
+
+    const rows: any[] = await model.findMany({ include, where });
 
     // Daten für UI aufbereiten (zusätzliche *_Display Felder für FKs)
     const data = rows.map((row) => {
@@ -104,7 +113,10 @@ export async function POST(req: NextRequest, context: RouteContext) {
     for (const col of insertColumns) {
       let value = body[col.name];
       if (value === '' || value === undefined) {
-        value = null;
+        value = col.defaultValue ?? null;
+      }
+      if (col.options && value !== null && !col.options.some((o) => o.value === value)) {
+        return NextResponse.json({ error: `Ungültiger Wert für ${col.name}` }, { status: 400 });
       }
       if (value !== null && col.type === 'date' && typeof value === 'string') {
         const parsed = new Date(value);

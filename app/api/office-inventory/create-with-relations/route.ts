@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prismaClient';
 import { requireApiUser } from '@/lib/auth';
 import { AvailablePermissions } from '@/lib/permissionGroups';
+import { ensureOfficeMasterData } from '@/lib/officeMasterData';
 
 /**
  * Erstellt ein Büro-Inventar-Item und legt automatisch Hersteller/Modell an,
@@ -39,86 +40,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    let hsId: number | null = null;
-    let modId: number | null = null;
-
-    // Hersteller verarbeiten (wenn angegeben)
-    if (hersteller && hersteller.trim()) {
-      const herstellerName = hersteller.trim();
-      
-      // Prüfen ob Hersteller bereits existiert
-      let existingHs = await prisma.hS.findFirst({
-        where: {
-          HSName: {
-            equals: herstellerName,
-            mode: 'insensitive',
-          },
-        },
-      });
-
-      if (existingHs) {
-        hsId = existingHs.HSID;
-      } else {
-        // Neuen Hersteller anlegen
-        const newHs = await prisma.hS.create({
-          data: {
-            HSName: herstellerName,
-          },
-        });
-        hsId = newHs.HSID;
-      }
-    }
-
-    // Modell verarbeiten (wenn angegeben)
-    if (modell && modell.trim()) {
-      const modellName = modell.trim();
-      
-      // Prüfen ob Modell bereits existiert
-      let existingMod = await prisma.mOD.findFirst({
-        where: {
-          ModName: {
-            equals: modellName,
-            mode: 'insensitive',
-          },
-        },
-      });
-
-      if (existingMod) {
-        modId = existingMod.ModID;
-      } else {
-        // Neues Modell anlegen
-        const newMod = await prisma.mOD.create({
-          data: {
-            ModName: modellName,
-          },
-        });
-        modId = newMod.ModID;
-      }
-    }
-
-    // HS_MOD Verknüpfung erstellen (wenn beide vorhanden)
-    if (hsId && modId) {
-      // Prüfen ob Verknüpfung bereits existiert
-      const existingRelation = await prisma.hS_MOD.findUnique({
-        where: {
-          HSID_ModID: {
-            HSID: hsId,
-            ModID: modId,
-          },
-        },
-      });
-
-      // Nur erstellen wenn noch nicht vorhanden
-      if (!existingRelation) {
-        await prisma.hS_MOD.create({
-          data: {
-            HSID: hsId,
-            ModID: modId,
-            HWID: null, // Für Büroinventar kein Hardware-Typ
-          },
-        });
-      }
-    }
+    const { herstellerCreated, modellCreated, relationCreated } = await ensureOfficeMasterData(hersteller, modell);
 
     // Büro-Inventar erstellen
     const bueroInventar = await prisma.bueroInventar.create({
@@ -148,6 +70,17 @@ export async function POST(req: NextRequest) {
       },
     });
 
+    // Bewegung: ZUGANG
+    await prisma.bueroBewegung.create({
+      data: {
+        InventarID: bueroInventar.ID,
+        Typ: 'ZUGANG',
+        NachBenutzerID: bueroInventar.BenutzerID,
+        NachRaumID: bueroInventar.RaumID,
+        Bemerkung: 'Erstanlage',
+      },
+    });
+
     // Response formatieren
     const response = {
       id: bueroInventar.ID,
@@ -173,9 +106,9 @@ export async function POST(req: NextRequest) {
       updatedAt: bueroInventar.updatedAt.toISOString(),
       // Zusätzliche Info über erstellte Relationen
       _meta: {
-        herstellerCreated: hsId ? true : false,
-        modellCreated: modId ? true : false,
-        relationCreated: hsId && modId ? true : false,
+        herstellerCreated,
+        modellCreated,
+        relationCreated,
       },
     };
 

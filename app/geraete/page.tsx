@@ -498,7 +498,7 @@ export default function DeviceManagementPage() {
 
   const fetchHsModRelations = async () => {
     try {
-      const res = await fetch('/api/tables/HS_MOD');
+      const res = await fetch('/api/tables/HS_MOD?bereich=GERAETE');
       if (!res.ok) throw new Error('Fehler beim Laden der Zuordnungen');
       const json = await res.json();
       const relations: HsModRelation[] = (json.data as any[]).map((row: any) => ({
@@ -620,7 +620,7 @@ export default function DeviceManagementPage() {
 
   const fetchManufacturers = async () => {
     try {
-      const res = await fetch('/api/tables/HS');
+      const res = await fetch('/api/tables/HS?bereich=GERAETE');
       if (!res.ok) throw new Error('Fehler beim Laden der Hersteller');
       const json = await res.json();
       const options: UserOption[] = (json.data as any[]).map((row: any) => ({
@@ -635,7 +635,7 @@ export default function DeviceManagementPage() {
 
   const fetchModels = async () => {
     try {
-      const res = await fetch('/api/tables/MOD');
+      const res = await fetch('/api/tables/MOD?bereich=GERAETE');
       if (!res.ok) throw new Error('Fehler beim Laden der Modelle');
       const json = await res.json();
       const options: UserOption[] = (json.data as any[]).map((row: any) => {

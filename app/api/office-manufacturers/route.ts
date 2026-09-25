@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prismaClient';
 import { requireApiUser } from '@/lib/auth';
 import { AvailablePermissions } from '@/lib/permissionGroups';
+import { bereichWhere } from '@/lib/masterDataBereich';
 
 // Hersteller abrufen (aus HS-Tabelle + unique Liste aus BueroInventar)
 export async function GET(req: NextRequest) {
@@ -16,9 +17,9 @@ export async function GET(req: NextRequest) {
     const search = searchParams.get('search');
     const includeAll = searchParams.get('includeAll') === 'true';
 
-    // Wenn includeAll=true, hole alle Hersteller aus HS-Tabelle
+    // Wenn includeAll=true, hole alle Hersteller für das Büroinventar aus HS-Tabelle
     if (includeAll) {
-      const whereClause: any = {};
+      const whereClause: any = bereichWhere('BUERO');
       
       if (search) {
         whereClause.HSName = {
