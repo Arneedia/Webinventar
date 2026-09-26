@@ -25,7 +25,7 @@ interface InventoryItem {
 }
 
 export default function InventurPage() {
-  const { isActive, activateMode, deactivateMode, scanDevice, unscanDevice, isDeviceScanned, getScannedDevices, scannedCount, totalCount, clearAllScans } = useInventoryMode();
+  const { isActive, activateMode, deactivateMode, scanDevice, unscanDevice, isDeviceScanned, getScannedDevices, scannedCount, totalCount, clearAllScans, canUseInventur, inventurPermissionChecked } = useInventoryMode();
   const [devices, setDevices] = useState<Device[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -37,8 +37,8 @@ export default function InventurPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    fetchDevices();
-  }, []);
+    if (canUseInventur) fetchDevices();
+  }, [canUseInventur]);
 
   const fetchDevices = async () => {
     try {
@@ -188,6 +188,28 @@ export default function InventurPage() {
   const completionPercentage = devices.length > 0
     ? Math.round((foundDevices.length / devices.length) * 100)
     : 0;
+
+  if (!inventurPermissionChecked) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-gray-500 text-sm">Prüfe Berechtigung…</div>
+      </div>
+    );
+  }
+
+  if (!canUseInventur) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="bg-white rounded-xl border border-gray-200 p-8 text-center max-w-md">
+          <AlertTriangle className="w-8 h-8 text-amber-500 mx-auto mb-3" />
+          <h1 className="text-lg font-semibold text-gray-900 mb-1">Keine Berechtigung</h1>
+          <p className="text-sm text-gray-500">
+            Für den Inventur-Modus ist die Berechtigung „Inventur-Modus verwenden“ oder die Admin-Rolle erforderlich.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">

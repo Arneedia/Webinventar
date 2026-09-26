@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prismaClient';
-import { requireApiUser } from '@/lib/auth';
+import { requireApiUser, userHasAnyPermission } from '@/lib/auth';
 import { AvailablePermissions } from '@/lib/permissionGroups';
 
 interface RouteContext {
@@ -28,29 +28,60 @@ function serializeRelation(rel: any) {
     modName: rel.MOD?.ModName ?? null,
     modellNummer: rel.MOD?.ModellNummer ?? null,
     hwName: rel.HW?.HWName ?? null,
+    kategorien: (rel.Kategorien ?? []).map((k: any) => ({ ID: k.KategorieID, name: k.Kategorie?.Name ?? '' })),
   };
 }
 
 export async function PUT(req: NextRequest, context: RouteContext) {
-  const auth = await requireApiUser(req, AvailablePermissions.MASTER_DATA_EDIT);
+  const auth = await requireApiUser(req);
   if (!auth.authorized) {
     return NextResponse.json({ error: auth.message }, { status: auth.status });
+  }
+  if (!userHasAnyPermission(auth.user, [AvailablePermissions.MASTER_DATA_EDIT, AvailablePermissions.RELATIONS_EDIT, AvailablePermissions.RELATIONS_DEVICES_EDIT, AvailablePermissions.RELATIONS_OFFICE_EDIT])) {
+    return NextResponse.json({ error: 'Keine Berechtigung' }, { status: 403 });
   }
 
   try {
     const { hsid, modid } = await context.params;
     const { HSID, ModID } = parseIds(hsid, modid);
-    const { HWID } = await req.json();
+    const body = await req.json();
+    const { HWID } = body;
+    const kategorieIds: number[] | undefined = Array.isArray(body.kategorieIds)
+      ? body.kategorieIds.map(Number).filter((id: number) => Number.isInteger(id))
+      : undefined;
+
+    // Bereichsbezogene Prüfung je nach geändertem Feld
+    if (Object.prototype.hasOwnProperty.call(body, 'HWID') && !userHasAnyPermission(auth.user, [AvailablePermissions.MASTER_DATA_EDIT, AvailablePermissions.RELATIONS_EDIT, AvailablePermissions.RELATIONS_DEVICES_EDIT])) {
+      return NextResponse.json({ error: 'Keine Berechtigung für Geräte-Zuordnungen' }, { status: 403 });
+    }
+    if (Object.prototype.hasOwnProperty.call(body, 'kategorieIds') && !userHasAnyPermission(auth.user, [AvailablePermissions.MASTER_DATA_EDIT, AvailablePermissions.RELATIONS_EDIT, AvailablePermissions.RELATIONS_OFFICE_EDIT])) {
+      return NextResponse.json({ error: 'Keine Berechtigung für Büro-Zuordnungen' }, { status: 403 });
+    }
 
     const hwIdNumber = HWID === undefined || HWID === null || HWID === '' ? null : Number(HWID);
     if (hwIdNumber !== null && !Number.isInteger(hwIdNumber)) {
       return NextResponse.json({ error: 'HWID muss eine gültige Zahl sein' }, { status: 400 });
     }
 
-    const updated = await prisma.hS_MOD.update({
-      where: { HSID_ModID: { HSID, ModID } },
-      data: { HWID: hwIdNumber },
-      include: { HS: true, MOD: true, HW: true },
+    const updated = await prisma.$transaction(async (tx) => {
+      await tx.hS_MOD.update({
+        where: { HSID_ModID: { HSID, ModID } },
+        data: { HWID: hwIdNumber },
+      });
+      // Kategorie-Verknüpfungen komplett ersetzen, wenn mitgeschickt
+      if (kategorieIds !== undefined) {
+        await tx.kAT_HS_MOD.deleteMany({ where: { HSID, ModID } });
+        if (kategorieIds.length) {
+          await tx.kAT_HS_MOD.createMany({
+            data: kategorieIds.map((KategorieID) => ({ KategorieID, HSID, ModID })),
+            skipDuplicates: true,
+          });
+        }
+      }
+      return tx.hS_MOD.findUniqueOrThrow({
+        where: { HSID_ModID: { HSID, ModID } },
+        include: { HS: true, MOD: true, HW: true, Kategorien: { include: { Kategorie: true } } },
+      });
     });
 
     return NextResponse.json({ relation: serializeRelation(updated) });
@@ -64,14 +95,29 @@ export async function PUT(req: NextRequest, context: RouteContext) {
 }
 
 export async function DELETE(req: NextRequest, context: RouteContext) {
-  const auth = await requireApiUser(req, AvailablePermissions.MASTER_DATA_EDIT);
+  const auth = await requireApiUser(req);
   if (!auth.authorized) {
     return NextResponse.json({ error: auth.message }, { status: auth.status });
+  }
+  if (!userHasAnyPermission(auth.user, [AvailablePermissions.MASTER_DATA_EDIT, AvailablePermissions.RELATIONS_EDIT, AvailablePermissions.RELATIONS_DEVICES_EDIT, AvailablePermissions.RELATIONS_OFFICE_EDIT])) {
+    return NextResponse.json({ error: 'Keine Berechtigung' }, { status: 403 });
   }
 
   try {
     const { hsid, modid } = await context.params;
     const { HSID, ModID } = parseIds(hsid, modid);
+
+    // Bereich der Zuordnung prüfen (Hardware-Typ = Geräte, Kategorien = Büroinventar)
+    const relation = await prisma.hS_MOD.findUnique({
+      where: { HSID_ModID: { HSID, ModID } },
+      select: { HWID: true, Kategorien: { select: { KategorieID: true } } },
+    });
+    if (relation?.HWID != null && !userHasAnyPermission(auth.user, [AvailablePermissions.MASTER_DATA_EDIT, AvailablePermissions.RELATIONS_EDIT, AvailablePermissions.RELATIONS_DEVICES_EDIT])) {
+      return NextResponse.json({ error: 'Keine Berechtigung für Geräte-Zuordnungen' }, { status: 403 });
+    }
+    if ((relation?.Kategorien?.length ?? 0) > 0 && !userHasAnyPermission(auth.user, [AvailablePermissions.MASTER_DATA_EDIT, AvailablePermissions.RELATIONS_EDIT, AvailablePermissions.RELATIONS_OFFICE_EDIT])) {
+      return NextResponse.json({ error: 'Keine Berechtigung für Büro-Zuordnungen' }, { status: 403 });
+    }
 
     await prisma.hS_MOD.delete({ where: { HSID_ModID: { HSID, ModID } } });
 

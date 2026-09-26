@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState, KeyboardEvent } from 'react';
 import Link from 'next/link';
 import { Database, MonitorSmartphone, UserRound, History, AlertTriangle, Plus, RefreshCw, Package, Undo2, XCircle, X, ChevronRight, QrCode, MapPin, ClipboardList, ArrowUpRight, ArrowDownLeft, Repeat, FileText, User, Calendar, CheckCircle2, Clock, FileEdit, Archive, Edit2, ChevronUp, ChevronDown, ChevronsUpDown, Search } from 'lucide-react';
 import StickerModal from '../components/StickerModal';
+import RoomUserSelects from '../components/RoomUserSelects';
 import SearchableSelect from '../components/SearchableSelect';
 
 interface DeviceListItem {
@@ -37,19 +38,23 @@ interface DeviceListItem {
   effectiveRoomSource: 'user' | 'device' | null;
 }
 
-interface HistoryEntry {
+interface DeviceMovement {
   id: number;
-  benutzerId: number;
-  benutzerName: string | null;
-  start: string;
-  ende: string | null;
-  roomId: number | null;
-  roomName: string | null;
+  typ: string;
+  vonBenutzerId: number | null;
+  nachBenutzerId: number | null;
+  vonBenutzerName: string | null;
+  nachBenutzerName: string | null;
+  vonRaumId: number | null;
+  nachRaumId: number | null;
+  bemerkung: string | null;
+  zeitpunkt: string;
 }
 
 interface UserOption {
   id: number;
   name: string;
+  roomId?: number | null;
 }
 
 interface HsModRelation {
@@ -126,7 +131,7 @@ export default function DeviceManagementPage() {
   const [devicesError, setDevicesError] = useState<string | null>(null);
 
   const [users, setUsers] = useState<UserOption[]>([]);
-  const [loadingUsers, setLoadingUsers] = useState(true);
+  const [, setLoadingUsers] = useState(true);
 
   const [hwOptions, setHwOptions] = useState<UserOption[]>([]);
   const [hsOptions, setHsOptions] = useState<UserOption[]>([]);
@@ -143,10 +148,11 @@ export default function DeviceManagementPage() {
   const [showUnassignedOnly, setShowUnassignedOnly] = useState(false);
 
   const [selectedDeviceId, setSelectedDeviceId] = useState<number | null>(null);
-  const [history, setHistory] = useState<HistoryEntry[]>([]);
+  const [movements, setMovements] = useState<DeviceMovement[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
 
-  const [assignUserId, setAssignUserId] = useState<string>('');
+  const [assignment, setAssignment] = useState<{ raumId: string; benutzerId: string }>({ raumId: '', benutzerId: '' });
+  const [assignSaving, setAssignSaving] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -207,10 +213,6 @@ export default function DeviceManagementPage() {
   const [unassignedSortDirection, setUnassignedSortDirection] = useState<'asc' | 'desc' | null>(null);
 
   // Unassign Modal mit Raumauswahl
-  const [showUnassignModal, setShowUnassignModal] = useState(false);
-  const [unassignTargetRoomId, setUnassignTargetRoomId] = useState<string>('');
-  const [roomsWithUsers, setRoomsWithUsers] = useState<Array<{id: number; name: string; users: string[]; standort: string}>>([]);
-  const [roomsWithUsersLoading, setRoomsWithUsersLoading] = useState(false);
 
   // Edit Mode für Gerätedaten
   const [isEditingDevice, setIsEditingDevice] = useState(false);
@@ -322,7 +324,6 @@ export default function DeviceManagementPage() {
     fetchModels();
     fetchHsModRelations();
     fetchRooms();
-    fetchRoomsWithUsers();
   }, []);
 
   const fetchCurrentUser = async () => {
@@ -433,20 +434,6 @@ export default function DeviceManagementPage() {
     }
   };
 
-  const fetchRoomsWithUsers = async () => {
-    setRoomsWithUsersLoading(true);
-    try {
-      const res = await fetch('/api/rooms/with-users');
-      if (!res.ok) throw new Error('Fehler beim Laden der Räume');
-      const data = await res.json();
-      setRoomsWithUsers(data.rooms || []);
-    } catch (err) {
-      console.error('Fehler beim Laden der Räume:', err);
-    } finally {
-      setRoomsWithUsersLoading(false);
-    }
-  };
-
   useEffect(() => {
     if (selectedDeviceId != null) {
       fetchHistory(selectedDeviceId);
@@ -459,8 +446,13 @@ export default function DeviceManagementPage() {
       }
       const current = devices.find((d) => d.id === selectedDeviceId);
       setRoomSelectValue(current?.raumId?.toString() || '');
+      setAssignment({
+        raumId: current?.raumId ? String(current.raumId) : '',
+        benutzerId: current?.currentUserId ? String(current.currentUserId) : '',
+      });
     } else {
-      setHistory([]);
+      setMovements([]);
+      setAssignment({ raumId: '', benutzerId: '' });
       setDeviceAccessories([]);
       setAccessoryOptions([]);
       setDeviceProtocols([]);
@@ -594,6 +586,7 @@ export default function DeviceManagementPage() {
       const options: UserOption[] = (json.data as any[]).map((row) => ({
         id: row.BenutzerID,
         name: row.BenutzerName || `Benutzer ${row.BenutzerID}`,
+        roomId: row.RaumID ?? null,
       }));
       setUsers(options.sort((a, b) => a.name.localeCompare(b.name, 'de')));
     } catch {
@@ -657,70 +650,70 @@ export default function DeviceManagementPage() {
       setHistoryLoading(true);
       const res = await fetch(`/api/devices/${deviceId}/history`);
       if (!res.ok) throw new Error('Fehler beim Laden des Verlaufs');
-      const data: HistoryEntry[] = await res.json();
-      setHistory(data);
+      const data: { entries?: unknown[]; movements?: DeviceMovement[] } = await res.json();
+      setMovements(data.movements ?? []);
     } catch {
-      setHistory([]);
+      setMovements([]);
     } finally {
       setHistoryLoading(false);
     }
   };
 
-  const handleAssign = async () => {
-    if (!selectedDeviceId) return;
-    const userIdNum = Number(assignUserId);
-    if (!userIdNum || Number.isNaN(userIdNum)) {
-      setActionError('Bitte einen gültigen Benutzer auswählen');
-      return;
-    }
-    setActionError(null);
+  const assignmentDevice = devices.find((d) => d.id === selectedDeviceId) ?? null;
 
+  const assignmentChanged =
+    !!assignmentDevice &&
+    (assignment.raumId !== String(assignmentDevice.raumId ?? '') ||
+      assignment.benutzerId !== String(assignmentDevice.currentUserId ?? ''));
+
+  // Raum+Benutzer gemeinsam speichern (mit Bewegungshistorie, analog Büroinventar)
+  const saveAssignment = async (next: { raumId: string; benutzerId: string }) => {
+    if (!selectedDeviceId) return;
+    setAssignSaving(true);
+    setActionError(null);
     try {
-      const res = await fetch(`/api/devices/${selectedDeviceId}/assign`, {
-        method: 'POST',
+      const res = await fetch(`/api/devices/${selectedDeviceId}/assignment`, {
+        method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ benutzerId: userIdNum }),
+        body: JSON.stringify({
+          raumId: next.raumId ? Number(next.raumId) : null,
+          benutzerId: next.benutzerId ? Number(next.benutzerId) : null,
+        }),
       });
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || 'Fehler beim Zuweisen');
+        throw new Error(data.error || 'Fehler beim Speichern der Zuordnung');
       }
       await fetchDevices();
       await fetchHistory(selectedDeviceId);
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : 'Fehler beim Zuweisen');
+      setActionError(err instanceof Error ? err.message : 'Fehler beim Speichern der Zuordnung');
+    } finally {
+      setAssignSaving(false);
     }
   };
 
-  const handleUnassignClick = () => {
-    if (!selectedDeviceId) return;
-    // Modal öffnen und Raum des aktuellen Benutzers vorauswählen
-    const currentUserRoom = currentUser ? roomsWithUsers.find(r => r.users.includes(currentUser.name))?.id : null;
-    setUnassignTargetRoomId(currentUserRoom ? String(currentUserRoom) : '');
-    setShowUnassignModal(true);
+  const MOVEMENT_TYPES: Record<string, string> = {
+    ZUWEISUNG: 'Zuweisung',
+    RUECKGABE: 'Rückgabe',
+    STANDORTWECHSEL: 'Standortwechsel',
+    ABGANG: 'Abgeschrieben',
   };
 
-  const handleUnassignConfirm = async () => {
-    if (!selectedDeviceId || !unassignTargetRoomId) return;
-    setActionError(null);
+  const roomName = (id: number) => roomOptions.find((r) => r.id === id)?.name ?? `Raum ${id}`;
+  const userName = (id: number) => users.find((u) => u.id === id)?.name ?? `Benutzer ${id}`;
 
-    try {
-      const res = await fetch(`/api/devices/${selectedDeviceId}/unassign`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ targetRoomId: Number(unassignTargetRoomId) }),
-      });
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || 'Fehler beim Entfernen der Zuordnung');
-      }
-      await fetchDevices();
-      await fetchHistory(selectedDeviceId);
-      setShowUnassignModal(false);
-      setUnassignTargetRoomId('');
-    } catch (err) {
-      setActionError(err instanceof Error ? err.message : 'Fehler beim Entfernen der Zuordnung');
+  const describeMovement = (m: DeviceMovement) => {
+    const lines: string[] = [];
+    if (m.vonBenutzerId !== m.nachBenutzerId) {
+      lines.push(
+        `Benutzer: ${m.vonBenutzerId ? m.vonBenutzerName || userName(m.vonBenutzerId) : '—'} → ${m.nachBenutzerId ? m.nachBenutzerName || userName(m.nachBenutzerId) : '—'}`
+      );
     }
+    if (m.vonRaumId !== m.nachRaumId) {
+      lines.push(`Raum: ${m.vonRaumId ? roomName(m.vonRaumId) : '—'} → ${m.nachRaumId ? roomName(m.nachRaumId) : '—'}`);
+    }
+    return lines;
   };
 
   const handleRetireClick = () => {
@@ -2301,32 +2294,36 @@ export default function DeviceManagementPage() {
                       </div>
                     )}
 
-                    {!isEditingDevice && !loadingUsers && canEditDevices && (
-                      <div className="mb-3 text-xs space-y-2">
-                        <label className="block text-xs font-medium text-gray-700">Benutzer zuweisen</label>
-                        <SearchableSelect
-                          options={users.map(u => ({ value: u.id, label: `${u.name} (ID ${u.id})` }))}
-                          value={assignUserId}
-                          onChange={(value) => setAssignUserId(value)}
-                          placeholder="-- Benutzer wählen --"
-                          searchPlaceholder="Benutzer suchen..."
-                          className="text-xs"
+                    {!isEditingDevice && canEditDevices && !selectedDevice?.abgang && (
+                      <div className="mb-3 rounded-lg border border-gray-200 bg-gray-50/60 p-3 space-y-2">
+                        <div className="text-xs font-medium text-gray-700">Zuordnung ändern</div>
+                        <RoomUserSelects
+                          rooms={roomOptions}
+                          users={users}
+                          raumId={assignment.raumId}
+                          benutzerId={assignment.benutzerId}
+                          onChange={setAssignment}
+                          labelClass="block text-[11px] font-medium text-gray-600 mb-1"
                         />
-                        <div className="flex gap-2">
+                        <div className="flex gap-2 pt-1">
                           <button
                             type="button"
-                            onClick={handleAssign}
-                            className="flex-1 px-3 py-1.5 rounded-lg bg-primary text-white text-xs hover:bg-primary-dark"
+                            onClick={() => saveAssignment(assignment)}
+                            disabled={assignSaving || !assignmentChanged}
+                            className="flex-1 px-3 py-1.5 rounded-lg text-xs bg-primary text-white hover:bg-primary-dark disabled:opacity-50 disabled:cursor-not-allowed"
                           >
-                            Zuweisen
+                            {assignSaving ? 'Speichert...' : 'Zuordnung speichern'}
                           </button>
-                          <button
-                            type="button"
-                            onClick={handleUnassignClick}
-                            className="flex-1 px-3 py-1.5 rounded-lg border border-gray-300 text-gray-700 text-xs hover:bg-gray-50"
-                          >
-                            Zuordnung entfernen
-                          </button>
+                          {selectedDevice?.currentUserId != null && (
+                            <button
+                              type="button"
+                              onClick={() => saveAssignment({ raumId: assignment.raumId, benutzerId: '' })}
+                              disabled={assignSaving}
+                              className="flex-1 px-3 py-1.5 rounded-lg text-xs border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              Benutzer entfernen
+                            </button>
+                          )}
                         </div>
                       </div>
                     )}
@@ -2483,29 +2480,26 @@ export default function DeviceManagementPage() {
                     <div className="flex-1 flex items-center justify-center">
                       <RefreshCw className="w-5 h-5 text-primary-dark animate-spin" />
                     </div>
-                  ) : history.length === 0 ? (
-                    <p className="text-xs text-gray-500">Für dieses Gerät sind noch keine Zuordnungen vorhanden.</p>
+                  ) : movements.length === 0 ? (
+                    <p className="text-xs text-gray-500">Für dieses Gerät sind noch keine Ereignisse vorhanden.</p>
                   ) : (
-                    <ul className="space-y-2 text-xs text-gray-700 overflow-y-auto max-h-72 pr-1">
-                      {history.map((entry) => (
-                        <li
-                          key={entry.id}
-                          className="rounded-lg border border-gray-200 px-3 py-2 bg-gray-50/60"
-                        >
-                          <div className="font-medium text-gray-900 mb-0.5">
-                            {entry.benutzerName || `Benutzer ${entry.benutzerId}`}
+                    <ol className="relative border-l border-gray-200 ml-1.5 space-y-2 max-h-72 overflow-y-auto pr-1">
+                      {movements.map((mv) => (
+                        <li key={mv.id} className="ml-3">
+                          <span className={`absolute -left-[5px] mt-1.5 h-2.5 w-2.5 rounded-full border-2 border-white ${mv.typ === 'ABGANG' ? 'bg-gray-500' : 'bg-primary'}`} />
+                          <div className="flex items-baseline justify-between gap-2 text-xs">
+                            <span className="font-medium text-gray-900">{MOVEMENT_TYPES[mv.typ] ?? mv.typ}</span>
+                            <span className="text-[11px] text-gray-500 shrink-0">
+                              {new Date(mv.zeitpunkt).toLocaleString('de-DE', { dateStyle: 'short', timeStyle: 'short' })}
+                            </span>
                           </div>
-                          <div className="text-[11px] text-gray-600">
-                            <span className="mr-1">von</span>
-                            {new Date(entry.start).toLocaleDateString('de-DE')}
-                            <span className="mx-1">bis</span>
-                            {entry.ende
-                              ? new Date(entry.ende).toLocaleDateString('de-DE')
-                              : 'heute'}
-                          </div>
+                          {describeMovement(mv).map((line) => (
+                            <div key={line} className="text-[11px] text-gray-600 break-words">{line}</div>
+                          ))}
+                          {mv.bemerkung && <div className="text-[11px] text-gray-500 break-words">{mv.bemerkung}</div>}
                         </li>
                       ))}
-                    </ul>
+                    </ol>
                   )
                 ) : (
                   <p className="text-xs text-gray-500">Wähle links ein Gerät, um den Verlauf zu sehen.</p>
@@ -2948,37 +2942,39 @@ export default function DeviceManagementPage() {
                 )}
               </div>
 
-              {/* Benutzer zuweisen */}
-              {!isEditingDevice && !loadingUsers && canEditDevices && (
+              {/* Zuordnung ändern (Raum/Benutzer wie Büroinventar) */}
+              {!isEditingDevice && canEditDevices && !selectedDevice?.abgang && (
                 <div className="p-4 border-b border-gray-100">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Benutzer zuweisen</label>
-                  <select
-                    value={assignUserId}
-                    onChange={(e) => setAssignUserId(e.target.value)}
-                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                  >
-                    <option value="">-- Benutzer wählen --</option>
-                    {users.map((u) => (
-                      <option key={u.id} value={u.id}>
-                        {u.name} (ID {u.id})
-                      </option>
-                    ))}
-                  </select>
-                  <div className="flex gap-2 mt-2">
+                  <div className="rounded-lg border border-gray-200 bg-gray-50/60 p-3 space-y-2">
+                  <div className="text-xs font-medium text-gray-700">Zuordnung ändern</div>
+                  <RoomUserSelects
+                    rooms={roomOptions}
+                    users={users}
+                    raumId={assignment.raumId}
+                    benutzerId={assignment.benutzerId}
+                    onChange={setAssignment}
+                    labelClass="block text-[11px] font-medium text-gray-600 mb-1"
+                  />
+                  <div className="flex gap-2 pt-1">
                     <button
                       type="button"
-                      onClick={handleAssign}
-                      className="flex-1 px-4 py-2.5 rounded-lg bg-primary text-white text-sm font-medium hover:bg-primary-dark active:bg-primary-dark"
+                      onClick={() => saveAssignment(assignment)}
+                      disabled={assignSaving || !assignmentChanged}
+                      className="flex-1 px-4 py-2 rounded-lg text-sm font-medium bg-primary text-white hover:bg-primary-dark disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      Zuweisen
+                      {assignSaving ? 'Speichert...' : 'Zuordnung speichern'}
                     </button>
-                    <button
-                      type="button"
-                      onClick={handleUnassignClick}
-                      className="flex-1 px-4 py-2.5 rounded-lg border border-gray-300 text-gray-700 text-sm font-medium hover:bg-gray-50 active:bg-gray-100"
-                    >
-                      Entfernen
-                    </button>
+                    {selectedDevice?.currentUserId != null && (
+                      <button
+                        type="button"
+                        onClick={() => saveAssignment({ raumId: assignment.raumId, benutzerId: '' })}
+                        disabled={assignSaving}
+                        className="flex-1 px-4 py-2 rounded-lg text-sm font-medium border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        Benutzer entfernen
+                      </button>
+                    )}
+                  </div>
                   </div>
                 </div>
               )}
@@ -3098,25 +3094,27 @@ export default function DeviceManagementPage() {
                   <div className="flex items-center justify-center py-4">
                     <RefreshCw className="w-5 h-5 text-primary-dark animate-spin" />
                   </div>
-                ) : history.length === 0 ? (
-                  <p className="text-sm text-gray-500">Keine Zuordnungen vorhanden.</p>
-                ) : (
-                  <ul className="space-y-2">
-                    {history.map((entry) => (
-                      <li
-                        key={entry.id}
-                        className="rounded-lg border border-gray-200 px-3 py-2 bg-gray-50"
-                      >
-                        <div className="font-medium text-sm text-gray-900">
-                          {entry.benutzerName || `Benutzer ${entry.benutzerId}`}
-                        </div>
-                        <div className="text-xs text-gray-600">
-                          {new Date(entry.start).toLocaleDateString('de-DE')} – {entry.ende ? new Date(entry.ende).toLocaleDateString('de-DE') : 'heute'}
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-                )}
+) : movements.length === 0 ? (
+                    <p className="text-sm text-gray-500">Keine Ereignisse vorhanden.</p>
+                  ) : (
+                    <ol className="relative border-l border-gray-200 ml-1.5 space-y-2 max-h-72 overflow-y-auto pr-1">
+                      {movements.map((mv) => (
+                        <li key={mv.id} className="ml-3">
+                          <span className={`absolute -left-[5px] mt-1.5 h-2.5 w-2.5 rounded-full border-2 border-white ${mv.typ === 'ABGANG' ? 'bg-gray-500' : 'bg-primary'}`} />
+                          <div className="flex items-baseline justify-between gap-2 text-xs">
+                            <span className="font-medium text-gray-900">{MOVEMENT_TYPES[mv.typ] ?? mv.typ}</span>
+                            <span className="text-[11px] text-gray-500 shrink-0">
+                              {new Date(mv.zeitpunkt).toLocaleString('de-DE', { dateStyle: 'short', timeStyle: 'short' })}
+                            </span>
+                          </div>
+                          {describeMovement(mv).map((line) => (
+                            <div key={line} className="text-[11px] text-gray-600 break-words">{line}</div>
+                          ))}
+                          {mv.bemerkung && <div className="text-[11px] text-gray-500 break-words">{mv.bemerkung}</div>}
+                        </li>
+                      ))}
+                    </ol>
+                  )}
               </div>
 
               {/* Protokolle */}
@@ -3354,89 +3352,6 @@ export default function DeviceManagementPage() {
         </div>
       )}
 
-      {/* Unassign Modal mit Raumauswahl */}
-      {showUnassignModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-xl max-w-md w-full">
-            <div className="p-6 border-b border-gray-200">
-              <h3 className="text-lg font-semibold text-gray-900">Gerät zurückgeben</h3>
-              <p className="text-sm text-gray-600 mt-1">
-                Wählen Sie den Ziel-Raum für das Gerät aus
-              </p>
-            </div>
-
-            <div className="p-6">
-              {selectedDevice && (
-                <div className="mb-4 p-3 bg-gray-50 rounded-lg">
-                  <div className="text-xs text-gray-600">Gerät</div>
-                  <div className="font-medium text-gray-900">{selectedDevice.inventarCode}</div>
-                  <div className="text-sm text-gray-600">
-                    {[selectedDevice.hwName, selectedDevice.hsName, selectedDevice.modelName]
-                      .filter(Boolean)
-                      .join(' · ')}
-                  </div>
-                  {selectedDevice.currentUserName && (
-                    <div className="text-xs text-gray-600 mt-1">
-                      Aktuell bei: <span className="font-medium">{selectedDevice.currentUserName}</span>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Ziel-Raum <span className="text-red-500">*</span>
-                </label>
-                <select
-                  value={unassignTargetRoomId}
-                  onChange={(e) => setUnassignTargetRoomId(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
-                  disabled={roomsWithUsersLoading}
-                >
-                  <option value="">-- Raum auswählen --</option>
-                  {roomsWithUsers.map((room) => (
-                    <option key={room.id} value={room.id}>
-                      🏢 {room.name}{room.standort ? ` (${room.standort})` : ''}
-                      {room.users.length > 0 ? ` - ${room.users.join(', ')}` : ' - (-)'}
-                    </option>
-                  ))}
-                </select>
-                <p className="text-xs text-gray-500 mt-1">
-                  Das Gerät wird in den ausgewählten Raum zurückgelegt
-                </p>
-              </div>
-
-              {actionError && (
-                <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
-                  <p className="text-sm text-red-700">{actionError}</p>
-                </div>
-              )}
-            </div>
-
-            <div className="p-6 border-t border-gray-200 flex items-center justify-end gap-3">
-              <button
-                type="button"
-                onClick={() => {
-                  setShowUnassignModal(false);
-                  setUnassignTargetRoomId('');
-                  setActionError(null);
-                }}
-                className="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 text-sm font-medium hover:bg-gray-50"
-              >
-                Abbrechen
-              </button>
-              <button
-                type="button"
-                onClick={handleUnassignConfirm}
-                disabled={!unassignTargetRoomId}
-                className="px-4 py-2 rounded-lg bg-primary text-white text-sm font-medium hover:bg-primary-dark disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Zurückgeben
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

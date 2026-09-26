@@ -6,7 +6,7 @@ import { ensureOfficeMasterData } from '@/lib/officeMasterData';
 
 // Einzelnes Büroinventar abrufen
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const auth = await requireApiUser(req, AvailablePermissions.DEVICES_VIEW);
+  const auth = await requireApiUser(req, AvailablePermissions.OFFICE_INVENTORY_VIEW);
   if (!auth.authorized) {
     return NextResponse.json({ error: auth.message }, { status: auth.status });
   }
@@ -46,7 +46,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
 // Büroinventar aktualisieren (mit automatischer Hersteller/Modell-Anlage)
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const auth = await requireApiUser(req, AvailablePermissions.DEVICES_EDIT);
+  const auth = await requireApiUser(req, AvailablePermissions.OFFICE_INVENTORY_EDIT);
   if (!auth.authorized) {
     return NextResponse.json({ error: auth.message }, { status: auth.status });
   }

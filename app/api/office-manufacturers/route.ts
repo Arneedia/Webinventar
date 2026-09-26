@@ -6,7 +6,7 @@ import { bereichWhere } from '@/lib/masterDataBereich';
 
 // Hersteller abrufen (aus HS-Tabelle + unique Liste aus BueroInventar)
 export async function GET(req: NextRequest) {
-  const auth = await requireApiUser(req, AvailablePermissions.DEVICES_VIEW);
+  const auth = await requireApiUser(req, AvailablePermissions.OFFICE_INVENTORY_VIEW);
   if (!auth.authorized) {
     return NextResponse.json({ error: auth.message }, { status: auth.status });
   }

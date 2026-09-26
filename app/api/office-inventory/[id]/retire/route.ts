@@ -5,7 +5,7 @@ import { AvailablePermissions } from '@/lib/permissionGroups';
 
 // Büroinventar abschreiben: Abgang setzen, Zuordnung beenden, Bewegung protokollieren
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const auth = await requireApiUser(req, AvailablePermissions.DEVICES_DELETE);
+  const auth = await requireApiUser(req, AvailablePermissions.OFFICE_INVENTORY_DELETE);
   if (!auth.authorized) {
     return NextResponse.json({ error: auth.message }, { status: auth.status });
   }

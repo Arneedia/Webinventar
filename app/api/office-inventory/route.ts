@@ -5,7 +5,7 @@ import { AvailablePermissions } from '@/lib/permissionGroups';
 
 // Liste aller Büroinventar-Einträge
 export async function GET(req: NextRequest) {
-  const auth = await requireApiUser(req, AvailablePermissions.DEVICES_VIEW);
+  const auth = await requireApiUser(req, AvailablePermissions.OFFICE_INVENTORY_VIEW);
   if (!auth.authorized) {
     return NextResponse.json({ error: auth.message }, { status: auth.status });
   }
@@ -68,7 +68,7 @@ export async function GET(req: NextRequest) {
 
 // Neues Büroinventar erstellen
 export async function POST(req: NextRequest) {
-  const auth = await requireApiUser(req, AvailablePermissions.DEVICES_EDIT);
+  const auth = await requireApiUser(req, AvailablePermissions.OFFICE_INVENTORY_CREATE);
   if (!auth.authorized) {
     return NextResponse.json({ error: auth.message }, { status: auth.status });
   }

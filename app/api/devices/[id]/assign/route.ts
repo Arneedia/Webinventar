@@ -28,31 +28,38 @@ export async function POST(req: NextRequest, context: RouteContext) {
 
     const now = new Date();
 
-    // Bestehende offene Zuordnung(en) beenden
-    await prisma.benutzerGER.updateMany({
-      where: {
-        GERID: deviceId,
-        Ende: null,
-      },
-      data: {
-        Ende: now,
-      },
-    });
-
-    // Gerät erhält keinen eigenen Standard-Raum mehr sobald ein Benutzer zugewiesen ist
-    await prisma.gER.update({
+    const device = await prisma.gER.findUnique({
       where: { GerID: deviceId },
-      data: { StandardRaumID: null },
+      include: { BenutzerGER: { where: { Ende: null } } },
     });
+    if (!device) {
+      return NextResponse.json({ error: 'Gerät nicht gefunden' }, { status: 404 });
+    }
+    const prevBenutzerId = device.BenutzerGER[0]?.BenutzerID ?? null;
 
-    // Neue Zuordnung erstellen
     try {
-      await prisma.benutzerGER.create({
-        data: {
-          BenutzerID: benutzerId,
-          GERID: deviceId,
-          Start: now,
-        },
+      await prisma.$transaction(async (tx) => {
+        // Bestehende offene Zuordnung(en) beenden
+        await tx.benutzerGER.updateMany({
+          where: { GERID: deviceId, Ende: null },
+          data: { Ende: now },
+        });
+        // Neue Zuordnung erstellen
+        await tx.benutzerGER.create({
+          data: { BenutzerID: benutzerId, GERID: deviceId, Start: now },
+        });
+        // Bewegung protokollieren (Raum bleibt beim Gerät, analog Büroinventar)
+        await tx.gerBewegung.create({
+          data: {
+            GerID: deviceId,
+            Typ: 'ZUWEISUNG',
+            VonBenutzerID: prevBenutzerId,
+            NachBenutzerID: benutzerId,
+            VonRaumID: device.StandardRaumID,
+            NachRaumID: device.StandardRaumID,
+            Bemerkung: 'Zuordnung geändert',
+          },
+        });
       });
     } catch (err: unknown) {
       // Häufiger Fall bei nicht synchronisierter Sequence (P2002 auf ID)

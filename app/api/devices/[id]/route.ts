@@ -63,10 +63,28 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
       }
     }
 
+    // Raumänderung über das Bearbeiten-Formular ebenfalls als Bewegung protokollieren
+    const roomChanged = StandardRaumID !== undefined;
+    const oldDevice = roomChanged
+      ? await prisma.gER.findUnique({ where: { GerID: deviceId }, select: { StandardRaumID: true } })
+      : null;
+
     const updatedDevice = await prisma.gER.update({
       where: { GerID: deviceId },
       data: updateData,
     });
+
+    if (oldDevice && oldDevice.StandardRaumID !== updateData.StandardRaumID) {
+      await prisma.gerBewegung.create({
+        data: {
+          GerID: deviceId,
+          Typ: 'STANDORTWECHSEL',
+          VonRaumID: oldDevice.StandardRaumID,
+          NachRaumID: updateData.StandardRaumID,
+          Bemerkung: 'Raum geändert',
+        },
+      });
+    }
 
     return NextResponse.json({ success: true, device: updatedDevice });
   } catch (error) {

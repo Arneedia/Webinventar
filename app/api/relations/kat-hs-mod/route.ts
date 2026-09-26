@@ -1,13 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prismaClient';
-import { requireApiUser } from '@/lib/auth';
+import { requireApiUser, userHasAnyPermission } from '@/lib/auth';
 import { AvailablePermissions } from '@/lib/permissionGroups';
 
 // Kategorie ↔ Hersteller-Modell Zuordnungen (Büroinventar) abrufen
 export async function GET(req: NextRequest) {
-  const auth = await requireApiUser(req, AvailablePermissions.MASTER_DATA_VIEW);
+  const auth = await requireApiUser(req);
   if (!auth.authorized) {
     return NextResponse.json({ error: auth.message }, { status: auth.status });
+  }
+  if (!userHasAnyPermission(auth.user, [AvailablePermissions.MASTER_DATA_VIEW, AvailablePermissions.OFFICE_INVENTORY_VIEW, AvailablePermissions.RELATIONS_VIEW, AvailablePermissions.RELATIONS_DEVICES_VIEW, AvailablePermissions.RELATIONS_OFFICE_VIEW])) {
+    return NextResponse.json({ error: 'Keine Berechtigung für diese Aktion' }, { status: 403 });
   }
 
   try {
@@ -34,9 +37,12 @@ export async function GET(req: NextRequest) {
 
 // Eine Kategorie mit einem oder mehreren Hersteller-Modell-Paaren verknüpfen
 export async function POST(req: NextRequest) {
-  const auth = await requireApiUser(req, AvailablePermissions.MASTER_DATA_EDIT);
+  const auth = await requireApiUser(req);
   if (!auth.authorized) {
     return NextResponse.json({ error: auth.message }, { status: auth.status });
+  }
+  if (!userHasAnyPermission(auth.user, [AvailablePermissions.MASTER_DATA_EDIT, AvailablePermissions.RELATIONS_EDIT, AvailablePermissions.RELATIONS_OFFICE_EDIT])) {
+    return NextResponse.json({ error: 'Keine Berechtigung' }, { status: 403 });
   }
 
   try {

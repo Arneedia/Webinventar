@@ -14,6 +14,7 @@ interface HsModRelation {
   modName: string | null;
   modellNummer: string | null;
   hwName: string | null;
+  kategorien: { ID: number; name: string }[];
 }
 
 interface AccessoryRelation {
@@ -43,10 +44,6 @@ interface KatHsModRelation {
   KategorieID: number;
   HSID: number;
   ModID: number;
-  kategorieName: string;
-  hsName: string | null;
-  modName: string | null;
-  modellNummer: string | null;
 }
 
 interface CategoryRow {
@@ -58,15 +55,14 @@ interface CategoryRow {
 
 type BueroType = 'hersteller' | 'modell';
 
-type TabKey = 'HS_MOD' | 'ZB_USER' | 'HS_BUERO' | 'MOD_BUERO' | 'KAT_HS_MOD' | 'KAT';
+type TabKey = 'HS_MOD' | 'ZB_USER' | 'HS_BUERO' | 'MOD_BUERO' | 'KAT';
 
-const katKey = (row: { KategorieID: number; HSID: number; ModID: number }) => `${row.KategorieID}-${row.HSID}-${row.ModID}`;
 
 const tabs: { key: TabKey; label: string; description: string }[] = [
   {
     key: 'HS_MOD',
     label: 'Hersteller → Modell',
-    description: 'Verknüpft Hersteller und Modelle für die Geräteverwaltung (inkl. optionalem Hardware-Typ) oder das Büroinventar.',
+    description: 'Verknüpft Hersteller und Modelle – mit optionalem Hardware-Typ (Geräteverwaltung) oder Büro-Kategorien (Büroinventar). Im Büroinventar werden nach Wahl einer verknüpften Kategorie nur die passenden Hersteller und Modelle angeboten.',
   },
   {
     key: 'ZB_USER',
@@ -82,11 +78,6 @@ const tabs: { key: TabKey; label: string; description: string }[] = [
     key: 'MOD_BUERO',
     label: 'Modelle',
     description: 'Modelle anlegen, umbenennen und löschen. Der Bereich legt fest, ob das Modell in der Geräteverwaltung, im Büroinventar oder in beiden auswählbar ist. Umbenennungen werden in bestehende Büroinventar-Einträge übernommen.',
-  },
-  {
-    key: 'KAT_HS_MOD',
-    label: 'Kategorie → Hersteller/Modell',
-    description: 'Verknüpft Büroinventar-Kategorien mit Hersteller-Modell-Zuordnungen. Im Büroinventar werden nach Wahl einer verknüpften Kategorie nur noch die passenden Hersteller und Modelle angeboten.',
   },
   {
     key: 'KAT',
@@ -111,6 +102,7 @@ const createAccessoryFormDefaults = () => ({
 
 export default function RelationsManager() {
   const [activeTab, setActiveTab] = useState<TabKey>('HS_MOD');
+  const [currentUser, setCurrentUser] = useState<{ role: string; permissions: string[] } | null>(null);
   const [hsModRelations, setHsModRelations] = useState<HsModRelation[]>([]);
   const [accessoryRelations, setAccessoryRelations] = useState<AccessoryRelation[]>([]);
   const [loadingHsMod, setLoadingHsMod] = useState(true);
@@ -146,7 +138,13 @@ export default function RelationsManager() {
   const [accessoryFilterAccessory, setAccessoryFilterAccessory] = useState('');
   const [accessoryStatusFilter, setAccessoryStatusFilter] = useState<'all' | 'active' | 'returned'>('all');
 
-  const [newHsModRelation, setNewHsModRelation] = useState({ HSID: '', ModIDs: [] as (string | number)[], HWID: '', Bereich: 'GERAETE' as BereichScope });
+  const [newHsModRelation, setNewHsModRelation] = useState({
+    HSID: '',
+    ModIDs: [] as (string | number)[],
+    HWID: '',
+    KategorieID: '',
+    Bereich: 'GERAETE' as BereichScope,
+  });
   const [creatingHsMod, setCreatingHsMod] = useState(false);
   const [newBueroItem, setNewBueroItem] = useState({ name: '', nummer: '', bereich: 'BEIDE' as Bereich });
   const [creatingBueroItem, setCreatingBueroItem] = useState(false);
@@ -155,11 +153,6 @@ export default function RelationsManager() {
 
   const [katRelations, setKatRelations] = useState<KatHsModRelation[]>([]);
   const [loadingKat, setLoadingKat] = useState(true);
-  const [katFilterSearch, setKatFilterSearch] = useState('');
-  const [katFilterKategorie, setKatFilterKategorie] = useState('');
-  const [newKatRelation, setNewKatRelation] = useState({ KategorieID: '', pairKeys: [] as (string | number)[] });
-  const [creatingKat, setCreatingKat] = useState(false);
-  const [deletingKatKey, setDeletingKatKey] = useState<string | null>(null);
 
   const [categories, setCategories] = useState<CategoryRow[]>([]);
   const [loadingCategories, setLoadingCategories] = useState(true);
@@ -175,6 +168,8 @@ export default function RelationsManager() {
 
   const [editingHsModKey, setEditingHsModKey] = useState<string | null>(null);
   const [editingHwId, setEditingHwId] = useState('');
+  const [editingKatId, setEditingKatId] = useState('');
+  const [hsModFilterKat, setHsModFilterKat] = useState('');
   const [savingHsModEdit, setSavingHsModEdit] = useState(false);
   const [deletingHsModKey, setDeletingHsModKey] = useState<string | null>(null);
 
@@ -343,6 +338,13 @@ export default function RelationsManager() {
   }, []);
 
   useEffect(() => {
+    fetch('/api/auth/me')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => setCurrentUser(data?.user ?? null))
+      .catch(() => setCurrentUser(null));
+  }, []);
+
+  useEffect(() => {
     loadHsModRelations();
     loadAccessoryRelations();
     loadOptions();
@@ -350,6 +352,37 @@ export default function RelationsManager() {
     loadKatRelations();
     loadCategories();
   }, [loadHsModRelations, loadAccessoryRelations, loadOptions, loadBueroMasterData, loadKatRelations, loadCategories]);
+
+  const isAdmin = currentUser?.role === 'ADMIN';
+  const perms = currentUser?.permissions ?? [];
+  // permissions sind bereits expandiert (relations:edit enthält beide Bereichs-Edits)
+  const canDevRel = isAdmin || perms.includes('master_data:edit') || perms.includes('relations_devices:edit');
+  const canOffRel = isAdmin || perms.includes('master_data:edit') || perms.includes('relations_office:edit');
+  const canAccessoryRel = canDevRel || perms.includes('accessories:edit');
+
+  const visibleTabs = tabs.filter((t) => {
+    if (t.key === 'ZB_USER') return canAccessoryRel;
+    if (t.key === 'KAT') return canOffRel;
+    return canDevRel || canOffRel; // HS_MOD + Hersteller/Modelle: geteilte Daten, beide Bereiche
+  });
+
+  useEffect(() => {
+    if (currentUser && visibleTabs.length > 0 && !visibleTabs.some((t) => t.key === activeTab)) {
+      setActiveTab(visibleTabs[0].key);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentUser]);
+
+  // Bereich im Anlege-Formular an die eigene Berechtigung anpassen
+  useEffect(() => {
+    if (!currentUser) return;
+    setNewHsModRelation((prev) => {
+      if (!canDevRel && canOffRel && prev.Bereich === 'GERAETE') return { ...prev, Bereich: 'BUERO', HWID: '' };
+      if (!canOffRel && canDevRel && prev.Bereich === 'BUERO') return { ...prev, Bereich: 'GERAETE', KategorieID: '' };
+      return prev;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentUser]);
 
   const resetFeedback = () => {
     setError(null);
@@ -370,7 +403,7 @@ export default function RelationsManager() {
     event.preventDefault();
     resetFeedback();
 
-    const { HSID, ModIDs, HWID, Bereich } = newHsModRelation;
+    const { HSID, ModIDs, HWID, KategorieID, Bereich } = newHsModRelation;
     if (!HSID || ModIDs.length === 0) {
       setError('Bitte Hersteller und mindestens ein Modell auswählen.');
       return;
@@ -385,7 +418,12 @@ export default function RelationsManager() {
         const res = await fetch('/api/relations/hs-mod', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ HSID, ModID: String(modId), HWID: Bereich === 'GERAETE' ? HWID : '' }),
+          body: JSON.stringify({
+            HSID,
+            ModID: String(modId),
+            HWID: Bereich === 'GERAETE' ? HWID : '',
+            kategorieIds: Bereich === 'BUERO' && KategorieID ? [KategorieID] : [],
+          }),
         });
         const data = await res.json();
         if (!res.ok) {
@@ -401,13 +439,13 @@ export default function RelationsManager() {
 
     if (created > 0) {
       setSuccess(`${created} Zuordnung${created > 1 ? 'en' : ''} erstellt`);
-      setNewHsModRelation((prev) => ({ HSID: '', ModIDs: [], HWID: '', Bereich: prev.Bereich }));
+      setNewHsModRelation((prev) => ({ HSID: '', ModIDs: [], HWID: '', KategorieID: '', Bereich: prev.Bereich }));
     }
     if (errors.length > 0) {
       setError(errors.join(' | '));
     }
 
-    await loadHsModRelations();
+    await Promise.all([loadHsModRelations(), loadKatRelations()]);
     setCreatingHsMod(false);
   };
 
@@ -439,12 +477,14 @@ export default function RelationsManager() {
   const startHsModEdit = (row: HsModRelation) => {
     setEditingHsModKey(`${row.HSID}-${row.ModID}`);
     setEditingHwId(row.HWID?.toString() ?? '');
+    setEditingKatId(row.kategorien?.[0]?.ID.toString() ?? '');
     resetFeedback();
   };
 
   const cancelHsModEdit = () => {
     setEditingHsModKey(null);
     setEditingHwId('');
+    setEditingKatId('');
   };
 
   const handleSaveHsModEdit = async (row: HsModRelation) => {
@@ -456,7 +496,7 @@ export default function RelationsManager() {
       const res = await fetch(`/api/relations/hs-mod/${row.HSID}/${row.ModID}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ HWID: editingHwId }),
+        body: JSON.stringify({ HWID: editingHwId, kategorieIds: editingKatId ? [Number(editingKatId)] : [] }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -464,7 +504,7 @@ export default function RelationsManager() {
       }
       setSuccess('Zuordnung aktualisiert');
       cancelHsModEdit();
-      await loadHsModRelations();
+      await Promise.all([loadHsModRelations(), loadKatRelations()]);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unbekannter Fehler beim Aktualisieren');
     } finally {
@@ -489,7 +529,7 @@ export default function RelationsManager() {
       if (editingHsModKey === `${row.HSID}-${row.ModID}`) {
         cancelHsModEdit();
       }
-      await loadHsModRelations();
+      await Promise.all([loadHsModRelations(), loadKatRelations()]);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unbekannter Fehler beim Löschen');
     } finally {
@@ -560,6 +600,9 @@ export default function RelationsManager() {
 
   const filteredHsModRelations = useMemo(() => {
     return hsModRelations.filter((relation) => {
+      // Bereichsfilter nach Berechtigung: nur Zuordnungen des eigenen Bereichs anzeigen
+      if (!canDevRel && relation.HWID !== null) return false;
+      if (!canOffRel && (relation.kategorien ?? []).length > 0) return false;
       if (hsModFilterHw) {
         if (hsModFilterHw === 'none') {
           if (relation.HWID !== null) return false;
@@ -572,6 +615,14 @@ export default function RelationsManager() {
         return false;
       }
 
+      if (hsModFilterKat) {
+        if (hsModFilterKat === 'none') {
+          if ((relation.kategorien ?? []).length > 0) return false;
+        } else if (!(relation.kategorien ?? []).some((k) => k.ID.toString() === hsModFilterKat)) {
+          return false;
+        }
+      }
+
       if (hsModFilterSearch) {
         const term = hsModFilterSearch.toLowerCase();
         const label = [
@@ -579,6 +630,7 @@ export default function RelationsManager() {
           relation.modName,
           relation.modellNummer,
           relation.hwName,
+          ...(relation.kategorien ?? []).map((k) => k.name),
           relation.HSID?.toString(),
           relation.ModID?.toString(),
         ]
@@ -592,7 +644,7 @@ export default function RelationsManager() {
 
       return true;
     });
-  }, [hsModRelations, hsModFilterSearch, hsModFilterHw, hsModFilterHs]);
+  }, [hsModRelations, hsModFilterSearch, hsModFilterHw, hsModFilterHs, hsModFilterKat, canDevRel, canOffRel]);
 
   const filteredAccessoryRelations = useMemo(() => {
     return accessoryRelations.filter((relation) => {
@@ -654,9 +706,25 @@ export default function RelationsManager() {
       if (bueroUsageFilter === 'used' && !used) return false;
       if (bueroUsageFilter === 'unused' && used) return false;
       if (bueroBereichFilter && row.bereich !== bueroBereichFilter) return false;
+      // Bereichsfilter nach Berechtigung
+      if (!canDevRel && row.bereich === 'GERAETE') return false;
+      if (!canOffRel && row.bereich === 'BUERO') return false;
       return true;
     });
-  }, [bueroRows, bueroSearch, bueroUsageFilter, bueroBereichFilter, bueroUsage, bueroType]);
+  }, [bueroRows, bueroSearch, bueroUsageFilter, bueroBereichFilter, bueroUsage, bueroType, canDevRel, canOffRel]);
+
+  const filteredCategories = useMemo(() => {
+    const term = categorySearch.trim().toLowerCase();
+    return categories.filter(
+      (cat) => !term || [cat.Name, cat.Beschreibung, String(cat.ID)].some((v) => v?.toLowerCase().includes(term))
+    );
+  }, [categories, categorySearch]);
+
+  const katRelationCount = useMemo(() => {
+    const counts: Record<number, number> = {};
+    for (const r of katRelations) counts[r.KategorieID] = (counts[r.KategorieID] ?? 0) + 1;
+    return counts;
+  }, [katRelations]);
 
   const hsModScopedHsOptions = useMemo(
     () => hsOptions.filter((opt) => matchesBereich(opt.bereich, newHsModRelation.Bereich)),
@@ -743,6 +811,82 @@ export default function RelationsManager() {
     }
   };
 
+  const handleCreateCategory = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    resetFeedback();
+    if (!newCategory.name.trim()) {
+      setError('Bitte einen Namen angeben.');
+      return;
+    }
+    setCreatingCategory(true);
+    try {
+      const res = await fetch('/api/office-categories', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newCategory),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Kategorie konnte nicht angelegt werden');
+      setSuccess(`Kategorie „${newCategory.name.trim()}“ angelegt`);
+      setNewCategory({ name: '', beschreibung: '' });
+      await loadCategories();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unbekannter Fehler beim Anlegen');
+    } finally {
+      setCreatingCategory(false);
+    }
+  };
+
+  const startCategoryEdit = (row: CategoryRow) => {
+    setCategoryEditId(row.ID);
+    setCategoryEditForm({ name: row.Name, beschreibung: row.Beschreibung ?? '' });
+    resetFeedback();
+  };
+
+  const cancelCategoryEdit = () => {
+    setCategoryEditId(null);
+    setCategoryEditForm({ name: '', beschreibung: '' });
+  };
+
+  const handleSaveCategoryEdit = async (row: CategoryRow) => {
+    resetFeedback();
+    setSavingCategoryEdit(true);
+    try {
+      const res = await fetch(`/api/office-categories/${row.ID}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(categoryEditForm),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Kategorie konnte nicht gespeichert werden');
+      setSuccess('Kategorie gespeichert');
+      cancelCategoryEdit();
+      await loadCategories();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unbekannter Fehler beim Speichern');
+    } finally {
+      setSavingCategoryEdit(false);
+    }
+  };
+
+  const handleDeleteCategory = async (row: CategoryRow) => {
+    if (!window.confirm(`Kategorie „${row.Name}“ wirklich löschen?`)) return;
+    resetFeedback();
+    setDeletingCategoryId(row.ID);
+    try {
+      const res = await fetch(`/api/office-categories/${row.ID}`, { method: 'DELETE' });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Kategorie konnte nicht gelöscht werden');
+      setSuccess(`Kategorie „${row.Name}“ gelöscht`);
+      if (categoryEditId === row.ID) cancelCategoryEdit();
+      await Promise.all([loadCategories(), loadKatRelations()]);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unbekannter Fehler beim Löschen');
+    } finally {
+      setDeletingCategoryId(null);
+    }
+  };
+
   const editingHsModRow = useMemo(() => {
     if (!editingHsModKey) return null;
     return hsModRelations.find((r) => `${r.HSID}-${r.ModID}` === editingHsModKey) ?? null;
@@ -763,12 +907,19 @@ export default function RelationsManager() {
         loading: loadingBuero,
       };
     }
+    if (activeTab === 'KAT') {
+      return {
+        total: categories.length,
+        filtered: filteredCategories.length,
+        loading: loadingCategories,
+      };
+    }
     return {
       total: accessoryRelations.length,
       filtered: filteredAccessoryRelations.length,
       loading: loadingAccessory,
     };
-  }, [activeTab, hsModRelations.length, filteredHsModRelations.length, loadingHsMod, accessoryRelations.length, filteredAccessoryRelations.length, loadingAccessory, bueroRows.length, filteredBueroRows.length, loadingBuero]);
+  }, [activeTab, hsModRelations.length, filteredHsModRelations.length, loadingHsMod, accessoryRelations.length, filteredAccessoryRelations.length, loadingAccessory, bueroRows.length, filteredBueroRows.length, loadingBuero, categories.length, filteredCategories.length, loadingCategories]);
 
   const renderFilterBar = () => {
     if (activeTab === 'HS_MOD') {
@@ -777,7 +928,7 @@ export default function RelationsManager() {
           <div className="flex-1 flex flex-col sm:flex-row gap-2">
             <input
               type="text"
-              placeholder="Suchen (Hersteller, Modell, HW)"
+              placeholder="Suchen (Hersteller, Modell, HW, Kategorie)"
               value={hsModFilterSearch}
               onChange={(e) => setHsModFilterSearch(e.target.value)}
               className="w-full sm:flex-1 px-3 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
@@ -796,25 +947,43 @@ export default function RelationsManager() {
             </select>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
-            <select
-              value={hsModFilterHw}
-              onChange={(e) => setHsModFilterHw(e.target.value)}
-              className="px-3 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
-            >
-              <option value="">Alle Hardware-Typen</option>
-              <option value="none">Ohne Hardwarezuordnung</option>
-              {hwOptions.map((opt) => (
-                <option key={opt.id} value={opt.id}>
-                  {opt.name}
-                </option>
-              ))}
-            </select>
+            {canDevRel && (
+              <select
+                value={hsModFilterHw}
+                onChange={(e) => setHsModFilterHw(e.target.value)}
+                className="px-3 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+              >
+                <option value="">Alle Hardware-Typen</option>
+                <option value="none">Ohne Hardwarezuordnung</option>
+                {hwOptions.map((opt) => (
+                  <option key={opt.id} value={opt.id}>
+                    {opt.name}
+                  </option>
+                ))}
+              </select>
+            )}
+            {canOffRel && (
+              <select
+                value={hsModFilterKat}
+                onChange={(e) => setHsModFilterKat(e.target.value)}
+                className="px-3 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+              >
+                <option value="">Alle Büro-Kategorien</option>
+                <option value="none">Ohne Kategorie</option>
+                {categories.map((cat) => (
+                  <option key={cat.ID} value={cat.ID}>
+                    {cat.Name}
+                  </option>
+                ))}
+              </select>
+            )}
             <button
               type="button"
               onClick={() => {
                 setHsModFilterSearch('');
                 setHsModFilterHs('');
                 setHsModFilterHw('');
+                setHsModFilterKat('');
               }}
               className="inline-flex items-center gap-1 px-3 py-1.5 border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50"
             >
@@ -866,6 +1035,31 @@ export default function RelationsManager() {
                 setBueroUsageFilter('all');
                 setBueroBereichFilter('');
               }}
+              className="inline-flex items-center gap-1 px-3 py-1.5 border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50"
+            >
+              Filter zurücksetzen
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    if (activeTab === 'KAT') {
+      return (
+        <div className="bg-white rounded-xl border border-gray-200 p-3 flex flex-col sm:flex-row gap-3 text-xs">
+          <div className="flex-1 flex flex-col sm:flex-row gap-2">
+            <input
+              type="text"
+              placeholder="Suchen (Kategorie, Beschreibung, ID)"
+              value={categorySearch}
+              onChange={(e) => setCategorySearch(e.target.value)}
+              className="w-full sm:flex-1 px-3 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+            />
+          </div>
+          <div className="flex items-center gap-2 flex-wrap">
+            <button
+              type="button"
+              onClick={() => setCategorySearch('')}
               className="inline-flex items-center gap-1 px-3 py-1.5 border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50"
             >
               Filter zurücksetzen
@@ -947,12 +1141,12 @@ export default function RelationsManager() {
               <select
                 value={newHsModRelation.Bereich}
                 onChange={(e) =>
-                  setNewHsModRelation({ HSID: '', ModIDs: [], HWID: '', Bereich: e.target.value as BereichScope })
+                  setNewHsModRelation({ HSID: '', ModIDs: [], HWID: '', KategorieID: '', Bereich: e.target.value as BereichScope })
                 }
                 className="rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-primary focus:outline-none"
               >
-                <option value="GERAETE">{BEREICH_LABELS.GERAETE}</option>
-                <option value="BUERO">{BEREICH_LABELS.BUERO}</option>
+                {canDevRel && <option value="GERAETE">{BEREICH_LABELS.GERAETE}</option>}
+                {canOffRel && <option value="BUERO">{BEREICH_LABELS.BUERO}</option>}
               </select>
               <span className="text-xs text-gray-400">Es werden nur Hersteller und Modelle dieses Bereichs angeboten.</span>
             </label>
@@ -981,16 +1175,30 @@ export default function RelationsManager() {
             />
           </div>
 
-          {newHsModRelation.Bereich === 'GERAETE' && (
+          {newHsModRelation.Bereich === 'GERAETE' ? (
             <label className="flex flex-col gap-1 text-sm">
-              <span className="text-gray-600">Hardware-Typ (optional)</span>
+              <span className="text-gray-600">Hardware-Typ (optional){!canDevRel && ' – keine Berechtigung'}</span>
               <SearchableSelect
+                disabled={!canDevRel}
                 options={hwOptions.map(opt => ({ value: opt.id, label: opt.name }))}
                 value={newHsModRelation.HWID}
                 onChange={(value) => setNewHsModRelation((prev) => ({ ...prev, HWID: value }))}
                 placeholder="— kein Hardware-Typ —"
                 searchPlaceholder="Hardware-Typ suchen..."
               />
+            </label>
+          ) : (
+            <label className="flex flex-col gap-1 text-sm">
+              <span className="text-gray-600">Büro-Kategorie (optional){!canOffRel && ' – keine Berechtigung'}</span>
+              <SearchableSelect
+                disabled={!canOffRel}
+                options={categories.map((cat) => ({ value: cat.ID, label: cat.Name }))}
+                value={newHsModRelation.KategorieID}
+                onChange={(value) => setNewHsModRelation((prev) => ({ ...prev, KategorieID: value }))}
+                placeholder="— keine Kategorie —"
+                searchPlaceholder="Kategorie suchen..."
+              />
+              <span className="text-xs text-gray-400">Schränkt die Auswahl im Büroinventar nach Kategorie ein.</span>
             </label>
           )}
 
@@ -1066,6 +1274,46 @@ export default function RelationsManager() {
       );
     }
 
+    if (activeTab === 'KAT') {
+      return (
+        <form className="grid gap-4 md:grid-cols-2" onSubmit={handleCreateCategory}>
+          <label className="flex flex-col gap-1 text-sm">
+            <span className="text-gray-600">Name *</span>
+            <input
+              type="text"
+              required
+              autoFocus
+              value={newCategory.name}
+              onChange={(e) => setNewCategory((prev) => ({ ...prev, name: e.target.value }))}
+              placeholder="z.B. Mobiliar"
+              className="w-full rounded-lg border border-gray-200 px-3 py-1.5 text-sm focus:border-gray-500 focus:outline-none"
+            />
+          </label>
+          <label className="flex flex-col gap-1 text-sm">
+            <span className="text-gray-600">Beschreibung (optional)</span>
+            <input
+              type="text"
+              value={newCategory.beschreibung}
+              onChange={(e) => setNewCategory((prev) => ({ ...prev, beschreibung: e.target.value }))}
+              className="w-full rounded-lg border border-gray-200 px-3 py-1.5 text-sm focus:border-gray-500 focus:outline-none"
+            />
+          </label>
+          <div className="md:col-span-2 flex items-center justify-end gap-3">
+            {error && <p className="text-sm text-red-600">{error}</p>}
+            {success && <p className="text-sm text-emerald-600">{success}</p>}
+            <button
+              type="submit"
+              disabled={creatingCategory}
+              className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary-dark disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <Plus className="h-4 w-4" />
+              {creatingCategory ? 'Speichert…' : 'Kategorie anlegen'}
+            </button>
+          </div>
+        </form>
+      );
+    }
+
     return (
       <form className="grid gap-4 md:grid-cols-2" onSubmit={handleCreateAccessory}>
         <label className="flex flex-col gap-1 text-sm">
@@ -1130,6 +1378,234 @@ export default function RelationsManager() {
   };
 
   const renderTable = () => {
+    if (activeTab === 'KAT') {
+      if (loadingCategories) {
+        return (
+          <div className="flex items-center justify-center py-8 text-gray-500">
+            <RefreshCw className="h-5 w-5 animate-spin" />
+          </div>
+        );
+      }
+      if (filteredCategories.length === 0) {
+        return (
+          <div className="rounded-lg border border-dashed border-gray-200 p-6 text-center text-sm text-gray-500">
+            Keine Kategorien vorhanden.
+          </div>
+        );
+      }
+      const inputClass =
+        'w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm focus:border-gray-500 focus:outline-none';
+      return (
+        <>
+          {/* Desktop: Tabelle */}
+          <div className="hidden md:block overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-100 text-sm">
+            <thead>
+              <tr className="bg-gray-50 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+                <th className="px-4 py-3">Name</th>
+                <th className="px-4 py-3">Beschreibung</th>
+                <th className="px-4 py-3">Verwendung</th>
+                <th className="px-4 py-3 text-right">Aktionen</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {filteredCategories.map((row) => {
+                const isEditing = categoryEditId === row.ID;
+                const isDeleting = deletingCategoryId === row.ID;
+                const itemCount = row._count?.Inventar ?? 0;
+                const relationCount = katRelationCount[row.ID] ?? 0;
+                return (
+                  <tr key={row.ID} className="hover:bg-gray-50">
+                    <td className="px-4 py-3">
+                      {isEditing ? (
+                        <input
+                          type="text"
+                          value={categoryEditForm.name}
+                          onChange={(e) => setCategoryEditForm((prev) => ({ ...prev, name: e.target.value }))}
+                          className={inputClass}
+                          autoFocus
+                        />
+                      ) : (
+                        <>
+                          <div className="text-gray-900 font-medium">{row.Name}</div>
+                          <div className="text-xs text-gray-500">ID {row.ID}</div>
+                        </>
+                      )}
+                    </td>
+                    <td className="px-4 py-3">
+                      {isEditing ? (
+                        <input
+                          type="text"
+                          value={categoryEditForm.beschreibung}
+                          onChange={(e) => setCategoryEditForm((prev) => ({ ...prev, beschreibung: e.target.value }))}
+                          className={inputClass}
+                        />
+                      ) : (
+                        <div className="text-gray-900">{row.Beschreibung || '—'}</div>
+                      )}
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex flex-wrap gap-1.5 text-xs">
+                        <span
+                          className={`inline-flex items-center rounded-full px-2 py-0.5 font-medium ${
+                            itemCount ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-500'
+                          }`}
+                        >
+                          {itemCount} Inventar
+                        </span>
+                        <span
+                          className={`inline-flex items-center rounded-full px-2 py-0.5 font-medium ${
+                            relationCount ? 'bg-sky-50 text-sky-700' : 'bg-gray-100 text-gray-500'
+                          }`}
+                        >
+                          {relationCount} Zuordnung{relationCount === 1 ? '' : 'en'}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      {isEditing ? (
+                        <div className="flex flex-wrap justify-end gap-2 text-xs">
+                          <button
+                            type="button"
+                            onClick={() => handleSaveCategoryEdit(row)}
+                            disabled={savingCategoryEdit || !categoryEditForm.name.trim()}
+                            className="rounded-full bg-emerald-600 px-3 py-1.5 font-semibold text-white shadow-sm hover:bg-emerald-500 disabled:cursor-not-allowed disabled:bg-emerald-300"
+                          >
+                            {savingCategoryEdit ? 'Speichert…' : 'Speichern'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={cancelCategoryEdit}
+                            className="rounded-full border border-gray-200 px-3 py-1.5 font-medium text-gray-700 hover:bg-gray-50"
+                          >
+                            Abbrechen
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex flex-wrap justify-end gap-2 text-xs">
+                          <button
+                            type="button"
+                            onClick={() => startCategoryEdit(row)}
+                            className="rounded-full border border-gray-200 px-3 py-1.5 font-medium text-gray-700 hover:bg-gray-50"
+                          >
+                            Bearbeiten
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteCategory(row)}
+                            disabled={isDeleting}
+                            className="rounded-full border border-red-200 px-3 py-1.5 font-medium text-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:border-red-100 disabled:text-red-300"
+                          >
+                            {isDeleting ? 'Löscht…' : 'Löschen'}
+                          </button>
+                        </div>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+          </div>
+
+          {/* Mobile: Karten */}
+          <div className="md:hidden space-y-3">
+            {filteredCategories.map((row) => {
+              const isEditing = categoryEditId === row.ID;
+              const isDeleting = deletingCategoryId === row.ID;
+              const itemCount = row._count?.Inventar ?? 0;
+              const relationCount = katRelationCount[row.ID] ?? 0;
+              return (
+                <div key={row.ID} className="rounded-xl border border-gray-200 bg-white p-3 shadow-sm">
+                  {isEditing ? (
+                    <div className="space-y-2">
+                      <div>
+                        <div className="text-[11px] font-medium text-gray-600 mb-1">Name</div>
+                        <input
+                          type="text"
+                          value={categoryEditForm.name}
+                          onChange={(e) => setCategoryEditForm((prev) => ({ ...prev, name: e.target.value }))}
+                          className={inputClass}
+                          autoFocus
+                        />
+                      </div>
+                      <div>
+                        <div className="text-[11px] font-medium text-gray-600 mb-1">Beschreibung</div>
+                        <input
+                          type="text"
+                          value={categoryEditForm.beschreibung}
+                          onChange={(e) => setCategoryEditForm((prev) => ({ ...prev, beschreibung: e.target.value }))}
+                          className={inputClass}
+                        />
+                      </div>
+                      <div className="flex gap-2 pt-1">
+                        <button
+                          type="button"
+                          onClick={() => handleSaveCategoryEdit(row)}
+                          disabled={savingCategoryEdit || !categoryEditForm.name.trim()}
+                          className="flex-1 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-semibold text-white shadow-sm hover:bg-emerald-500 disabled:cursor-not-allowed disabled:bg-emerald-300"
+                        >
+                          {savingCategoryEdit ? 'Speichert…' : 'Speichern'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={cancelCategoryEdit}
+                          className="flex-1 rounded-lg border border-gray-200 px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                        >
+                          Abbrechen
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <div>
+                        <div className="text-sm font-semibold text-gray-900">{row.Name}</div>
+                        <div className="text-xs text-gray-500">ID {row.ID}</div>
+                      </div>
+                      <div className="text-xs text-gray-600">{row.Beschreibung || '—'}</div>
+                      <div className="flex flex-wrap gap-1.5 text-xs">
+                        <span
+                          className={`inline-flex items-center rounded-full px-2 py-0.5 font-medium ${
+                            itemCount ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-500'
+                          }`}
+                        >
+                          {itemCount} Inventar
+                        </span>
+                        <span
+                          className={`inline-flex items-center rounded-full px-2 py-0.5 font-medium ${
+                            relationCount ? 'bg-sky-50 text-sky-700' : 'bg-gray-100 text-gray-500'
+                          }`}
+                        >
+                          {relationCount} Zuordnung{relationCount === 1 ? '' : 'en'}
+                        </span>
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => startCategoryEdit(row)}
+                          className="flex-1 rounded-lg border border-gray-200 px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                        >
+                          Bearbeiten
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteCategory(row)}
+                          disabled={isDeleting}
+                          className="flex-1 rounded-lg border border-red-200 px-3 py-2 text-xs font-medium text-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:border-red-100 disabled:text-red-300"
+                        >
+                          {isDeleting ? 'Löscht…' : 'Löschen'}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </>
+      );
+    }
+
     if (activeTab === 'HS_BUERO' || activeTab === 'MOD_BUERO') {
       if (loadingBuero) {
         return (
@@ -1151,7 +1627,9 @@ export default function RelationsManager() {
         'w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm focus:border-gray-500 focus:outline-none';
 
       return (
-        <div className="overflow-x-auto">
+        <>
+          {/* Desktop: Tabelle */}
+          <div className="hidden md:block overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-100 text-sm">
             <thead>
               <tr className="bg-gray-50 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
@@ -1289,7 +1767,134 @@ export default function RelationsManager() {
               })}
             </tbody>
           </table>
-        </div>
+          </div>
+
+          {/* Mobile: Karten */}
+          <div className="md:hidden space-y-3">
+            {filteredBueroRows.map((row) => {
+              const isEditing = bueroEditId === row.id;
+              const isDeleting = deletingBueroId === row.id;
+              const itemCount = bueroItemCount(row);
+              const relationCount = bueroRelationCount(row);
+              return (
+                <div key={row.id} className="rounded-xl border border-gray-200 bg-white p-3 shadow-sm">
+                  {isEditing ? (
+                    <div className="space-y-2">
+                      <div>
+                        <div className="text-[11px] font-medium text-gray-600 mb-1">{bueroLabel}</div>
+                        <input
+                          type="text"
+                          value={bueroEditForm.name}
+                          onChange={(e) => setBueroEditForm((prev) => ({ ...prev, name: e.target.value }))}
+                          className={inputClass}
+                          autoFocus
+                        />
+                      </div>
+                      {bueroType === 'modell' && (
+                        <div>
+                          <div className="text-[11px] font-medium text-gray-600 mb-1">Modellnummer</div>
+                          <input
+                            type="text"
+                            value={bueroEditForm.nummer}
+                            onChange={(e) => setBueroEditForm((prev) => ({ ...prev, nummer: e.target.value }))}
+                            className={inputClass}
+                          />
+                        </div>
+                      )}
+                      <div>
+                        <div className="text-[11px] font-medium text-gray-600 mb-1">Bereich</div>
+                        <select
+                          value={bueroEditForm.bereich}
+                          onChange={(e) => setBueroEditForm((prev) => ({ ...prev, bereich: e.target.value as Bereich }))}
+                          className={inputClass}
+                        >
+                          {BEREICHE.map((value) => (
+                            <option key={value} value={value}>
+                              {BEREICH_LABELS[value]}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="flex gap-2 pt-1">
+                        <button
+                          type="button"
+                          onClick={() => handleSaveBueroEdit(row)}
+                          disabled={savingBueroEdit || !bueroEditForm.name.trim()}
+                          className="flex-1 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-semibold text-white shadow-sm hover:bg-emerald-500 disabled:cursor-not-allowed disabled:bg-emerald-300"
+                        >
+                          {savingBueroEdit ? 'Speichert…' : 'Speichern'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={cancelBueroEdit}
+                          className="flex-1 rounded-lg border border-gray-200 px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                        >
+                          Abbrechen
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <div className="text-sm font-semibold text-gray-900">{row.name}</div>
+                          <div className="text-xs text-gray-500">
+                            ID {row.id}
+                            {bueroType === 'modell' && row.nummer ? ` · ${row.nummer}` : ''}
+                          </div>
+                        </div>
+                        <span
+                          className={`inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+                            row.bereich === 'GERAETE'
+                              ? 'bg-indigo-50 text-indigo-700'
+                              : row.bereich === 'BUERO'
+                                ? 'bg-amber-50 text-amber-700'
+                                : 'bg-gray-100 text-gray-600'
+                          }`}
+                        >
+                          {BEREICH_LABELS[row.bereich] ?? row.bereich}
+                        </span>
+                      </div>
+                      <div className="flex flex-wrap gap-1.5 text-xs">
+                        <span
+                          className={`inline-flex items-center rounded-full px-2 py-0.5 font-medium ${
+                            itemCount ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-500'
+                          }`}
+                        >
+                          {itemCount} Büroinventar
+                        </span>
+                        <span
+                          className={`inline-flex items-center rounded-full px-2 py-0.5 font-medium ${
+                            relationCount ? 'bg-sky-50 text-sky-700' : 'bg-gray-100 text-gray-500'
+                          }`}
+                        >
+                          {relationCount} Zuordnung{relationCount === 1 ? '' : 'en'}
+                        </span>
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => startBueroEdit(row)}
+                          className="flex-1 rounded-lg border border-gray-200 px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                        >
+                          Bearbeiten
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteBuero(row)}
+                          disabled={isDeleting}
+                          className="flex-1 rounded-lg border border-red-200 px-3 py-2 text-xs font-medium text-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:border-red-100 disabled:text-red-300"
+                        >
+                          {isDeleting ? 'Löscht…' : 'Löschen'}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </>
       );
     }
 
@@ -1311,13 +1916,16 @@ export default function RelationsManager() {
       }
 
       return (
-        <div className="overflow-x-auto">
+        <>
+          {/* Desktop: Tabelle */}
+          <div className="hidden md:block overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-100 text-sm">
             <thead>
               <tr className="bg-gray-50 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
                 <th className="px-4 py-3">Hersteller</th>
                 <th className="px-4 py-3">Modell</th>
-                <th className="px-4 py-3">Hardware-Typ</th>
+                {canDevRel && <th className="px-4 py-3">Hardware-Typ</th>}
+                {canOffRel && <th className="px-4 py-3">Büro-Kategorien</th>}
                 <th className="px-4 py-3 text-right">Aktionen</th>
               </tr>
             </thead>
@@ -1336,10 +1944,12 @@ export default function RelationsManager() {
                       <div className="text-gray-900 font-medium">{[row.modName, row.modellNummer].filter(Boolean).join(' · ') || `Modell ${row.ModID}`}</div>
                       <div className="text-xs text-gray-500">ModID {row.ModID}</div>
                     </td>
+                    {canDevRel && (
                     <td className="px-4 py-3">
                       {isEditing ? (
                         <select
                           value={editingHwId}
+                          disabled={!canDevRel}
                           onChange={(e) => setEditingHwId(e.target.value)}
                           className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm focus:border-gray-500 focus:outline-none"
                         >
@@ -1351,9 +1961,39 @@ export default function RelationsManager() {
                           ))}
                         </select>
                       ) : (
-                        <div className="text-gray-900 font-medium">{row.hwName || '— kein HW-Typ verknüpft —'}</div>
+                        <div className="text-gray-900 font-medium">{row.hwName || '—'}</div>
                       )}
                     </td>
+                    )}
+                    {canOffRel && (
+                    <td className="px-4 py-3">
+                      {isEditing ? (
+                        <select
+                          value={editingKatId}
+                          disabled={!canOffRel}
+                          onChange={(e) => setEditingKatId(e.target.value)}
+                          className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm focus:border-gray-500 focus:outline-none"
+                        >
+                          <option value="">— keine Kategorie —</option>
+                          {categories.map((cat) => (
+                            <option key={cat.ID} value={cat.ID}>
+                              {cat.Name}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (row.kategorien ?? []).length ? (
+                        <div className="flex flex-wrap gap-1">
+                          {(row.kategorien ?? []).map((k) => (
+                            <span key={k.ID} className="inline-flex items-center rounded-full bg-sky-50 px-2 py-0.5 text-xs font-medium text-sky-700">
+                              {k.name}
+                            </span>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="text-gray-400">—</div>
+                      )}
+                    </td>
+                    )}
                     <td className="px-4 py-3 text-right">
                       {isEditing ? (
                         <div className="flex flex-wrap justify-end gap-2 text-xs">
@@ -1398,7 +2038,125 @@ export default function RelationsManager() {
               })}
             </tbody>
           </table>
-        </div>
+          </div>
+
+          {/* Mobile: Karten */}
+          <div className="md:hidden space-y-3">
+            {filteredHsModRelations.map((row) => {
+              const key = `${row.HSID}-${row.ModID}`;
+              const isEditing = editingHsModKey === key;
+              const isDeleting = deletingHsModKey === key;
+              return (
+                <div key={key} className="rounded-xl border border-gray-200 bg-white p-3 shadow-sm space-y-2">
+                  <div>
+                    <div className="text-[11px] text-gray-500">Hersteller</div>
+                    <div className="text-sm font-semibold text-gray-900">{row.hsName || `Hersteller ${row.HSID}`}</div>
+                    <div className="text-xs text-gray-500">ID {row.HSID}</div>
+                  </div>
+                  <div>
+                    <div className="text-[11px] text-gray-500">Modell</div>
+                    <div className="text-sm font-medium text-gray-900">
+                      {[row.modName, row.modellNummer].filter(Boolean).join(' · ') || `Modell ${row.ModID}`}
+                    </div>
+                    <div className="text-xs text-gray-500">ModID {row.ModID}</div>
+                  </div>
+                  {canDevRel && (
+                    <div>
+                      <div className="text-[11px] text-gray-500 mb-1">Hardware-Typ</div>
+                      {isEditing ? (
+                        <select
+                          value={editingHwId}
+                          disabled={!canDevRel}
+                          onChange={(e) => setEditingHwId(e.target.value)}
+                          className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm focus:border-gray-500 focus:outline-none"
+                        >
+                          <option value="">— kein Hardware-Typ —</option>
+                          {hwOptions.map((opt) => (
+                            <option key={opt.id} value={opt.id}>
+                              {opt.name}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <div className="text-sm text-gray-900">{row.hwName || '—'}</div>
+                      )}
+                    </div>
+                  )}
+                  {canOffRel && (
+                    <div>
+                      <div className="text-[11px] text-gray-500 mb-1">Büro-Kategorien</div>
+                      {isEditing ? (
+                        <select
+                          value={editingKatId}
+                          disabled={!canOffRel}
+                          onChange={(e) => setEditingKatId(e.target.value)}
+                          className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm focus:border-gray-500 focus:outline-none"
+                        >
+                          <option value="">— keine Kategorie —</option>
+                          {categories.map((cat) => (
+                            <option key={cat.ID} value={cat.ID}>
+                              {cat.Name}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (row.kategorien ?? []).length ? (
+                        <div className="flex flex-wrap gap-1">
+                          {(row.kategorien ?? []).map((k) => (
+                            <span
+                              key={k.ID}
+                              className="inline-flex items-center rounded-full bg-sky-50 px-2 py-0.5 text-xs font-medium text-sky-700"
+                            >
+                              {k.name}
+                            </span>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="text-sm text-gray-400">—</div>
+                      )}
+                    </div>
+                  )}
+                  {isEditing ? (
+                    <div className="flex gap-2 pt-1">
+                      <button
+                        type="button"
+                        onClick={() => handleSaveHsModEdit(row)}
+                        disabled={savingHsModEdit}
+                        className="flex-1 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-semibold text-white shadow-sm hover:bg-emerald-500 disabled:cursor-not-allowed disabled:bg-emerald-300"
+                      >
+                        {savingHsModEdit ? 'Speichert…' : 'Speichern'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={cancelHsModEdit}
+                        className="flex-1 rounded-lg border border-gray-200 px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                      >
+                        Abbrechen
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => startHsModEdit(row)}
+                        className="flex-1 rounded-lg border border-gray-200 px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                      >
+                        Bearbeiten
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteHsMod(row)}
+                        disabled={isDeleting}
+                        className="flex-1 rounded-lg border border-red-200 px-3 py-2 text-xs font-medium text-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:border-red-100 disabled:text-red-300"
+                      >
+                        {isDeleting ? 'Löscht…' : 'Löschen'}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </>
       );
     }
 
@@ -1419,7 +2177,9 @@ export default function RelationsManager() {
     }
 
     return (
-      <div className="overflow-x-auto">
+      <>
+        {/* Desktop: Tabelle */}
+        <div className="hidden md:block overflow-x-auto">
         <table className="min-w-full divide-y divide-gray-100 text-sm">
           <thead>
             <tr className="bg-gray-50 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
@@ -1517,28 +2277,128 @@ export default function RelationsManager() {
             })}
           </tbody>
         </table>
-      </div>
+        </div>
+
+        {/* Mobile: Karten */}
+        <div className="md:hidden space-y-3">
+          {filteredAccessoryRelations.map((row) => {
+            const isEditing = editingAccessoryId === row.ID;
+            const isDeleting = deletingAccessoryId === row.ID;
+            const active = !row.Ende;
+            return (
+              <div key={row.ID} className="rounded-xl border border-gray-200 bg-white p-3 shadow-sm space-y-2">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="text-sm font-semibold text-gray-900">{row.userName || `Benutzer ${row.BenutzerID}`}</div>
+                    <div className="text-xs text-gray-500">{row.accessoryName || `Zubehör ${row.ZubehoerID}`}</div>
+                  </div>
+                  <span
+                    className={`inline-flex shrink-0 items-center rounded-full px-3 py-0.5 text-[11px] font-medium ${
+                      active ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-600'
+                    }`}
+                  >
+                    {active ? 'Aktiv' : 'Zurückgegeben'}
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div>
+                    <div className="text-gray-500">Start</div>
+                    <div className="font-medium text-gray-900">{formatDate(row.Start)}</div>
+                  </div>
+                  <div>
+                    <div className="text-gray-500">Ende</div>
+                    {isEditing ? (
+                      <input
+                        type="date"
+                        value={editingAccessoryEnd}
+                        onChange={(e) => setEditingAccessoryEnd(e.target.value)}
+                        className="w-full rounded-lg border border-gray-200 px-3 py-1.5 text-sm focus:border-gray-500 focus:outline-none"
+                      />
+                    ) : (
+                      <div className="font-medium text-gray-900">{formatDate(row.Ende)}</div>
+                    )}
+                  </div>
+                </div>
+                {isEditing ? (
+                  <div className="flex gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => setEditingAccessoryEnd(new Date().toISOString().split('T')[0])}
+                      className="rounded-lg border border-primary/30 px-3 py-2 text-xs font-medium text-primary-dark hover:bg-primary/10"
+                    >
+                      Heute
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleSaveAccessoryEdit(row)}
+                      disabled={savingAccessoryEdit}
+                      className="flex-1 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-semibold text-white shadow-sm hover:bg-emerald-500 disabled:cursor-not-allowed disabled:bg-emerald-300"
+                    >
+                      {savingAccessoryEdit ? 'Speichert…' : 'Speichern'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={cancelAccessoryEdit}
+                      className="flex-1 rounded-lg border border-gray-200 px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                    >
+                      Abbrechen
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => startAccessoryEdit(row)}
+                      className="flex-1 rounded-lg border border-gray-200 px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                    >
+                      Rückgabe bearbeiten
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteAccessory(row)}
+                      disabled={isDeleting}
+                      className="flex-1 rounded-lg border border-red-200 px-3 py-2 text-xs font-medium text-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:border-red-100 disabled:text-red-300"
+                    >
+                      {isDeleting ? 'Löscht…' : 'Löschen'}
+                    </button>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </>
     );
   };
 
   const handleRefresh = () => {
     if (activeTab === 'HS_MOD') {
       loadHsModRelations();
+      loadKatRelations();
     } else if (activeTab === 'HS_BUERO' || activeTab === 'MOD_BUERO') {
       loadBueroMasterData();
       loadHsModRelations();
+    } else if (activeTab === 'KAT') {
+      loadCategories();
+      loadKatRelations();
     } else {
       loadAccessoryRelations();
     }
   };
 
   const isBueroTab = activeTab === 'HS_BUERO' || activeTab === 'MOD_BUERO';
-  const createLabel = isBueroTab ? (bueroType === 'modell' ? 'Neues Modell anlegen' : 'Neuen Hersteller anlegen') : 'Neue Zuordnung anlegen';
+  const inlineFeedbackTab = isBueroTab || activeTab === 'KAT' || activeTab === 'HS_MOD';
+  const createLabel =
+    activeTab === 'KAT'
+      ? 'Neue Kategorie anlegen'
+      : isBueroTab
+        ? (bueroType === 'modell' ? 'Neues Modell anlegen' : 'Neuen Hersteller anlegen')
+        : 'Neue Zuordnung anlegen';
 
   return (
     <div className="space-y-8">
       <div className="bg-white rounded-xl border border-gray-200 p-3 flex flex-wrap gap-2 text-sm">
-        {tabs.map((tab) => (
+        {visibleTabs.map((tab) => (
           <button
             key={tab.key}
             type="button"
@@ -1572,13 +2432,13 @@ export default function RelationsManager() {
         </div>
       </div>
 
-      <section className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm space-y-4">
+      <section className="rounded-xl border border-gray-200 bg-white p-4 sm:p-6 shadow-sm space-y-4">
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div>
             <h2 className="text-lg font-semibold text-gray-900">
-              {tabs.find((t) => t.key === activeTab)?.label}
+              {visibleTabs.find((t) => t.key === activeTab)?.label}
             </h2>
-            <p className="text-sm text-gray-500">{tabs.find((t) => t.key === activeTab)?.description}</p>
+            <p className="text-sm text-gray-500">{visibleTabs.find((t) => t.key === activeTab)?.description}</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <button
@@ -1601,14 +2461,14 @@ export default function RelationsManager() {
         {renderFilterBar()}
       </section>
 
-      <section className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm space-y-4">
+      <section className="rounded-xl border border-gray-200 bg-white p-4 sm:p-6 shadow-sm space-y-4">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold text-gray-900">
-            {isBueroTab ? (bueroType === 'modell' ? 'Bestehende Modelle' : 'Bestehende Hersteller') : 'Bestehende Zuordnungen'}
+            {activeTab === 'KAT' ? 'Bestehende Kategorien' : isBueroTab ? (bueroType === 'modell' ? 'Bestehende Modelle' : 'Bestehende Hersteller') : 'Bestehende Zuordnungen'}
           </h2>
           <span className="text-xs text-gray-500">{currentStats.filtered} Einträge sichtbar</span>
         </div>
-        {isBueroTab && !isCreateModalOpen && (error || success) && (
+        {inlineFeedbackTab && !isCreateModalOpen && (error || success) && (
           <p className={`text-sm ${error ? 'text-red-600' : 'text-emerald-600'}`}>{error || success}</p>
         )}
         {renderTable()}
@@ -1632,9 +2492,11 @@ export default function RelationsManager() {
               <div className="min-w-0">
                 <h2 className="text-lg font-semibold text-gray-900">{createLabel}</h2>
                 <p className="text-sm text-gray-500">
-                  {isBueroTab
-                    ? `${bueroType === 'modell' ? 'Das Modell' : 'Der Hersteller'} steht danach sofort im Büroinventar zur Auswahl.`
-                    : 'Die Zuordnung wird nach dem Speichern direkt in der Liste sichtbar.'}
+                  {activeTab === 'KAT'
+                    ? 'Die Kategorie steht danach sofort im Büroinventar zur Auswahl.'
+                    : isBueroTab
+                      ? `${bueroType === 'modell' ? 'Das Modell' : 'Der Hersteller'} steht danach sofort im Büroinventar zur Auswahl.`
+                      : 'Die Zuordnung wird nach dem Speichern direkt in der Liste sichtbar.'}
                 </p>
               </div>
               <button

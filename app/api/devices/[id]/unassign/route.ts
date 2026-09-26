@@ -28,22 +28,42 @@ export async function POST(req: NextRequest, context: RouteContext) {
     }
 
     const now = new Date();
+    const roomId = Number(targetRoomId);
 
-    // Offene Zuordnung(en) beenden
-    await prisma.benutzerGER.updateMany({
-      where: {
-        GERID: deviceId,
-        Ende: null,
-      },
-      data: {
-        Ende: now,
-      },
-    });
-
-    // StandardRaumID setzen
-    await prisma.gER.update({
+    const device = await prisma.gER.findUnique({
       where: { GerID: deviceId },
-      data: { StandardRaumID: Number(targetRoomId) },
+      include: { BenutzerGER: { where: { Ende: null } } },
+    });
+    if (!device) {
+      return NextResponse.json({ error: 'Gerät nicht gefunden' }, { status: 404 });
+    }
+    const prevBenutzerId = device.BenutzerGER[0]?.BenutzerID ?? null;
+
+    await prisma.$transaction(async (tx) => {
+      // Offene Zuordnung(en) beenden
+      await tx.benutzerGER.updateMany({
+        where: { GERID: deviceId, Ende: null },
+        data: { Ende: now },
+      });
+
+      // StandardRaumID setzen
+      await tx.gER.update({
+        where: { GerID: deviceId },
+        data: { StandardRaumID: roomId },
+      });
+
+      // Bewegung protokollieren
+      await tx.gerBewegung.create({
+        data: {
+          GerID: deviceId,
+          Typ: 'RUECKGABE',
+          VonBenutzerID: prevBenutzerId,
+          NachBenutzerID: null,
+          VonRaumID: device.StandardRaumID,
+          NachRaumID: roomId,
+          Bemerkung: 'Zuordnung geändert',
+        },
+      });
     });
 
     return NextResponse.json({ success: true });

@@ -8,6 +8,12 @@ export const AvailablePermissions = {
   DEVICES_EDIT: 'devices:edit',
   DEVICES_DELETE: 'devices:delete',
   
+  // Büroinventar
+  OFFICE_INVENTORY_VIEW: 'office_inventory:view',
+  OFFICE_INVENTORY_CREATE: 'office_inventory:create',
+  OFFICE_INVENTORY_EDIT: 'office_inventory:edit',
+  OFFICE_INVENTORY_DELETE: 'office_inventory:delete',
+
   // Benutzer (Inventar-Benutzer)
   INVENTORY_USERS_VIEW: 'inventory_users:view',
   INVENTORY_USERS_CREATE: 'inventory_users:create',
@@ -20,6 +26,18 @@ export const AvailablePermissions = {
   ACCESSORIES_EDIT: 'accessories:edit',
   ACCESSORIES_DELETE: 'accessories:delete',
   
+  // Zuordnungen (Admin → Zuordnungen)
+  RELATIONS_VIEW: 'relations:view',
+  RELATIONS_EDIT: 'relations:edit',
+  // Zuordnungen getrennt nach Bereich
+  RELATIONS_DEVICES_VIEW: 'relations_devices:view',
+  RELATIONS_DEVICES_EDIT: 'relations_devices:edit',
+  RELATIONS_OFFICE_VIEW: 'relations_office:view',
+  RELATIONS_OFFICE_EDIT: 'relations_office:edit',
+
+  // Inventur-Modus
+  INVENTUR_MANAGE: 'inventur:manage',
+
   // Stammdaten
   MASTER_DATA_VIEW: 'master_data:view',
   MASTER_DATA_EDIT: 'master_data:edit',
@@ -53,6 +71,15 @@ export const PermissionCategories = [
     ],
   },
   {
+    name: 'Büroinventar',
+    permissions: [
+      { key: AvailablePermissions.OFFICE_INVENTORY_VIEW, label: 'Büroinventar anzeigen' },
+      { key: AvailablePermissions.OFFICE_INVENTORY_CREATE, label: 'Büroinventar erstellen' },
+      { key: AvailablePermissions.OFFICE_INVENTORY_EDIT, label: 'Büroinventar bearbeiten' },
+      { key: AvailablePermissions.OFFICE_INVENTORY_DELETE, label: 'Büroinventar löschen/Abgang' },
+    ],
+  },
+  {
     name: 'Inventar-Benutzer',
     permissions: [
       { key: AvailablePermissions.INVENTORY_USERS_VIEW, label: 'Benutzer anzeigen' },
@@ -68,6 +95,33 @@ export const PermissionCategories = [
       { key: AvailablePermissions.ACCESSORIES_CREATE, label: 'Zubehör erstellen' },
       { key: AvailablePermissions.ACCESSORIES_EDIT, label: 'Zubehör bearbeiten' },
       { key: AvailablePermissions.ACCESSORIES_DELETE, label: 'Zubehör löschen' },
+    ],
+  },
+  {
+    name: 'Zuordnungen (alle)',
+    permissions: [
+      { key: AvailablePermissions.RELATIONS_VIEW, label: 'Zuordnungen anzeigen (alle Bereiche)' },
+      { key: AvailablePermissions.RELATIONS_EDIT, label: 'Zuordnungen bearbeiten (alle Bereiche)' },
+    ],
+  },
+  {
+    name: 'Zuordnungen (Geräte)',
+    permissions: [
+      { key: AvailablePermissions.RELATIONS_DEVICES_VIEW, label: 'Geräte-Zuordnungen anzeigen' },
+      { key: AvailablePermissions.RELATIONS_DEVICES_EDIT, label: 'Geräte-Zuordnungen bearbeiten' },
+    ],
+  },
+  {
+    name: 'Zuordnungen (Büroinventar)',
+    permissions: [
+      { key: AvailablePermissions.RELATIONS_OFFICE_VIEW, label: 'Büro-Zuordnungen anzeigen' },
+      { key: AvailablePermissions.RELATIONS_OFFICE_EDIT, label: 'Büro-Zuordnungen bearbeiten' },
+    ],
+  },
+  {
+    name: 'Inventur',
+    permissions: [
+      { key: AvailablePermissions.INVENTUR_MANAGE, label: 'Inventur-Modus verwenden' },
     ],
   },
   {
@@ -166,6 +220,15 @@ const PermissionImplications: Record<string, string[]> = {
   [AvailablePermissions.ACCESSORIES_CREATE]: [AvailablePermissions.ACCESSORIES_VIEW],
   [AvailablePermissions.ACCESSORIES_DELETE]: [AvailablePermissions.ACCESSORIES_VIEW],
   
+  // Büroinventar bearbeiten → kann auch erstellen, löschen und anzeigen
+  [AvailablePermissions.OFFICE_INVENTORY_EDIT]: [
+    AvailablePermissions.OFFICE_INVENTORY_CREATE,
+    AvailablePermissions.OFFICE_INVENTORY_DELETE,
+    AvailablePermissions.OFFICE_INVENTORY_VIEW,
+  ],
+  [AvailablePermissions.OFFICE_INVENTORY_CREATE]: [AvailablePermissions.OFFICE_INVENTORY_VIEW],
+  [AvailablePermissions.OFFICE_INVENTORY_DELETE]: [AvailablePermissions.OFFICE_INVENTORY_VIEW],
+
   // Inventar-Benutzer bearbeiten → kann auch erstellen, löschen und anzeigen
   [AvailablePermissions.INVENTORY_USERS_EDIT]: [
     AvailablePermissions.INVENTORY_USERS_CREATE,
@@ -175,6 +238,22 @@ const PermissionImplications: Record<string, string[]> = {
   [AvailablePermissions.INVENTORY_USERS_CREATE]: [AvailablePermissions.INVENTORY_USERS_VIEW],
   [AvailablePermissions.INVENTORY_USERS_DELETE]: [AvailablePermissions.INVENTORY_USERS_VIEW],
   
+  // Zuordnungen bearbeiten → kann auch anzeigen
+  // Zuordnungen (Umbrella schließt beide Bereiche ein, Bereichs-Edit schließt eigenes View ein)
+  [AvailablePermissions.RELATIONS_EDIT]: [
+    AvailablePermissions.RELATIONS_VIEW,
+    AvailablePermissions.RELATIONS_DEVICES_EDIT,
+    AvailablePermissions.RELATIONS_DEVICES_VIEW,
+    AvailablePermissions.RELATIONS_OFFICE_EDIT,
+    AvailablePermissions.RELATIONS_OFFICE_VIEW,
+  ],
+  [AvailablePermissions.RELATIONS_VIEW]: [
+    AvailablePermissions.RELATIONS_DEVICES_VIEW,
+    AvailablePermissions.RELATIONS_OFFICE_VIEW,
+  ],
+  [AvailablePermissions.RELATIONS_DEVICES_EDIT]: [AvailablePermissions.RELATIONS_DEVICES_VIEW],
+  [AvailablePermissions.RELATIONS_OFFICE_EDIT]: [AvailablePermissions.RELATIONS_OFFICE_VIEW],
+
   // Stammdaten bearbeiten → kann auch anzeigen
   [AvailablePermissions.MASTER_DATA_EDIT]: [AvailablePermissions.MASTER_DATA_VIEW],
   

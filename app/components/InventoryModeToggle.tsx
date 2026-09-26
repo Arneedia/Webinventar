@@ -4,7 +4,9 @@ import { useInventoryMode } from '@/app/contexts/InventoryModeContext';
 import { ClipboardCheck, Power } from 'lucide-react';
 
 export default function InventoryModeToggle() {
-  const { isActive, toggleMode, scannedCount, totalCount } = useInventoryMode();
+  const { isActive, toggleMode, scannedCount, totalCount, canUseInventur } = useInventoryMode();
+
+  if (!canUseInventur) return null;
 
   return (
     <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">

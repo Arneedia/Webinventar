@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation';
-import { getCurrentUser, Roles, userHasPermission } from '@/lib/auth';
+import { getCurrentUser, Roles, userHasAnyPermission } from '@/lib/auth';
 import RelationsManager from './RelationsManager';
 import { AvailablePermissions } from '@/lib/permissionGroups';
 
@@ -12,7 +12,10 @@ export default async function RelationsPage() {
     redirect('/login?redirectTo=/admin/relations');
   }
 
-  if (currentUser.role !== Roles.ADMIN && !userHasPermission(currentUser, AvailablePermissions.MASTER_DATA_EDIT)) {
+  if (
+    currentUser.role !== Roles.ADMIN &&
+    !userHasAnyPermission(currentUser, [AvailablePermissions.MASTER_DATA_EDIT, AvailablePermissions.RELATIONS_EDIT, AvailablePermissions.RELATIONS_DEVICES_EDIT, AvailablePermissions.RELATIONS_OFFICE_EDIT])
+  ) {
     redirect('/');
   }
 

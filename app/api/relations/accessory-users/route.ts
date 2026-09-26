@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prismaClient";
-import { requireApiUser } from "@/lib/auth";
+import { requireApiUser, userHasAnyPermission } from "@/lib/auth";
 import { AvailablePermissions } from "@/lib/permissionGroups";
 
 function serializeRelation(record: any) {
@@ -26,9 +26,12 @@ function buildDeviceLabel(device: { GerID: number; SNO: string | null }): string
 }
 
 export async function GET(req: NextRequest) {
-  const auth = await requireApiUser(req, AvailablePermissions.ACCESSORIES_VIEW);
+  const auth = await requireApiUser(req);
   if (!auth.authorized) {
     return NextResponse.json({ error: auth.message }, { status: auth.status });
+  }
+  if (!userHasAnyPermission(auth.user, [AvailablePermissions.ACCESSORIES_VIEW, AvailablePermissions.RELATIONS_VIEW, AvailablePermissions.RELATIONS_DEVICES_VIEW, AvailablePermissions.RELATIONS_OFFICE_VIEW])) {
+    return NextResponse.json({ error: 'Keine Berechtigung' }, { status: 403 });
   }
 
   try {
@@ -49,9 +52,12 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const auth = await requireApiUser(req, AvailablePermissions.ACCESSORIES_CREATE);
+  const auth = await requireApiUser(req);
   if (!auth.authorized) {
     return NextResponse.json({ error: auth.message }, { status: auth.status });
+  }
+  if (!userHasAnyPermission(auth.user, [AvailablePermissions.ACCESSORIES_CREATE, AvailablePermissions.RELATIONS_EDIT, AvailablePermissions.RELATIONS_DEVICES_EDIT])) {
+    return NextResponse.json({ error: 'Keine Berechtigung' }, { status: 403 });
   }
 
   try {

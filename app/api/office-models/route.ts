@@ -6,7 +6,7 @@ import { bereichWhere } from '@/lib/masterDataBereich';
 
 // Modelle abrufen (aus MOD-Tabelle mit HS_MOD-Zuordnungen + unique Liste aus BueroInventar)
 export async function GET(req: NextRequest) {
-  const auth = await requireApiUser(req, AvailablePermissions.DEVICES_VIEW);
+  const auth = await requireApiUser(req, AvailablePermissions.OFFICE_INVENTORY_VIEW);
   if (!auth.authorized) {
     return NextResponse.json({ error: auth.message }, { status: auth.status });
   }
@@ -19,25 +19,23 @@ export async function GET(req: NextRequest) {
     const search = searchParams.get('search');
     const includeAll = searchParams.get('includeAll') === 'true';
 
-    // Wenn includeAll=true und herstellerId gegeben, hole Modelle aus MOD-Tabelle mit HS_MOD-Zuordnung
-    if (includeAll && herstellerId) {
-      const hsId = parseInt(herstellerId);
-      
-      // Hole alle Modelle, die diesem Hersteller zugeordnet sind
-      const hsModRelations = await prisma.hS_MOD.findMany({
-        where: {
-          HSID: hsId,
-          MOD: bereichWhere('BUERO'),
-        },
-        include: {
-          MOD: true,
-        },
-      });
+    // includeAll=true: alle Modelle des Büro-Bereichs aus MOD (optional auf einen Hersteller via HS_MOD eingeschränkt)
+    if (includeAll) {
+      const hsId = herstellerId ? parseInt(herstellerId) : null;
 
-      let models = hsModRelations.map((rel) => ({
-        id: rel.MOD.ModID,
-        name: rel.MOD.ModName || `Modell ${rel.MOD.ModID}`,
-        nummer: rel.MOD.ModellNummer,
+      const mods = hsId
+        ? (
+            await prisma.hS_MOD.findMany({
+              where: { HSID: hsId, MOD: bereichWhere('BUERO') },
+              include: { MOD: true },
+            })
+          ).map((rel) => rel.MOD)
+        : await prisma.mOD.findMany({ where: bereichWhere('BUERO') });
+
+      let models = mods.map((mod) => ({
+        id: mod.ModID,
+        name: mod.ModName || `Modell ${mod.ModID}`,
+        nummer: mod.ModellNummer,
       }));
 
       // Filter nach Suchbegriff

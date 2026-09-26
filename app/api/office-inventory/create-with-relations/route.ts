@@ -3,13 +3,14 @@ import { prisma } from '@/lib/prismaClient';
 import { requireApiUser } from '@/lib/auth';
 import { AvailablePermissions } from '@/lib/permissionGroups';
 import { ensureOfficeMasterData } from '@/lib/officeMasterData';
+import { generateOfficeInventarNr } from '@/lib/officeInventarNr';
 
 /**
  * Erstellt ein Büro-Inventar-Item und legt automatisch Hersteller/Modell an,
  * wenn diese noch nicht existieren. Verknüpft sie in der HS_MOD-Tabelle.
  */
 export async function POST(req: NextRequest) {
-  const auth = await requireApiUser(req, AvailablePermissions.DEVICES_EDIT);
+  const auth = await requireApiUser(req, AvailablePermissions.OFFICE_INVENTORY_CREATE);
   if (!auth.authorized) {
     return NextResponse.json({ error: auth.message }, { status: auth.status });
   }
@@ -48,7 +49,7 @@ export async function POST(req: NextRequest) {
         KategorieID: parseInt(kategorieId),
         Bezeichnung: bezeichnung,
         Beschreibung: beschreibung || null,
-        InventarNr: inventarNr || null,
+        InventarNr: inventarNr || (await generateOfficeInventarNr(parseInt(kategorieId))),
         Seriennummer: seriennummer || null,
         Hersteller: hersteller || null,
         Modell: modell || null,

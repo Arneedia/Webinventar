@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prismaClient";
-import { requireApiUser } from "@/lib/auth";
+import { requireApiUser, userHasAnyPermission } from "@/lib/auth";
 import { AvailablePermissions } from "@/lib/permissionGroups";
 
 interface RouteContext {
@@ -8,9 +8,12 @@ interface RouteContext {
 }
 
 export async function PUT(req: NextRequest, context: RouteContext) {
-  const auth = await requireApiUser(req, AvailablePermissions.ACCESSORIES_EDIT);
+  const auth = await requireApiUser(req);
   if (!auth.authorized) {
     return NextResponse.json({ error: auth.message }, { status: auth.status });
+  }
+  if (!userHasAnyPermission(auth.user, [AvailablePermissions.ACCESSORIES_EDIT, AvailablePermissions.RELATIONS_EDIT, AvailablePermissions.RELATIONS_DEVICES_EDIT])) {
+    return NextResponse.json({ error: 'Keine Berechtigung' }, { status: 403 });
   }
 
   try {
@@ -57,9 +60,12 @@ export async function PUT(req: NextRequest, context: RouteContext) {
 }
 
 export async function DELETE(req: NextRequest, context: RouteContext) {
-  const auth = await requireApiUser(req, AvailablePermissions.ACCESSORIES_DELETE);
+  const auth = await requireApiUser(req);
   if (!auth.authorized) {
     return NextResponse.json({ error: auth.message }, { status: auth.status });
+  }
+  if (!userHasAnyPermission(auth.user, [AvailablePermissions.ACCESSORIES_DELETE, AvailablePermissions.RELATIONS_EDIT, AvailablePermissions.RELATIONS_DEVICES_EDIT])) {
+    return NextResponse.json({ error: 'Keine Berechtigung' }, { status: 403 });
   }
 
   try {

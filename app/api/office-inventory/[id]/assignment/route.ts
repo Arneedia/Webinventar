@@ -11,7 +11,7 @@ const toId = (value: unknown): number | null => {
 
 // Raum- und Benutzerzuordnung eines Büroinventars ändern (mit Bewegungshistorie)
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const auth = await requireApiUser(req, AvailablePermissions.DEVICES_EDIT);
+  const auth = await requireApiUser(req, AvailablePermissions.OFFICE_INVENTORY_EDIT);
   if (!auth.authorized) {
     return NextResponse.json({ error: auth.message }, { status: auth.status });
   }

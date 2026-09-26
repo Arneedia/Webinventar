@@ -88,7 +88,7 @@ export default function DeviceDetailPage() {
   const [showStickerModal, setShowStickerModal] = useState(false);
 
   // Bearbeitungs-States
-  const [users, setUsers] = useState<{ id: number; name: string }[]>([]);
+  const [users, setUsers] = useState<{ id: number; name: string; roomId: number | null }[]>([]);
   const [accessoryOptions, setAccessoryOptions] = useState<{ id: number; label: string; stock: number }[]>([]);
   const [rooms, setRooms] = useState<{ id: number; name: string; standort: string | null }[]>([]);
   const [showAssignModal, setShowAssignModal] = useState(false);
@@ -184,6 +184,7 @@ export default function DeviceDetailPage() {
         const options = (json.data as any[]).map((row) => ({
           id: row.BenutzerID,
           name: row.BenutzerName || `Benutzer ${row.BenutzerID}`,
+          roomId: row.RaumID ?? null,
         }));
         setUsers(options);
       }
@@ -242,21 +243,27 @@ export default function DeviceDetailPage() {
     }
   };
 
-  // Benutzer zuweisen
+  // Gemeinsame Zuordnung: Raum + Benutzer mit Bewegungshistorie (analog Büroinventar)
+  const saveAssignment = async (raumId: number | null, benutzerId: number | null) => {
+    const res = await fetch(`/api/devices/${device?.id}/assignment`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ raumId, benutzerId }),
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.error || 'Fehler beim Speichern der Zuordnung');
+    }
+  };
+
+  // Benutzer zuweisen (Raum des Benutzers wird übernommen)
   const handleAssignUser = async () => {
     if (!device || !selectedUserId) return;
     setActionLoading(true);
     setActionError(null);
     try {
-      const res = await fetch(`/api/devices/${device.id}/assign`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ benutzerId: Number(selectedUserId) }),
-      });
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || 'Fehler beim Zuweisen');
-      }
+      const user = users.find((u) => u.id === Number(selectedUserId));
+      await saveAssignment(user?.roomId ?? device.raumId, Number(selectedUserId));
       await refreshDevice();
       setShowAssignModal(false);
       setSelectedUserId('');
@@ -274,13 +281,8 @@ export default function DeviceDetailPage() {
     setActionLoading(true);
     setActionError(null);
     try {
-      const res = await fetch(`/api/devices/${device.id}/unassign`, {
-        method: 'POST',
-      });
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || 'Fehler beim Entfernen der Zuweisung');
-      }
+      // Raum bleibt beim Gerät (analog Büroinventar)
+      await saveAssignment(device.raumId, null);
       await refreshDevice();
     } catch (err) {
       setActionError(err instanceof Error ? err.message : 'Unbekannter Fehler');
@@ -295,26 +297,8 @@ export default function DeviceDetailPage() {
     setActionLoading(true);
     setActionError(null);
     try {
-      // Erst alte Zuweisung beenden, dann neue erstellen
-      if (device.currentUserId) {
-        const unassignRes = await fetch(`/api/devices/${device.id}/unassign`, {
-          method: 'POST',
-        });
-        if (!unassignRes.ok) {
-          const data = await unassignRes.json();
-          throw new Error(data.error || 'Fehler beim Entfernen der alten Zuweisung');
-        }
-      }
-      // Neue Zuweisung erstellen
-      const res = await fetch(`/api/devices/${device.id}/assign`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ benutzerId: Number(selectedUserId) }),
-      });
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || 'Fehler beim Zuweisen');
-      }
+      const user = users.find((u) => u.id === Number(selectedUserId));
+      await saveAssignment(user?.roomId ?? device.raumId, Number(selectedUserId));
       await refreshDevice();
       setShowAssignModal(false);
       setSelectedUserId('');
@@ -403,15 +387,10 @@ export default function DeviceDetailPage() {
     setActionLoading(true);
     setActionError(null);
     try {
-      const res = await fetch(`/api/devices/${device.id}/room`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ raumId: selectedRoomId ? Number(selectedRoomId) : null }),
-      });
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || 'Fehler beim Ändern des Raums');
-      }
+      const newRaumId = selectedRoomId ? Number(selectedRoomId) : null;
+      const currentUserRoom = users.find((u) => u.id === device.currentUserId)?.roomId ?? null;
+      const keepUser = device.currentUserId != null && newRaumId !== null && currentUserRoom === newRaumId;
+      await saveAssignment(newRaumId, keepUser ? device.currentUserId : null);
       await refreshDevice();
       setShowRoomModal(false);
       setSelectedRoomId('');

@@ -52,7 +52,28 @@ export async function GET(req: NextRequest, context: RouteContext) {
       roomName: e.Benutzer?.RAUM?.RaumName ?? null,
     }));
 
-    return NextResponse.json(history);
+    // Bewegungshistorie (Raum- und Benutzerwechsel, analog Büroinventar)
+    const movements = await prisma.gerBewegung.findMany({
+      where: { GerID: deviceId },
+      include: { VonBenutzer: true, NachBenutzer: true },
+      orderBy: { ID: 'desc' },
+    });
+
+    return NextResponse.json({
+      entries: history,
+      movements: movements.map((m) => ({
+        id: m.ID,
+        typ: m.Typ,
+        vonBenutzerId: m.VonBenutzerID,
+        nachBenutzerId: m.NachBenutzerID,
+        vonBenutzerName: m.VonBenutzer?.BenutzerName ?? null,
+        nachBenutzerName: m.NachBenutzer?.BenutzerName ?? null,
+        vonRaumId: m.VonRaumID,
+        nachRaumId: m.NachRaumID,
+        bemerkung: m.Bemerkung,
+        zeitpunkt: m.Zeitpunkt,
+      })),
+    });
   } catch (error) {
     console.error('Database error (GET /api/devices/[id]/history):', error);
     return NextResponse.json({ error: 'Datenbankfehler', details: String(error) }, { status: 500 });

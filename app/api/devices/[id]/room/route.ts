@@ -45,13 +45,27 @@ export async function PUT(req: NextRequest, context: RouteContext) {
       }
     }
 
-    // Raum aktualisieren (Standard-Raum des Geräts)
-    await prisma.gER.update({
-      where: { GerID: deviceId },
-      data: {
-        StandardRaumID: raumId !== null && raumId !== undefined ? Number(raumId) : null,
-      },
-    });
+    const newRaumId = raumId !== null && raumId !== undefined ? Number(raumId) : null;
+    if (device.StandardRaumID === newRaumId) {
+      return NextResponse.json({ success: true, changed: false });
+    }
+
+    // Raum aktualisieren (Standard-Raum des Geräts) und Bewegung protokollieren
+    await prisma.$transaction([
+      prisma.gER.update({
+        where: { GerID: deviceId },
+        data: { StandardRaumID: newRaumId },
+      }),
+      prisma.gerBewegung.create({
+        data: {
+          GerID: deviceId,
+          Typ: 'STANDORTWECHSEL',
+          VonRaumID: device.StandardRaumID,
+          NachRaumID: newRaumId,
+          Bemerkung: 'Raum geändert',
+        },
+      }),
+    ]);
 
     return NextResponse.json({ success: true });
   } catch (error) {

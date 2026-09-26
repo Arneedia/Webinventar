@@ -17,7 +17,7 @@ export default async function Navbar() {
     {
       href: '/bueroinventar',
       label: 'Büroinventar',
-      show: !user || user.role === Roles.ADMIN || userHasPermission(user, AvailablePermissions.DEVICES_VIEW),
+      show: !user || user.role === Roles.ADMIN || userHasPermission(user, AvailablePermissions.OFFICE_INVENTORY_VIEW),
     },
     {
       href: '/scan',
@@ -70,7 +70,7 @@ export default async function Navbar() {
     {
       href: '/inventur',
       label: 'Inventur',
-      show: !!user && (user.role === Roles.ADMIN || userHasPermission(user, AvailablePermissions.DEVICES_VIEW)),
+      show: !!user && (user.role === Roles.ADMIN || userHasPermission(user, AvailablePermissions.INVENTUR_MANAGE)),
     },
   ];
 
@@ -95,7 +95,10 @@ export default async function Navbar() {
     {
       href: '/admin/relations',
       label: 'Zuordnungen',
-      show: !!user && (user.role === Roles.ADMIN || userHasPermission(user, AvailablePermissions.MASTER_DATA_EDIT)),
+      show:
+        !!user &&
+        (user.role === Roles.ADMIN ||
+          userHasAnyPermission(user, [AvailablePermissions.MASTER_DATA_EDIT, AvailablePermissions.RELATIONS_EDIT, AvailablePermissions.RELATIONS_DEVICES_EDIT, AvailablePermissions.RELATIONS_OFFICE_EDIT])),
     },
     {
       href: '/admin/rooms',

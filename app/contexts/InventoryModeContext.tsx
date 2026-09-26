@@ -3,6 +3,8 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 
 interface InventoryModeContextType {
+  canUseInventur: boolean;
+  inventurPermissionChecked: boolean;
   isActive: boolean;
   activateMode: () => void;
   deactivateMode: () => void;
@@ -26,6 +28,20 @@ export function InventoryModeProvider({ children }: { children: ReactNode }) {
   const [scannedDevices, setScannedDevices] = useState<Set<string>>(new Set());
   const [totalCount, setTotalCount] = useState(0);
   const [mounted, setMounted] = useState(false);
+  const [canUseInventur, setCanUseInventur] = useState(false);
+  const [inventurPermissionChecked, setInventurPermissionChecked] = useState(false);
+
+  // Berechtigung für den Inventur-Modus prüfen (Admin oder inventur:manage)
+  useEffect(() => {
+    fetch('/api/auth/me')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        const user = data?.user;
+        setCanUseInventur(!!user && (user.role === 'ADMIN' || (user.permissions ?? []).includes('inventur:manage')));
+      })
+      .catch(() => setCanUseInventur(false))
+      .finally(() => setInventurPermissionChecked(true));
+  }, []);
 
   // Load state from localStorage on mount
   useEffect(() => {
@@ -48,7 +64,7 @@ export function InventoryModeProvider({ children }: { children: ReactNode }) {
 
   // Fetch total device count
   useEffect(() => {
-    if (mounted && isActive) {
+    if (mounted && isActive && canUseInventur) {
       fetch('/api/devices')
         .then(res => res.json())
         .then(data => {
@@ -65,6 +81,7 @@ export function InventoryModeProvider({ children }: { children: ReactNode }) {
   }, [mounted, isActive, scannedDevices.size]);
 
   const activateMode = () => {
+    if (!canUseInventur) return;
     setIsActive(true);
     localStorage.setItem(STORAGE_KEY_ACTIVE, 'true');
     // Clear all scanned devices when starting new inventory
@@ -144,7 +161,9 @@ export function InventoryModeProvider({ children }: { children: ReactNode }) {
   return (
     <InventoryModeContext.Provider
       value={{
-        isActive,
+        canUseInventur,
+        inventurPermissionChecked,
+        isActive: isActive && canUseInventur,
         activateMode,
         deactivateMode,
         toggleMode,

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prismaClient';
-import { requireApiUser } from '@/lib/auth';
+import { requireApiUser, userHasAnyPermission } from '@/lib/auth';
 import { AvailablePermissions } from '@/lib/permissionGroups';
 
 type RouteContext = { params: Promise<{ id: string }> };
@@ -12,9 +12,12 @@ async function parseId(context: RouteContext) {
 
 // Kategorie umbenennen / Beschreibung ändern (ohne Duplikate)
 export async function PUT(req: NextRequest, context: RouteContext) {
-  const auth = await requireApiUser(req, AvailablePermissions.MASTER_DATA_EDIT);
+  const auth = await requireApiUser(req);
   if (!auth.authorized) {
     return NextResponse.json({ error: auth.message }, { status: auth.status });
+  }
+  if (!userHasAnyPermission(auth.user, [AvailablePermissions.MASTER_DATA_EDIT, AvailablePermissions.RELATIONS_EDIT, AvailablePermissions.RELATIONS_OFFICE_EDIT])) {
+    return NextResponse.json({ error: 'Keine Berechtigung' }, { status: 403 });
   }
 
   try {
@@ -51,9 +54,12 @@ export async function PUT(req: NextRequest, context: RouteContext) {
 
 // Löschen nur, wenn kein Büroinventar-Eintrag die Kategorie verwendet (Zuordnungen werden mitgelöscht)
 export async function DELETE(req: NextRequest, context: RouteContext) {
-  const auth = await requireApiUser(req, AvailablePermissions.MASTER_DATA_EDIT);
+  const auth = await requireApiUser(req);
   if (!auth.authorized) {
     return NextResponse.json({ error: auth.message }, { status: auth.status });
+  }
+  if (!userHasAnyPermission(auth.user, [AvailablePermissions.MASTER_DATA_EDIT, AvailablePermissions.RELATIONS_EDIT, AvailablePermissions.RELATIONS_OFFICE_EDIT])) {
+    return NextResponse.json({ error: 'Keine Berechtigung' }, { status: 403 });
   }
 
   try {

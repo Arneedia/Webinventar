@@ -89,6 +89,8 @@ model Benutzer {
   BueroInventar      BueroInventar[]
   BueroBewegungVon   BueroBewegung[] @relation("BueroBewegungVon")
   BueroBewegungNach  BueroBewegung[] @relation("BueroBewegungNach")
+  GerBewegungVon     GerBewegung[]   @relation("GerBewegungVon")
+  GerBewegungNach    GerBewegung[]   @relation("GerBewegungNach")
 }
 
 // RÃ¤ume (Stammdaten fÃ¼r GerÃ¤te-Standorte)
@@ -129,6 +131,7 @@ model GER {
   ZubehoerBenutzer     ZubehoerBenutzer[]
   ZubehoerBewegung     ZubehoerBewegung[]
   UebergabePositionen  UebergabePosition[]
+  GerBewegung          GerBewegung[]
 }
 
 // Benutzer-GerÃ¤te Zuordnung
@@ -456,6 +459,22 @@ model BueroInventar {
   Bewegungen      BueroBewegung[]
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
+}
+
+// Geräte-Bewegungen (Tracking, analog Büroinventar)
+model GerBewegung {
+  ID              Int            @id @default(autoincrement())
+  GerID           Int
+  Typ             String
+  VonBenutzerID   Int?
+  NachBenutzerID  Int?
+  VonRaumID       Int?
+  NachRaumID      Int?
+  Bemerkung       String?
+  Zeitpunkt       DateTime       @default(now())
+  GER             GER            @relation(fields: [GerID], references: [GerID])
+  VonBenutzer     Benutzer?      @relation("GerBewegungVon", fields: [VonBenutzerID], references: [BenutzerID])
+  NachBenutzer    Benutzer?      @relation("GerBewegungNach", fields: [NachBenutzerID], references: [BenutzerID])
 }
 
 // Büroinventar-Bewegungen (Tracking)

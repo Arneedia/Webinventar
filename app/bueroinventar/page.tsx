@@ -16,8 +16,10 @@ import {
   ChevronRight,
   X,
 } from 'lucide-react';
+import RoomUserSelects from '../components/RoomUserSelects';
 import SearchableSelect from '../components/SearchableSelect';
 import SearchableSelectWithCustom from '../components/SearchableSelectWithCustom';
+import { filterOfficeSelectOptions, type KatHsModPair } from '@/lib/officeOptions';
 
 interface OfficeItem {
   id: number;
@@ -67,6 +69,11 @@ interface UserOption extends Option {
 type Period = { id: number; start: string; end: string | null };
 
 interface HsModRelation {
+  HSID: number;
+  ModID: number;
+}
+
+interface KatHsModRelation extends KatHsModPair {
   HSID: number;
   ModID: number;
 }
@@ -193,68 +200,6 @@ const describeMeta = (meta?: { herstellerCreated?: boolean; modellCreated?: bool
   return parts.length ? ` (${parts.join(', ')})` : '';
 };
 
-const roomLabel = (r: RoomOption) =>
-  `${r.name}${r.standort ? ` (${r.standort})` : ''}${r.branch ? ` - ${r.branch}` : ''}`;
-
-interface RoomUserSelectsProps {
-  rooms: RoomOption[];
-  users: UserOption[];
-  raumId: string;
-  benutzerId: string;
-  onChange: (next: { raumId: string; benutzerId: string }) => void;
-  labelClass: string;
-}
-
-// Raum filtert die Benutzerliste, ein gewählter Benutzer übernimmt seinen Raum
-function RoomUserSelects({ rooms, users, raumId, benutzerId, onChange, labelClass }: RoomUserSelectsProps) {
-  const roomUsers = raumId ? users.filter((u) => String(u.roomId ?? '') === raumId) : users;
-
-  const handleRoom = (value: string) => {
-    const user = users.find((u) => String(u.id) === benutzerId);
-    const keepUser = !value || !user || String(user.roomId ?? '') === value;
-    onChange({ raumId: value, benutzerId: keepUser ? benutzerId : '' });
-  };
-
-  const handleUser = (value: string) => {
-    const user = users.find((u) => String(u.id) === value);
-    onChange({ raumId: user?.roomId ? String(user.roomId) : raumId, benutzerId: value });
-  };
-
-  return (
-    <>
-      <div>
-        <label className={labelClass}>Raum</label>
-        <SearchableSelect
-          options={rooms.map((r) => ({ value: String(r.id), label: roomLabel(r) }))}
-          value={raumId}
-          onChange={handleRoom}
-          placeholder="-- kein Raum --"
-          searchPlaceholder="Raum suchen..."
-          className="text-xs"
-        />
-      </div>
-      <div>
-        <label className={labelClass}>Benutzer</label>
-        <SearchableSelect
-          options={roomUsers.map((u) => ({ value: String(u.id), label: u.name }))}
-          value={benutzerId}
-          onChange={handleUser}
-          placeholder="-- keiner --"
-          searchPlaceholder="Benutzer suchen..."
-          className="text-xs"
-        />
-        <p className="text-[10px] text-gray-500 mt-0.5">
-          {raumId
-            ? roomUsers.length
-              ? `${roomUsers.length} Benutzer in diesem Raum`
-              : 'Diesem Raum sind keine Benutzer zugeordnet'
-            : 'Der Raum des Benutzers wird automatisch übernommen'}
-        </p>
-      </div>
-    </>
-  );
-}
-
 function ZustandBadge({ zustand, abgang }: { zustand: string | null; abgang?: string | null }) {
   if (abgang) {
     return (
@@ -281,7 +226,9 @@ interface ItemFormFieldsProps {
   rooms: RoomOption[];
   users: UserOption[];
   manufacturers: Option[];
-  modelOptionsFor: (hersteller: string) => { models: Option[]; filtered: boolean };
+  models: Option[];
+  hsModRelations: HsModRelation[];
+  katRelations: KatHsModRelation[];
   columns: 1 | 2;
   onGenerateNr?: () => void;
 }
@@ -293,12 +240,14 @@ function ItemFormFields({
   rooms,
   users,
   manufacturers,
-  modelOptionsFor,
+  models,
+  hsModRelations,
+  katRelations,
   columns,
   onGenerateNr,
 }: ItemFormFieldsProps) {
   const set = (field: keyof ItemForm) => (value: string) => setForm((prev) => ({ ...prev, [field]: value }));
-  const { models, filtered } = modelOptionsFor(form.hersteller);
+  const select = filterOfficeSelectOptions(form.kategorieId, form.hersteller, katRelations, hsModRelations, manufacturers, models);
   const label = 'block text-xs font-medium text-gray-700 mb-1';
 
   return (
@@ -329,7 +278,7 @@ function ItemFormFields({
         <div>
           <label className={label}>Hersteller</label>
           <SearchableSelectWithCustom
-            options={manufacturers.map((m) => ({ value: m.name, label: m.name }))}
+            options={select.manufacturers.map((m) => ({ value: m.name, label: m.name }))}
             value={form.hersteller}
             onChange={set('hersteller')}
             placeholder="-- Hersteller wählen --"
@@ -341,7 +290,7 @@ function ItemFormFields({
         <div>
           <label className={label}>Modell</label>
           <SearchableSelectWithCustom
-            options={models.map((m) => ({ value: m.name, label: m.name }))}
+            options={select.models.map((m) => ({ value: m.name, label: m.name }))}
             value={form.modell}
             onChange={set('modell')}
             placeholder="-- Modell wählen --"
@@ -349,9 +298,7 @@ function ItemFormFields({
             customPlaceholder="Neues Modell eingeben..."
             className="text-xs"
           />
-          {filtered && (
-            <p className="text-[10px] text-gray-500 mt-0.5">Gefiltert nach Zuordnungen von „{form.hersteller}“</p>
-          )}
+          {select.hint && <p className="text-[10px] text-gray-500 mt-0.5">{select.hint}</p>}
         </div>
         <div>
           <label className={label}>Inventarnummer</label>
@@ -452,6 +399,7 @@ export default function OfficeInventoryPage() {
   const [manufacturers, setManufacturers] = useState<Option[]>([]);
   const [models, setModels] = useState<Option[]>([]);
   const [hsModRelations, setHsModRelations] = useState<HsModRelation[]>([]);
+  const [katRelations, setKatRelations] = useState<KatHsModRelation[]>([]);
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
 
   const [search, setSearch] = useState('');
@@ -485,9 +433,10 @@ export default function OfficeInventoryPage() {
 
   const hasPermission = (permission: string) =>
     currentUser?.role === 'ADMIN' || !!currentUser?.permissions?.includes(permission);
-  const canCreate = hasPermission('devices:create');
-  const canEdit = hasPermission('devices:edit');
-  const canRetire = hasPermission('devices:delete');
+  const canView = hasPermission('office_inventory:view');
+  const canCreate = hasPermission('office_inventory:create');
+  const canEdit = hasPermission('office_inventory:edit');
+  const canRetire = hasPermission('office_inventory:delete');
 
   const loadItems = useCallback(async () => {
     try {
@@ -504,21 +453,28 @@ export default function OfficeInventoryPage() {
   }, []);
 
   const loadMasterData = useCallback(async () => {
-    const [hsRes, modRes, relRes] = await Promise.all([
+    const [hsRes, modRes, relRes, katRes] = await Promise.all([
       fetch('/api/office-manufacturers?includeAll=true', { cache: 'no-store' }),
-      fetch('/api/tables/MOD?bereich=BUERO', { cache: 'no-store' }),
-      fetch('/api/tables/HS_MOD?bereich=BUERO', { cache: 'no-store' }),
+      fetch('/api/office-models?includeAll=true', { cache: 'no-store' }),
+      fetch('/api/relations/hs-mod', { cache: 'no-store' }),
+      fetch('/api/relations/kat-hs-mod', { cache: 'no-store' }),
     ]);
     if (hsRes.ok) setManufacturers((await hsRes.json()).manufacturers ?? []);
     if (modRes.ok) {
       const data = await modRes.json();
       setModels(
-        (data.data ?? []).map((m: any) => ({ id: Number(m.ModID), name: m.ModName || `Modell ${m.ModID}` }))
+        (data.models ?? [])
+          .map((m: any) => ({ id: Number(m.id), name: m.name }))
+          .sort((a: Option, b: Option) => a.name.localeCompare(b.name, 'de'))
       );
     }
     if (relRes.ok) {
       const data = await relRes.json();
-      setHsModRelations((data.data ?? []).map((r: any) => ({ HSID: Number(r.HSID), ModID: Number(r.ModID) })));
+      setHsModRelations((data.relations ?? []).map((r: any) => ({ HSID: Number(r.HSID), ModID: Number(r.ModID) })));
+    }
+    if (katRes.ok) {
+      const data = await katRes.json();
+      setKatRelations((data.relations ?? []).map((r: any) => ({ KategorieID: Number(r.KategorieID), HSID: Number(r.HSID), ModID: Number(r.ModID) })));
     }
   }, []);
 
@@ -586,17 +542,6 @@ export default function OfficeInventoryPage() {
     setCurrentPage(1);
   }, [search, categoryFilter, userFilter, roomFilter, zustandFilter, showUnassignedOnly, showRetired]);
 
-  const modelOptionsFor = useCallback(
-    (hersteller: string) => {
-      const name = hersteller.trim().toLowerCase();
-      const hs = name ? manufacturers.find((m) => m.name.toLowerCase() === name) : undefined;
-      if (!hs) return { models, filtered: false };
-      const allowed = new Set(hsModRelations.filter((r) => r.HSID === hs.id).map((r) => r.ModID));
-      const related = models.filter((m) => allowed.has(m.id));
-      return related.length ? { models: related, filtered: true } : { models, filtered: false };
-    },
-    [manufacturers, models, hsModRelations]
-  );
 
   const filteredItems = useMemo(() => {
     const term = search.trim().toLowerCase();
@@ -861,7 +806,7 @@ export default function OfficeInventoryPage() {
 
   const events = [...movements].sort((a, b) => b.ID - a.ID);
 
-  const formFieldProps = { categories, rooms, users, manufacturers, modelOptionsFor };
+  const formFieldProps = { categories, rooms, users, manufacturers, models, hsModRelations, katRelations };
 
   const SortHeader = ({ column, label }: { column: SortColumn; label: string }) => (
     <th
@@ -1190,6 +1135,17 @@ export default function OfficeInventoryPage() {
       </div>
     </>
   );
+
+  if (currentUser && !canView) {
+    return (
+      <div className="flex-1 bg-gray-50 flex items-center justify-center py-20">
+        <div className="text-center">
+          <p className="text-lg font-semibold text-gray-900">Keine Berechtigung</p>
+          <p className="mt-1 text-sm text-gray-500">Für das Büroinventar fehlt dir die Berechtigung „Büroinventar anzeigen“.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex-1 bg-gray-50 flex flex-col">

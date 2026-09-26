@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { Package, ArrowLeft, Save, Loader2 } from 'lucide-react';
 import SearchableSelect from '../../components/SearchableSelect';
 import SearchableSelectWithCustom from '../../components/SearchableSelectWithCustom';
+import { filterOfficeSelectOptions, type HsModPair, type KatHsModPair } from '@/lib/officeOptions';
 
 interface Category {
   ID: number;
@@ -68,6 +69,9 @@ export default function EditOfficeInventoryPage() {
   const [rooms, setRooms] = useState<RoomOption[]>([]);
   const [manufacturers, setManufacturers] = useState<ManufacturerOption[]>([]);
   const [models, setModels] = useState<ModelOption[]>([]);
+  const [hsModRelations, setHsModRelations] = useState<HsModPair[]>([]);
+  const [katRelations, setKatRelations] = useState<KatHsModPair[]>([]);
+  const [currentUser, setCurrentUser] = useState<{ role: string; permissions?: string[] } | null>(null);
 
   const [formData, setFormData] = useState({
     kategorieId: '',
@@ -92,6 +96,11 @@ export default function EditOfficeInventoryPage() {
     loadRooms();
     loadManufacturers();
     loadAllModels();
+    loadRelations();
+    fetch('/api/auth/me')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => data && setCurrentUser(data.user))
+      .catch(() => {});
   }, [id]);
 
   // Hersteller laden
@@ -110,17 +119,37 @@ export default function EditOfficeInventoryPage() {
     }
   }
 
+  // Hersteller-Modell und Kategorie-Zuordnungen laden
+  async function loadRelations() {
+    try {
+      const [hsRes, katRes] = await Promise.all([
+        fetch('/api/relations/hs-mod'),
+        fetch('/api/relations/kat-hs-mod'),
+      ]);
+      if (hsRes.ok) {
+        const data = await hsRes.json();
+        setHsModRelations((data.relations ?? []).map((r: any) => ({ HSID: Number(r.HSID), ModID: Number(r.ModID) })));
+      }
+      if (katRes.ok) {
+        const data = await katRes.json();
+        setKatRelations((data.relations ?? []).map((r: any) => ({ KategorieID: Number(r.KategorieID), HSID: Number(r.HSID), ModID: Number(r.ModID) })));
+      }
+    } catch (err) {
+      console.error('Fehler beim Laden der Zuordnungen:', err);
+    }
+  }
+
   // Alle Modelle laden
   async function loadAllModels() {
     try {
-      const res = await fetch('/api/tables/MOD?bereich=BUERO');
+      const res = await fetch('/api/office-models?includeAll=true');
       if (res.ok) {
         const data = await res.json();
-        const modArray = data.data || [];
-        setModels(modArray.map((m: any) => ({ 
-          id: m.ModID, 
-          name: m.ModName || `Modell ${m.ModID}`,
-          nummer: m.ModellNummer
+        const modArray = data.models || [];
+        setModels(modArray.map((m: any) => ({
+          id: m.id,
+          name: m.name,
+          nummer: m.nummer
         })).sort((a: ModelOption, b: ModelOption) => a.name.localeCompare(b.name, 'de')));
       }
     } catch (err) {
@@ -272,6 +301,19 @@ export default function EditOfficeInventoryPage() {
     }
   }
 
+  const selectOptions = filterOfficeSelectOptions(
+    formData.kategorieId,
+    formData.hersteller,
+    katRelations,
+    hsModRelations,
+    manufacturers,
+    models
+  );
+
+  const isAdmin = currentUser?.role === 'ADMIN';
+  const canView = isAdmin || !!currentUser?.permissions?.includes('office_inventory:view');
+  const canEdit = isAdmin || !!currentUser?.permissions?.includes('office_inventory:edit');
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -279,6 +321,23 @@ export default function EditOfficeInventoryPage() {
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto mb-4"></div>
           <p className="text-gray-600">Lade Daten...</p>
         </div>
+      </div>
+    );
+  }
+
+  if (currentUser && !canView) {
+    return (
+      <div className="p-6">
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-800">
+          Keine Berechtigung: Für das Büroinventar fehlt dir die Berechtigung „Büroinventar anzeigen“.
+        </div>
+        <Link
+          href="/bueroinventar"
+          className="mt-4 inline-flex items-center gap-2 text-purple-600 hover:text-purple-700"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Zurück zur Übersicht
+        </Link>
       </div>
     );
   }
@@ -387,7 +446,7 @@ export default function EditOfficeInventoryPage() {
               Hersteller
             </label>
             <SearchableSelectWithCustom
-              options={manufacturers.map(m => ({ value: m.name, label: m.name }))}
+              options={selectOptions.manufacturers.map(m => ({ value: m.name, label: m.name }))}
               value={formData.hersteller}
               onChange={(value) => setFormData(prev => ({ ...prev, hersteller: value }))}
               placeholder="-- Hersteller wählen --"
@@ -403,7 +462,7 @@ export default function EditOfficeInventoryPage() {
               Modell
             </label>
             <SearchableSelectWithCustom
-              options={models.map(m => ({ value: m.name, label: m.name }))}
+              options={selectOptions.models.map(m => ({ value: m.name, label: m.name }))}
               value={formData.modell}
               onChange={(value) => setFormData(prev => ({ ...prev, modell: value }))}
               placeholder="-- Modell wählen --"
@@ -411,6 +470,9 @@ export default function EditOfficeInventoryPage() {
               customPlaceholder="Neues Modell eingeben..."
               allowCustom={true}
             />
+            {selectOptions.hint && (
+              <p className="text-xs text-gray-500 mt-1">{selectOptions.hint}</p>
+            )}
           </div>
 
           {/* Seriennummer */}
@@ -535,23 +597,25 @@ export default function EditOfficeInventoryPage() {
 
         {/* Buttons */}
         <div className="flex gap-3 pt-4 border-t">
-          <button
-            type="submit"
-            disabled={saving}
-            className="flex items-center gap-2 px-6 py-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg hover:from-purple-600 hover:to-pink-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-          >
-            {saving ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Speichern...
-              </>
-            ) : (
-              <>
-                <Save className="h-4 w-4" />
-                Änderungen speichern
-              </>
-            )}
-          </button>
+          {canEdit && (
+            <button
+              type="submit"
+              disabled={saving}
+              className="flex items-center gap-2 px-6 py-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg hover:from-purple-600 hover:to-pink-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+            >
+              {saving ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Speichern...
+                </>
+              ) : (
+                <>
+                  <Save className="h-4 w-4" />
+                  Änderungen speichern
+                </>
+              )}
+            </button>
+          )}
           <Link
             href="/bueroinventar"
             className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-all inline-flex items-center"

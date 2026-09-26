@@ -25,11 +25,36 @@ export async function POST(req: NextRequest, context: RouteContext) {
 
     const now = new Date();
 
-    // Gerät ausbuchen
-    await prisma.gER.update({
+    const device = await prisma.gER.findUnique({
       where: { GerID: deviceId },
-      data: { Abgang: now },
+      include: { BenutzerGER: { where: { Ende: null } } },
     });
+    if (!device) {
+      return NextResponse.json({ error: 'Gerät nicht gefunden' }, { status: 404 });
+    }
+
+    // Gerät ausbuchen, offene Zuordnung beenden und Bewegung protokollieren
+    await prisma.$transaction([
+      prisma.gER.update({
+        where: { GerID: deviceId },
+        data: { Abgang: now },
+      }),
+      prisma.benutzerGER.updateMany({
+        where: { GERID: deviceId, Ende: null },
+        data: { Ende: now },
+      }),
+      prisma.gerBewegung.create({
+        data: {
+          GerID: deviceId,
+          Typ: 'ABGANG',
+          VonBenutzerID: device.BenutzerGER[0]?.BenutzerID ?? null,
+          NachBenutzerID: null,
+          VonRaumID: device.StandardRaumID,
+          NachRaumID: device.StandardRaumID,
+          Bemerkung: 'Gerät abgeschrieben',
+        },
+      }),
+    ]);
 
     // Zubehör-Aktionen verarbeiten
     if (accessoryActions && Object.keys(accessoryActions).length > 0) {
