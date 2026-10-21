@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { apiErrorResponse } from '@/lib/apiError';
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prismaClient';
 import { requireApiUser } from '@/lib/auth';
@@ -70,6 +71,6 @@ export async function PUT(req: NextRequest, context: RouteContext) {
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Error updating device room:', error);
-    return NextResponse.json({ error: 'Datenbankfehler' }, { status: 500 });
+    return apiErrorResponse(error);
   }
 }

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { apiErrorResponse } from '@/lib/apiError';
 import { prisma } from '@/lib/prismaClient';
 import { requireApiUser, userHasAnyPermission } from '@/lib/auth';
 import { AvailablePermissions } from '@/lib/permissionGroups';
@@ -26,7 +27,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(categories);
   } catch (error) {
     console.error('Database error (GET /api/office-categories):', error);
-    return NextResponse.json({ error: 'Datenbankfehler', details: String(error) }, { status: 500 });
+    return apiErrorResponse(error);
   }
 }
 
@@ -66,6 +67,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(category, { status: 201 });
   } catch (error) {
     console.error('Database error (POST /api/office-categories):', error);
-    return NextResponse.json({ error: 'Fehler beim Erstellen', details: String(error) }, { status: 500 });
+    return apiErrorResponse(error, 'Fehler beim Erstellen');
   }
 }

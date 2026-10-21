@@ -23,6 +23,7 @@ import type {
   AccessoryItemSummary,
   AccessoryOverviewPayload,
 } from "@/lib/accessories";
+import { apiError, readJsonSafe } from "@/lib/fetchError";
 
 interface TableResponse<T> {
   data: T[]; 
@@ -71,11 +72,11 @@ const today = () => new Date().toISOString().split("T")[0];
 
 async function jsonFetcher<T>(url: string): Promise<T> {
   const response = await fetch(url, { credentials: "include" });
+  const payload = await readJsonSafe(response);
   if (!response.ok) {
-    const message = await response.text();
-    throw new Error(message || "Fehler beim Laden der Daten");
+    throw apiError(url, response.status, payload);
   }
-  return response.json();
+  return payload as T;
 }
 
 export default function AccessoriesManager() {
@@ -409,9 +410,9 @@ export default function AccessoriesManager() {
       headers: { "Content-Type": "application/json" },
       ...init,
     });
-    const payload = await response.json().catch(() => ({}));
+    const payload = await readJsonSafe(response);
     if (!response.ok) {
-      throw new Error(payload?.error || payload?.details || "Aktion fehlgeschlagen");
+      throw apiError(String(input), response.status, payload);
     }
     if (successMessage) {
       setGlobalSuccess(successMessage);

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { apiErrorResponse } from '@/lib/apiError';
 import { prisma } from '@/lib/prismaClient';
 import { requireApiUser, userHasAnyPermission } from '@/lib/auth';
 import { AvailablePermissions } from '@/lib/permissionGroups';
@@ -31,7 +32,7 @@ export async function GET(req: NextRequest) {
     });
   } catch (error) {
     console.error('Error in GET /api/relations/kat-hs-mod:', error);
-    return NextResponse.json({ error: 'Zuordnungen konnten nicht geladen werden' }, { status: 500 });
+    return apiErrorResponse(error, 'Zuordnungen konnten nicht geladen werden');
   }
 }
 
@@ -77,6 +78,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Kategorie nicht gefunden' }, { status: 400 });
     }
     console.error('Error in POST /api/relations/kat-hs-mod:', error);
-    return NextResponse.json({ error: 'Zuordnung konnte nicht erstellt werden' }, { status: 500 });
+    return apiErrorResponse(error, 'Zuordnung konnte nicht erstellt werden');
   }
 }

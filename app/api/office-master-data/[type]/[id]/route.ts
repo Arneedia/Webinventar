@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { apiErrorResponse } from '@/lib/apiError';
 import { prisma } from '@/lib/prismaClient';
 import { requireApiUser, userHasAnyPermission } from '@/lib/auth';
 import { AvailablePermissions } from '@/lib/permissionGroups';
@@ -71,7 +72,7 @@ export async function PUT(req: NextRequest, context: RouteContext) {
       return NextResponse.json({ error: 'Nicht gefunden' }, { status: 404 });
     }
     console.error('Database error (PUT /api/office-master-data/[type]/[id]):', error);
-    return NextResponse.json({ error: 'Eintrag konnte nicht gespeichert werden' }, { status: 500 });
+    return apiErrorResponse(error, 'Eintrag konnte nicht gespeichert werden');
   }
 }
 
@@ -144,6 +145,6 @@ export async function DELETE(req: NextRequest, context: RouteContext) {
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Database error (DELETE /api/office-master-data/[type]/[id]):', error);
-    return NextResponse.json({ error: 'Eintrag konnte nicht gelöscht werden' }, { status: 500 });
+    return apiErrorResponse(error, 'Eintrag konnte nicht gelöscht werden');
   }
 }

@@ -5,6 +5,7 @@ import { Link2, Plus, RefreshCw, X } from 'lucide-react';
 import SearchableSelect from '@/app/components/SearchableSelect';
 import SearchableMultiSelect from '@/app/components/SearchableMultiSelect';
 import { BEREICHE, BEREICH_LABELS, matchesBereich, type Bereich, type BereichScope } from '@/lib/masterDataBereich';
+import { apiError, readJsonSafe, throwApiError } from '@/lib/fetchError';
 
 interface HsModRelation {
   HSID: number;
@@ -182,12 +183,9 @@ export default function RelationsManager() {
     try {
       setLoadingHsMod(true);
       const res = await fetch('/api/relations/hs-mod', { cache: 'no-store' });
-      const data = await res.json().catch(async () => {
-        const text = await res.text();
-        throw new Error(text ? `Antwort ist kein JSON: ${text.slice(0, 120)}` : 'Antwort ist kein JSON');
-      });
+      const data = await readJsonSafe(res);
       if (!res.ok) {
-        throw new Error(data?.error || 'Zuordnungen konnten nicht geladen werden');
+        throw apiError('/api/relations/hs-mod', res.status, data);
       }
       setHsModRelations(Array.isArray(data?.relations) ? data.relations : []);
       setError(null);
@@ -204,9 +202,9 @@ export default function RelationsManager() {
     try {
       setLoadingAccessory(true);
       const res = await fetch('/api/relations/accessory-users', { cache: 'no-store' });
-      const data = await res.json();
+      const data = await readJsonSafe(res);
       if (!res.ok) {
-        throw new Error(data.error || 'Zuordnungen konnten nicht geladen werden');
+        throw apiError('/api/relations/accessory-users', res.status, data);
       }
       setAccessoryRelations(Array.isArray(data.relations) ? data.relations : []);
       setError(null);
@@ -221,9 +219,9 @@ export default function RelationsManager() {
   const loadOptions = useCallback(async () => {
     const fetchOptions = async (table: string, mapper: (row: any) => SelectOption) => {
       const res = await fetch(`/api/tables/${table}`);
-      const data = await res.json();
+      const data = await readJsonSafe(res);
       if (!res.ok) {
-        throw new Error(data.error || `Fehler beim Laden von ${table}`);
+        throw apiError(`/api/tables/${table}`, res.status, data);
       }
       return (Array.isArray(data.data) ? data.data : []).map(mapper);
     };
@@ -267,7 +265,8 @@ export default function RelationsManager() {
         fetch('/api/tables/MOD', { cache: 'no-store' }),
         fetch('/api/office-inventory', { cache: 'no-store' }),
       ]);
-      if (!hsRes.ok || !modRes.ok) throw new Error('Hersteller/Modelle konnten nicht geladen werden');
+      if (!hsRes.ok) await throwApiError(hsRes, '/api/tables/HS', 'Hersteller konnten nicht geladen werden');
+      if (!modRes.ok) await throwApiError(modRes, '/api/tables/MOD', 'Modelle konnten nicht geladen werden');
       const [hsData, modData] = await Promise.all([hsRes.json(), modRes.json()]);
       const byName = (a: BueroMasterRow, b: BueroMasterRow) => a.name.localeCompare(b.name, 'de');
       setBueroManufacturers(
@@ -311,8 +310,8 @@ export default function RelationsManager() {
     try {
       setLoadingKat(true);
       const res = await fetch('/api/relations/kat-hs-mod', { cache: 'no-store' });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error || 'Kategorie-Zuordnungen konnten nicht geladen werden');
+      const data = await readJsonSafe(res);
+      if (!res.ok) throw apiError('/api/relations/kat-hs-mod', res.status, data);
       setKatRelations(Array.isArray(data.relations) ? data.relations : []);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Kategorie-Zuordnungen konnten nicht geladen werden');
@@ -326,8 +325,8 @@ export default function RelationsManager() {
     try {
       setLoadingCategories(true);
       const res = await fetch('/api/office-categories', { cache: 'no-store' });
-      const data = await res.json().catch(() => []);
-      if (!res.ok) throw new Error(data.error || 'Kategorien konnten nicht geladen werden');
+      const data = await readJsonSafe(res);
+      if (!res.ok) throw apiError('/api/office-categories', res.status, data);
       setCategories(Array.isArray(data) ? data : []);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Kategorien konnten nicht geladen werden');
@@ -425,10 +424,11 @@ export default function RelationsManager() {
             kategorieIds: Bereich === 'BUERO' && KategorieID ? [KategorieID] : [],
           }),
         });
-        const data = await res.json();
+        const data = await readJsonSafe(res);
         if (!res.ok) {
           const modLabel = modOptions.find((m) => m.id === Number(modId))?.name ?? `Modell ${modId}`;
-          errors.push(`${modLabel}: ${data.error || 'Fehler'}`);
+          console.error(`[API-Fehler] /api/relations/hs-mod -> HTTP ${res.status}`, data);
+          errors.push(`${modLabel}: ${data.details || data.error || 'Fehler'}`);
         } else {
           created++;
         }
@@ -460,9 +460,9 @@ export default function RelationsManager() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newAccessoryRelation),
       });
-      const data = await res.json();
+      const data = await readJsonSafe(res);
       if (!res.ok) {
-        throw new Error(data.error || 'Zuordnung konnte nicht erstellt werden');
+        throw apiError('/api/relations/accessory-users', res.status, data);
       }
       setNewAccessoryRelation(createAccessoryFormDefaults());
       setSuccess('Zuordnung erstellt');
@@ -498,9 +498,9 @@ export default function RelationsManager() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ HWID: editingHwId, kategorieIds: editingKatId ? [Number(editingKatId)] : [] }),
       });
-      const data = await res.json();
+      const data = await readJsonSafe(res);
       if (!res.ok) {
-        throw new Error(data.error || 'Zuordnung konnte nicht aktualisiert werden');
+        throw apiError(`/api/relations/hs-mod/${row.HSID}/${row.ModID}`, res.status, data);
       }
       setSuccess('Zuordnung aktualisiert');
       cancelHsModEdit();
@@ -521,9 +521,9 @@ export default function RelationsManager() {
       const res = await fetch(`/api/relations/hs-mod/${row.HSID}/${row.ModID}`, {
         method: 'DELETE',
       });
-      const data = await res.json().catch(() => ({}));
+      const data = await readJsonSafe(res);
       if (!res.ok) {
-        throw new Error(data.error || 'Zuordnung konnte nicht gelöscht werden');
+        throw apiError(`/api/relations/hs-mod/${row.HSID}/${row.ModID}`, res.status, data);
       }
       setSuccess('Zuordnung gelöscht');
       if (editingHsModKey === `${row.HSID}-${row.ModID}`) {
@@ -559,9 +559,9 @@ export default function RelationsManager() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ Ende: editingAccessoryEnd }),
       });
-      const data = await res.json();
+      const data = await readJsonSafe(res);
       if (!res.ok) {
-        throw new Error(data.error || 'Zuordnung konnte nicht aktualisiert werden');
+        throw apiError(`/api/relations/accessory-users/${row.ID}`, res.status, data);
       }
       setSuccess('Zuordnung aktualisiert');
       cancelAccessoryEdit();
@@ -582,9 +582,9 @@ export default function RelationsManager() {
       const res = await fetch(`/api/relations/accessory-users/${row.ID}`, {
         method: 'DELETE',
       });
-      const data = await res.json().catch(() => ({}));
+      const data = await readJsonSafe(res);
       if (!res.ok) {
-        throw new Error(data.error || 'Zuordnung konnte nicht gelöscht werden');
+        throw apiError(`/api/relations/accessory-users/${row.ID}`, res.status, data);
       }
       setSuccess('Zuordnung gelöscht');
       if (editingAccessoryId === row.ID) {
@@ -745,8 +745,8 @@ export default function RelationsManager() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newBueroItem),
       });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error || `${bueroLabel} konnte nicht angelegt werden`);
+      const data = await readJsonSafe(res);
+      if (!res.ok) throw apiError(`/api/office-master-data/${bueroType}`, res.status, data);
       setNewBueroItem((prev) => ({ name: '', nummer: '', bereich: prev.bereich }));
       setSuccess(`${bueroLabel} „${newBueroItem.name.trim()}“ angelegt`);
       await Promise.all([loadBueroMasterData(), loadOptions()]);
@@ -777,8 +777,8 @@ export default function RelationsManager() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(bueroEditForm),
       });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error || `${bueroLabel} konnte nicht gespeichert werden`);
+      const data = await readJsonSafe(res);
+      if (!res.ok) throw apiError(`/api/office-master-data/${bueroType}/${row.id}`, res.status, data);
       setSuccess(
         data.updatedItems
           ? `${bueroLabel} gespeichert, ${data.updatedItems} Büroinventar-Eintrag/Einträge aktualisiert`
@@ -799,8 +799,8 @@ export default function RelationsManager() {
     setDeletingBueroId(row.id);
     try {
       const res = await fetch(`/api/office-master-data/${bueroType}/${row.id}`, { method: 'DELETE' });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error || `${bueroLabel} konnte nicht gelöscht werden`);
+      const data = await readJsonSafe(res);
+      if (!res.ok) throw apiError(`/api/office-master-data/${bueroType}/${row.id}`, res.status, data);
       setSuccess(`${bueroLabel} „${row.name}“ gelöscht`);
       if (bueroEditId === row.id) cancelBueroEdit();
       await Promise.all([loadBueroMasterData(), loadOptions()]);
@@ -825,8 +825,8 @@ export default function RelationsManager() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newCategory),
       });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error || 'Kategorie konnte nicht angelegt werden');
+      const data = await readJsonSafe(res);
+      if (!res.ok) throw apiError('/api/office-categories', res.status, data);
       setSuccess(`Kategorie „${newCategory.name.trim()}“ angelegt`);
       setNewCategory({ name: '', beschreibung: '' });
       await loadCategories();
@@ -857,8 +857,8 @@ export default function RelationsManager() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(categoryEditForm),
       });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error || 'Kategorie konnte nicht gespeichert werden');
+      const data = await readJsonSafe(res);
+      if (!res.ok) throw apiError(`/api/office-categories/${row.ID}`, res.status, data);
       setSuccess('Kategorie gespeichert');
       cancelCategoryEdit();
       await loadCategories();
@@ -875,8 +875,8 @@ export default function RelationsManager() {
     setDeletingCategoryId(row.ID);
     try {
       const res = await fetch(`/api/office-categories/${row.ID}`, { method: 'DELETE' });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error || 'Kategorie konnte nicht gelöscht werden');
+      const data = await readJsonSafe(res);
+      if (!res.ok) throw apiError(`/api/office-categories/${row.ID}`, res.status, data);
       setSuccess(`Kategorie „${row.Name}“ gelöscht`);
       if (categoryEditId === row.ID) cancelCategoryEdit();
       await Promise.all([loadCategories(), loadKatRelations()]);

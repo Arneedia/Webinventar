@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { apiErrorResponse } from '@/lib/apiError';
 import { prisma } from '@/lib/prismaClient';
 import { requireApiUser } from '@/lib/auth';
 import { AvailablePermissions } from '@/lib/permissionGroups';
@@ -81,6 +82,6 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ manufacturers });
   } catch (error) {
     console.error('Error in GET /api/office-manufacturers:', error);
-    return NextResponse.json({ error: 'Fehler beim Laden der Hersteller' }, { status: 500 });
+    return apiErrorResponse(error, 'Fehler beim Laden der Hersteller');
   }
 }

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { apiErrorResponse } from '@/lib/apiError';
 import { prisma } from '@/lib/prismaClient';
 import { requireApiUser } from '@/lib/auth';
 import { AvailablePermissions } from '@/lib/permissionGroups';
@@ -76,6 +77,6 @@ export async function GET(req: NextRequest, context: RouteContext) {
     });
   } catch (error) {
     console.error('Database error (GET /api/devices/[id]/history):', error);
-    return NextResponse.json({ error: 'Datenbankfehler', details: String(error) }, { status: 500 });
+    return apiErrorResponse(error);
   }
 }

@@ -20,6 +20,7 @@ import RoomUserSelects from '../components/RoomUserSelects';
 import SearchableSelect from '../components/SearchableSelect';
 import SearchableSelectWithCustom from '../components/SearchableSelectWithCustom';
 import { filterOfficeSelectOptions, type KatHsModPair } from '@/lib/officeOptions';
+import { apiError, readJsonSafe, throwApiError } from '@/lib/fetchError';
 
 interface OfficeItem {
   id: number;
@@ -443,7 +444,7 @@ export default function OfficeInventoryPage() {
       setLoading(true);
       setLoadError(null);
       const res = await fetch('/api/office-inventory', { cache: 'no-store' });
-      if (!res.ok) throw new Error('Büroinventar konnte nicht geladen werden');
+      if (!res.ok) await throwApiError(res, '/api/office-inventory', 'Büroinventar konnte nicht geladen werden');
       setItems(await res.json());
     } catch (err) {
       setLoadError(err instanceof Error ? err.message : 'Unbekannter Fehler');
@@ -629,8 +630,8 @@ export default function OfficeInventoryPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formToPayload(newItem)),
       });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.details || data.error || 'Fehler beim Erstellen');
+      const data = await readJsonSafe(res);
+      if (!res.ok) throw apiError('/api/office-inventory/create-with-relations', res.status, data);
 
       setNewItem(emptyForm);
       setCreating(false);
@@ -655,8 +656,8 @@ export default function OfficeInventoryPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formToPayload(editItem)),
       });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.details || data.error || 'Fehler beim Speichern');
+      const data = await readJsonSafe(res);
+      if (!res.ok) throw apiError(`/api/office-inventory/${selectedItem.id}`, res.status, data);
 
       setIsEditing(false);
       showSuccess(`Änderungen gespeichert${describeMeta(data._meta)}`);
@@ -687,8 +688,8 @@ export default function OfficeInventoryPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(retireForm),
       });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error || 'Abschreibung fehlgeschlagen');
+      const data = await readJsonSafe(res);
+      if (!res.ok) throw apiError(`/api/office-inventory/${selectedItem.id}/retire`, res.status, data);
       setRetireOpen(false);
       showSuccess(
         showRetired
@@ -728,8 +729,8 @@ export default function OfficeInventoryPage() {
           benutzerId: next.benutzerId ? Number(next.benutzerId) : null,
         }),
       });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error || 'Zuordnung konnte nicht gespeichert werden');
+      const data = await readJsonSafe(res);
+      if (!res.ok) throw apiError(`/api/office-inventory/${selectedItem.id}/assignment`, res.status, data);
       showSuccess('Zuordnung gespeichert');
       await Promise.all([loadItems(), reloadMovements(selectedItem.id)]);
     } catch (err) {

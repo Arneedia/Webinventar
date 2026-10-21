@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { apiErrorResponse } from '@/lib/apiError';
 import { prisma } from '@/lib/prismaClient';
 import { requireApiUser } from '@/lib/auth';
 import { AvailablePermissions } from '@/lib/permissionGroups';
@@ -131,7 +132,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(data);
   } catch (error) {
     console.error('Error fetching protocols:', error);
-    return NextResponse.json({ error: 'Datenbankfehler' }, { status: 500 });
+    return apiErrorResponse(error);
   }
 }
 
@@ -211,6 +212,6 @@ export async function POST(req: NextRequest) {
     });
   } catch (error) {
     console.error('Error creating protocol:', error);
-    return NextResponse.json({ error: 'Fehler beim Erstellen des Protokolls' }, { status: 500 });
+    return apiErrorResponse(error, 'Fehler beim Erstellen des Protokolls');
   }
 }

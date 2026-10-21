@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { apiErrorResponse } from "@/lib/apiError";
 import { prisma } from "@/lib/prismaClient";
 import { requireApiUser, userHasAnyPermission } from "@/lib/auth";
 import { AvailablePermissions } from "@/lib/permissionGroups";
@@ -47,7 +48,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ relations: relations.map(serializeRelation) });
   } catch (error) {
     console.error("Error in GET /api/relations/accessory-users:", error);
-    return NextResponse.json({ error: "Zuordnungen konnten nicht geladen werden" }, { status: 500 });
+    return apiErrorResponse(error, "Zuordnungen konnten nicht geladen werden");
   }
 }
 
@@ -122,6 +123,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true }, { status: 201 });
   } catch (error) {
     console.error("Error in POST /api/relations/accessory-users:", error);
-    return NextResponse.json({ error: "Zuordnung konnte nicht erstellt werden" }, { status: 500 });
+    return apiErrorResponse(error, "Zuordnung konnte nicht erstellt werden");
   }
 }

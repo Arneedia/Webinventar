@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { apiErrorResponse } from '@/lib/apiError';
 import { prisma } from '@/lib/prismaClient';
 import { requireApiUser, userHasAnyPermission } from '@/lib/auth';
 import { AvailablePermissions } from '@/lib/permissionGroups';
@@ -43,6 +44,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ typ
     return NextResponse.json({ success: true, item: created }, { status: 201 });
   } catch (error) {
     console.error('Database error (POST /api/office-master-data/[type]):', error);
-    return NextResponse.json({ error: 'Eintrag konnte nicht angelegt werden' }, { status: 500 });
+    return apiErrorResponse(error, 'Eintrag konnte nicht angelegt werden');
   }
 }

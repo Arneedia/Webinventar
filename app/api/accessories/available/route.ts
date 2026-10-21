@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { apiErrorResponse } from '@/lib/apiError';
 import { prisma } from '@/lib/prismaClient';
 import { requireApiUser } from '@/lib/auth';
 import { AvailablePermissions } from '@/lib/permissionGroups';
@@ -40,6 +41,6 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(data);
   } catch (error) {
     console.error('Error fetching available accessories:', error);
-    return NextResponse.json({ error: 'Zubehör konnte nicht geladen werden' }, { status: 500 });
+    return apiErrorResponse(error, 'Zubehör konnte nicht geladen werden');
   }
 }

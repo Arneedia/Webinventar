@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { apiErrorResponse } from '@/lib/apiError';
 import { prisma } from '@/lib/prismaClient';
 import { getTableConfig } from '@/lib/tableConfig';
 import { requireApiUser, userHasAnyPermission } from '@/lib/auth';
@@ -84,7 +85,7 @@ export async function GET(req: NextRequest, context: RouteContext) {
     return NextResponse.json({ config: clientConfig, data });
   } catch (error) {
     console.error('Database error (GET /api/tables/[table]):', error);
-    return NextResponse.json({ error: 'Datenbankfehler', details: String(error) }, { status: 500 });
+    return apiErrorResponse(error);
   }
 }
 
@@ -218,6 +219,6 @@ export async function POST(req: NextRequest, context: RouteContext) {
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Database error (POST /api/tables/[table]):', error);
-    return NextResponse.json({ error: 'Datenbankfehler', details: String(error) }, { status: 500 });
+    return apiErrorResponse(error);
   }
 }

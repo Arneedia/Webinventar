@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { apiErrorResponse } from '@/lib/apiError';
 import { prisma } from '@/lib/prismaClient';
 import { getTableConfig } from '@/lib/tableConfig';
 import { requireApiUser } from '@/lib/auth';
@@ -78,7 +79,7 @@ export async function PUT(req: NextRequest, context: RouteContext) {
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Database error (PUT /api/tables/[table]/[id]):', error);
-    return NextResponse.json({ error: 'Datenbankfehler', details: String(error) }, { status: 500 });
+    return apiErrorResponse(error);
   }
 }
 
@@ -108,6 +109,6 @@ export async function DELETE(req: NextRequest, context: RouteContext) {
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Database error (DELETE /api/tables/[table]/[id]):', error);
-    return NextResponse.json({ error: 'Datenbankfehler', details: String(error) }, { status: 500 });
+    return apiErrorResponse(error);
   }
 }

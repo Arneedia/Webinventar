@@ -145,7 +145,7 @@ model BenutzerGER {
   GER        GER       @relation(fields: [GERID], references: [GerID])
 }
 
-// ZubehÃ¶r-Typen
+// Zubehör-Typen
 model ZT {
   ID               Int                @id @default(autoincrement())
   ZTName           String
@@ -153,7 +153,7 @@ model ZT {
   ZubehoerInventar ZubehoerInventar[]
 }
 
-// ZubehÃ¶r
+// Zubehör
 model Zubehoer {
   ZubehoerID        Int                @id @default(autoincrement())
   ZTID              Int
@@ -169,10 +169,10 @@ model Zubehoer {
   ZubehoerBewegung  ZubehoerBewegung[]
   UebergabePositionen UebergabePosition[]
 
-  @@map("ZubehÃ¶r")
+  @@map("Zubehör")
 }
 
-// ZubehÃ¶r-Benutzer Zuordnung
+// Zubehör-Benutzer Zuordnung
 model ZubehoerBenutzer {
   ID         Int       @id @default(autoincrement())
   BenutzerID Int?
@@ -184,10 +184,10 @@ model ZubehoerBenutzer {
   Zubehoer   Zubehoer  @relation(fields: [ZubehoerID], references: [ZubehoerID])
   GER        GER?      @relation(fields: [GerID], references: [GerID])
 
-  @@map("ZubehÃ¶rBenutzer")
+  @@map("ZubehörBenutzer")
 }
 
-// ZubehÃ¶r-Inventar
+// Zubehör-Inventar
 model ZubehoerInventar {
   InventarID Int       @id @default(autoincrement())
   ZTID       Int
@@ -196,10 +196,10 @@ model ZubehoerInventar {
   Abgang     DateTime?
   ZT         ZT        @relation(fields: [ZTID], references: [ID])
 
-  @@map("ZubehÃ¶rInventar")
+  @@map("ZubehörInventar")
 }
 
-// ZubehÃ¶r-Bewegungen (Tracking)
+// Zubehör-Bewegungen (Tracking)
 model ZubehoerBewegung {
   ID          Int       @id @default(autoincrement())
   ZubehoerID  Int
@@ -213,7 +213,7 @@ model ZubehoerBewegung {
   GER         GER?      @relation(fields: [GerID], references: [GerID])
   Benutzer    Benutzer? @relation(fields: [BenutzerID], references: [BenutzerID])
 
-  @@map("ZubehÃ¶rBewegung")
+  @@map("ZubehörBewegung")
 }
 
 // Hardware-Hersteller Zuordnung
@@ -326,12 +326,12 @@ model UebergabeProtokoll {
   Aufgaben        UebergabeAufgabe[]
 }
 
-// Einzelne Positionen im Protokoll (GerÃ¤te + ZubehÃ¶r)
+// Einzelne Positionen im Protokoll (GerÃ¤te + Zubehör)
 model UebergabePosition {
   ID              Int       @id @default(autoincrement())
   ProtokollID     Int
   
-  // Entweder GerÃ¤t ODER ZubehÃ¶r (eines von beiden muss gesetzt sein)
+  // Entweder GerÃ¤t ODER Zubehör (eines von beiden muss gesetzt sein)
   GerID           Int?
   ZubehoerID      Int?
   

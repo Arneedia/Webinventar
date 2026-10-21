@@ -6,6 +6,7 @@ import { Database, MonitorSmartphone, UserRound, History, AlertTriangle, Plus, R
 import StickerModal from '../components/StickerModal';
 import RoomUserSelects from '../components/RoomUserSelects';
 import SearchableSelect from '../components/SearchableSelect';
+import { apiError, readJsonSafe, throwApiError } from '@/lib/fetchError';
 
 interface DeviceListItem {
   id: number;
@@ -345,7 +346,7 @@ export default function DeviceManagementPage() {
       const res = await fetch(`/api/protocols/${protocolId}`, {
         credentials: 'include',
       });
-      if (!res.ok) throw new Error('Fehler beim Laden des Protokolls');
+      if (!res.ok) await throwApiError(res, `/api/protocols/${protocolId}`, 'Fehler beim Laden des Protokolls');
       const data = await res.json();
       setSelectedProtocolDetail(data);
     } catch (err) {
@@ -364,7 +365,7 @@ export default function DeviceManagementPage() {
       const res = await fetch(`/api/devices/${deviceId}/protocols`, {
         credentials: 'include',
       });
-      if (!res.ok) throw new Error('Fehler beim Laden der Protokolle');
+      if (!res.ok) await throwApiError(res, `/api/devices/${deviceId}/protocols`, 'Fehler beim Laden der Protokolle');
       const json = await res.json();
       const list = Array.isArray(json) ? json : json?.protocols ?? [];
       setDeviceProtocols(list);
@@ -398,7 +399,7 @@ export default function DeviceManagementPage() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        throw new Error(data.error || 'Fehler beim Speichern der Raumzuweisung');
+        throw apiError(`/api/devices/${selectedDeviceId}/room`, res.status, data);
       }
       await fetchDevices();
     } catch (err) {
@@ -412,7 +413,7 @@ export default function DeviceManagementPage() {
     try {
       setRoomsLoading(true);
       const res = await fetch('/api/rooms');
-      if (!res.ok) throw new Error('Fehler beim Laden der Räume');
+      if (!res.ok) await throwApiError(res, '/api/rooms', 'Fehler beim Laden der Räume');
       const json = await res.json();
       const options: RoomOption[] = (json.rooms as any[]).map((room: any) => ({
         id: room.RaumID,
@@ -474,7 +475,7 @@ export default function DeviceManagementPage() {
     try {
       setLoadingDevices(true);
       const res = await fetch('/api/devices');
-      if (!res.ok) throw new Error('Fehler beim Laden der Geräte');
+      if (!res.ok) await throwApiError(res, '/api/devices', 'Fehler beim Laden der Geräte');
       const data: DeviceListItem[] = await res.json();
       setDevices(data);
       setDevicesError(null);
@@ -491,7 +492,7 @@ export default function DeviceManagementPage() {
   const fetchHsModRelations = async () => {
     try {
       const res = await fetch('/api/tables/HS_MOD?bereich=GERAETE');
-      if (!res.ok) throw new Error('Fehler beim Laden der Zuordnungen');
+      if (!res.ok) await throwApiError(res, '/api/tables/HS_MOD?bereich=GERAETE', 'Fehler beim Laden der Zuordnungen');
       const json = await res.json();
       const relations: HsModRelation[] = (json.data as any[]).map((row: any) => ({
         HSID: Number(row.HSID),
@@ -524,7 +525,7 @@ export default function DeviceManagementPage() {
     try {
       setAccessoriesLoading(true);
       const res = await fetch(`/api/devices/${deviceId}/accessories`);
-      if (!res.ok) throw new Error('Fehler beim Laden des Zubehörs');
+      if (!res.ok) await throwApiError(res, `/api/devices/${deviceId}/accessories`, 'Fehler beim Laden des Zubehörs');
       const json = await res.json();
       setDeviceAccessories(json.accessories ?? []);
     } catch {
@@ -545,7 +546,7 @@ export default function DeviceManagementPage() {
         body: JSON.stringify({ ZubehoerID: Number(selectedAccessoryId) }),
       });
       const json = await res.json();
-      if (!res.ok) throw new Error(json.error || 'Fehler beim Zuweisen');
+      if (!res.ok) throw apiError(`/api/devices/${selectedDeviceId}/accessories`, res.status, json);
       setSelectedAccessoryId('');
       fetchDeviceAccessories(selectedDeviceId);
       fetchCompatibleAccessories(selectedDeviceId); // Bestand aktualisieren
@@ -567,7 +568,7 @@ export default function DeviceManagementPage() {
         body: JSON.stringify({ returnToStock }),
       });
       const json = await res.json();
-      if (!res.ok) throw new Error(json.error || 'Fehler bei Rückgabe');
+      if (!res.ok) throw apiError(`/api/devices/${selectedDeviceId}/accessories/${assignmentId}`, res.status, json);
       fetchDeviceAccessories(selectedDeviceId);
       if (returnToStock) fetchCompatibleAccessories(selectedDeviceId);
     } catch (err) {
@@ -581,7 +582,7 @@ export default function DeviceManagementPage() {
     try {
       setLoadingUsers(true);
       const res = await fetch('/api/tables/Benutzer');
-      if (!res.ok) throw new Error('Fehler beim Laden der Benutzer');
+      if (!res.ok) await throwApiError(res, '/api/tables/Benutzer', 'Fehler beim Laden der Benutzer');
       const json = await res.json();
       const options: UserOption[] = (json.data as any[]).map((row) => ({
         id: row.BenutzerID,
@@ -599,7 +600,7 @@ export default function DeviceManagementPage() {
   const fetchHardwareTypes = async () => {
     try {
       const res = await fetch('/api/tables/HW');
-      if (!res.ok) throw new Error('Fehler beim Laden der Hardware-Typen');
+      if (!res.ok) await throwApiError(res, '/api/tables/HW', 'Fehler beim Laden der Hardware-Typen');
       const json = await res.json();
       const options: UserOption[] = (json.data as any[]).map((row: any) => ({
         id: row.HWID,
@@ -614,7 +615,7 @@ export default function DeviceManagementPage() {
   const fetchManufacturers = async () => {
     try {
       const res = await fetch('/api/tables/HS?bereich=GERAETE');
-      if (!res.ok) throw new Error('Fehler beim Laden der Hersteller');
+      if (!res.ok) await throwApiError(res, '/api/tables/HS?bereich=GERAETE', 'Fehler beim Laden der Hersteller');
       const json = await res.json();
       const options: UserOption[] = (json.data as any[]).map((row: any) => ({
         id: row.HSID,
@@ -629,7 +630,7 @@ export default function DeviceManagementPage() {
   const fetchModels = async () => {
     try {
       const res = await fetch('/api/tables/MOD?bereich=GERAETE');
-      if (!res.ok) throw new Error('Fehler beim Laden der Modelle');
+      if (!res.ok) await throwApiError(res, '/api/tables/MOD?bereich=GERAETE', 'Fehler beim Laden der Modelle');
       const json = await res.json();
       const options: UserOption[] = (json.data as any[]).map((row: any) => {
         const parts = [row.ModName, row.ModellNummer].filter(Boolean);
@@ -649,7 +650,7 @@ export default function DeviceManagementPage() {
     try {
       setHistoryLoading(true);
       const res = await fetch(`/api/devices/${deviceId}/history`);
-      if (!res.ok) throw new Error('Fehler beim Laden des Verlaufs');
+      if (!res.ok) await throwApiError(res, `/api/devices/${deviceId}/history`, 'Fehler beim Laden des Verlaufs');
       const data: { entries?: unknown[]; movements?: DeviceMovement[] } = await res.json();
       setMovements(data.movements ?? []);
     } catch {
@@ -682,7 +683,7 @@ export default function DeviceManagementPage() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        throw new Error(data.error || 'Fehler beim Speichern der Zuordnung');
+        throw apiError(`/api/devices/${selectedDeviceId}/assignment`, res.status, data);
       }
       await fetchDevices();
       await fetchHistory(selectedDeviceId);
@@ -746,7 +747,7 @@ export default function DeviceManagementPage() {
       });
       if (!res.ok) {
         const data = await res.json();
-        throw new Error(data.error || 'Fehler beim Ausbuchen des Geräts');
+        throw apiError(`/api/devices/${selectedDeviceId}/retire`, res.status, data);
       }
       setShowRetireModal(false);
       setRetireAccessoryActions({});
@@ -808,7 +809,7 @@ export default function DeviceManagementPage() {
 
       if (!res.ok) {
         const data = await res.json();
-        throw new Error(data.error || 'Fehler beim Aktualisieren des Geräts');
+        throw apiError(`/api/devices/${selectedDeviceId}`, res.status, data);
       }
 
       await fetchDevices();
@@ -848,7 +849,7 @@ export default function DeviceManagementPage() {
 
       if (!res.ok) {
         const data = await res.json();
-        throw new Error(data.details || data.error || 'Fehler beim Erstellen des Geräts');
+        throw apiError('/api/tables/GER', res.status, data);
       }
 
       setNewDevice({ HWID: '', HSID: '', MODID: '', SNO: '', Preis: '', Zugang: '', EAN: '', IMEI1: '', IMEI2: '', RaumID: '', WODISNr: '' });

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { apiError, readJsonSafe, throwApiError } from '@/lib/fetchError';
 import { RefreshCw, Search, Plus } from 'lucide-react';
 
 interface TableColumnConfig {
@@ -76,9 +77,9 @@ function RecordForm({ config, initialData, onSave, onCancel }: RecordFormProps) 
         body: JSON.stringify(formData),
       });
 
+      const data = await readJsonSafe(res);
       if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.details || data.error || 'Fehler beim Speichern');
+        throw apiError(url, res.status, data);
       }
 
       onSave();
@@ -193,7 +194,7 @@ export default function TableView({ tableName }: { tableName: string }) {
       setShowForm(false);
       setEditingRow(null);
       const res = await fetch(`/api/tables/${tableName}`);
-      if (!res.ok) throw new Error('Fehler beim Laden der Daten');
+      if (!res.ok) await throwApiError(res, `/api/tables/${tableName}`, 'Fehler beim Laden der Daten');
       const result: ApiTableResponse = await res.json();
       setConfig(result.config);
       setData(result.data);
@@ -214,7 +215,7 @@ export default function TableView({ tableName }: { tableName: string }) {
 
     try {
       const res = await fetch(`/api/tables/${tableName}/${id}`, { method: 'DELETE' });
-      if (!res.ok) throw new Error('Fehler beim Löschen');
+      if (!res.ok) await throwApiError(res, `/api/tables/${tableName}/${id}`, 'Fehler beim Löschen');
       fetchData();
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Fehler beim Löschen');
