@@ -9,9 +9,12 @@ export async function POST(req: NextRequest) {
 
     const redirectUrl = new URL('/', req.url);
     const res = NextResponse.redirect(redirectUrl);
+    // Gleiche Logik wie beim Login: secure nur bei HTTPS (Vercel oder explizit).
+    // Bei HTTP-Produktivhost würde der Browser das Lösch-Cookie sonst verwerfen.
+    const isSecure = process.env.VERCEL === '1' || process.env.FORCE_SECURE_COOKIES === 'true';
     res.cookies.set(AuthConstants.SESSION_COOKIE_NAME, '', {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: isSecure,
       sameSite: 'lax',
       path: '/',
       expires: new Date(0),

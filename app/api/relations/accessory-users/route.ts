@@ -105,16 +105,18 @@ export async function POST(req: NextRequest) {
       endDate = parsed;
     }
 
-    // Direkter Insert, um optionale Benutzer-/Geräte-Relation zu erlauben,
-    // ohne von Prisma-Relationstypen abhängig zu sein.
-    await prisma.$executeRawUnsafe(
-      'INSERT INTO "ZubehörBenutzer" ("BenutzerID", "ZubehoerID", "GerID", "Start", "Ende") VALUES (?, ?, ?, ?, ?)',
-      userIdNumber,
-      accessoryIdNumber,
-      deviceIdNumber,
-      startDate.toISOString(),
-      endDate ? endDate.toISOString() : null,
-    );
+    // Prisma-Create statt Raw-SQL: '?'-Platzhalter sind SQLite-Syntax und
+    // schlagen auf PostgreSQL fehl. BenutzerID/GerID sind nullable skalare FKs,
+    // daher funktioniert direkte Zuweisung ohne connect.
+    await prisma.zubehoerBenutzer.create({
+      data: {
+        BenutzerID: userIdNumber,
+        ZubehoerID: accessoryIdNumber,
+        GerID: deviceIdNumber,
+        Start: startDate,
+        Ende: endDate,
+      },
+    });
 
     // Antwort ohne Detailobjekt – Übersicht wird ohnehin über /api/accessories/overview neu geladen.
     return NextResponse.json({ ok: true }, { status: 201 });
