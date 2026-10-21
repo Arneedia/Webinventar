@@ -3,6 +3,7 @@ import { apiErrorResponse } from '@/lib/apiError';
 import { prisma } from '@/lib/prismaClient';
 import { requireApiUser, userHasAnyPermission } from '@/lib/auth';
 import { AvailablePermissions } from '@/lib/permissionGroups';
+import { isBereichScope, widenHsModBereich, type BereichScope } from '@/lib/masterDataBereich';
 
 interface RouteContext {
   params: Promise<{ hsid: string; modid: string }>;
@@ -64,6 +65,12 @@ export async function PUT(req: NextRequest, context: RouteContext) {
       return NextResponse.json({ error: 'HWID muss eine gültige Zahl sein' }, { status: 400 });
     }
 
+    // Betroffene Verwaltungsbereiche aus der Änderung ableiten
+    const scopes = new Set<BereichScope>();
+    if (isBereichScope(body.bereich)) scopes.add(body.bereich);
+    if (Object.prototype.hasOwnProperty.call(body, 'HWID') && hwIdNumber !== null) scopes.add('GERAETE');
+    if (kategorieIds !== undefined && kategorieIds.length > 0) scopes.add('BUERO');
+
     const updated = await prisma.$transaction(async (tx) => {
       await tx.hS_MOD.update({
         where: { HSID_ModID: { HSID, ModID } },
@@ -78,6 +85,10 @@ export async function PUT(req: NextRequest, context: RouteContext) {
             skipDuplicates: true,
           });
         }
+      }
+      // Hersteller/Modell für die betroffenen Verwaltungsbereiche freischalten
+      for (const scope of scopes) {
+        await widenHsModBereich(tx, HSID, ModID, scope);
       }
       return tx.hS_MOD.findUniqueOrThrow({
         where: { HSID_ModID: { HSID, ModID } },

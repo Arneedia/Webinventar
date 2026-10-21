@@ -22,13 +22,14 @@ interface RoomUserSelectsProps {
   benutzerId: string;
   onChange: (next: { raumId: string; benutzerId: string }) => void;
   labelClass: string;
+  roomRequired?: boolean;
 }
 
 const defaultRoomLabel = (r: RoomUserRoomOption) =>
   `${r.name}${r.standort ? ` (${r.standort})` : ''}${r.branch ? ` - ${r.branch}` : ''}`;
 
 // Raum filtert die Benutzerliste, ein gewählter Benutzer übernimmt seinen Raum
-export default function RoomUserSelects({ rooms, users, raumId, benutzerId, onChange, labelClass }: RoomUserSelectsProps) {
+export default function RoomUserSelects({ rooms, users, raumId, benutzerId, onChange, labelClass, roomRequired }: RoomUserSelectsProps) {
   const roomUsers = raumId ? users.filter((u) => String(u.roomId ?? '') === raumId) : users;
 
   const handleRoom = (value: string) => {
@@ -52,6 +53,7 @@ export default function RoomUserSelects({ rooms, users, raumId, benutzerId, onCh
           onChange={handleRoom}
           placeholder="-- kein Raum --"
           searchPlaceholder="Raum suchen..."
+          required={roomRequired}
           className="text-xs"
         />
       </div>

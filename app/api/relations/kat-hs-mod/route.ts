@@ -3,6 +3,7 @@ import { apiErrorResponse } from '@/lib/apiError';
 import { prisma } from '@/lib/prismaClient';
 import { requireApiUser, userHasAnyPermission } from '@/lib/auth';
 import { AvailablePermissions } from '@/lib/permissionGroups';
+import { widenHsModBereich } from '@/lib/masterDataBereich';
 
 // Kategorie ↔ Hersteller-Modell Zuordnungen (Büroinventar) abrufen
 export async function GET(req: NextRequest) {
@@ -67,9 +68,16 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Mindestens eine Hersteller-Modell-Zuordnung existiert nicht' }, { status: 400 });
     }
 
-    const { count } = await prisma.kAT_HS_MOD.createMany({
-      data: pairs.map((p) => ({ KategorieID: kategorieId, HSID: p.HSID, ModID: p.ModID })),
-      skipDuplicates: true,
+    const { count } = await prisma.$transaction(async (tx) => {
+      const created = await tx.kAT_HS_MOD.createMany({
+        data: pairs.map((p) => ({ KategorieID: kategorieId, HSID: p.HSID, ModID: p.ModID })),
+        skipDuplicates: true,
+      });
+      // Verknüpfte Hersteller/Modelle fürs Büroinventar freischalten
+      for (const p of pairs) {
+        await widenHsModBereich(tx, p.HSID, p.ModID, 'BUERO');
+      }
+      return created;
     });
 
     return NextResponse.json({ success: true, created: count, skipped: pairs.length - count }, { status: 201 });

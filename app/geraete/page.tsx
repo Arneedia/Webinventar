@@ -243,6 +243,7 @@ export default function DeviceManagementPage() {
     IMEI1: '',
     IMEI2: '',
     RaumID: '',
+    BenutzerID: '',
     WODISNr: '',
   });
 
@@ -838,6 +839,7 @@ export default function DeviceManagementPage() {
         IMEI1: newDevice.IMEI1 || null,
         IMEI2: newDevice.IMEI2 || null,
         StandardRaumID: Number(newDevice.RaumID) || null,
+        BenutzerID: Number(newDevice.BenutzerID) || null,
         WODISNr: newDevice.WODISNr || null,
       };
 
@@ -852,7 +854,7 @@ export default function DeviceManagementPage() {
         throw apiError('/api/tables/GER', res.status, data);
       }
 
-      setNewDevice({ HWID: '', HSID: '', MODID: '', SNO: '', Preis: '', Zugang: '', EAN: '', IMEI1: '', IMEI2: '', RaumID: '', WODISNr: '' });
+      setNewDevice({ HWID: '', HSID: '', MODID: '', SNO: '', Preis: '', Zugang: '', EAN: '', IMEI1: '', IMEI2: '', RaumID: '', BenutzerID: '', WODISNr: '' });
       await fetchDevices();
       setCreating(false);
     } catch (err) {
@@ -1272,21 +1274,15 @@ export default function DeviceManagementPage() {
                       className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-primary"
                     />
                   </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">Raum *</label>
-                    <SearchableSelect
-                      options={roomOptions.map(room => ({
-                        value: room.id,
-                        label: `${room.name}${room.standort ? ` (${room.standort})` : ''}${room.branch ? ` - ${room.branch}` : ''}`
-                      }))}
-                      value={newDevice.RaumID}
-                      onChange={(value) => setNewDevice((prev) => ({ ...prev, RaumID: value }))}
-                      placeholder="Raum auswählen..."
-                      searchPlaceholder="Raum suchen..."
-                      required
-                      className="text-xs"
-                    />
-                  </div>
+                  <RoomUserSelects
+                    rooms={roomOptions}
+                    users={users}
+                    raumId={newDevice.RaumID}
+                    benutzerId={newDevice.BenutzerID}
+                    onChange={(next) => setNewDevice((prev) => ({ ...prev, RaumID: next.raumId, BenutzerID: next.benutzerId }))}
+                    labelClass="block text-xs font-medium text-gray-700 mb-1"
+                    roomRequired
+                  />
                 </div>
 
                 <div className="flex items-center justify-end gap-2 pt-2">

@@ -420,6 +420,7 @@ export default function RelationsManager() {
           body: JSON.stringify({
             HSID,
             ModID: String(modId),
+            bereich: Bereich,
             HWID: Bereich === 'GERAETE' ? HWID : '',
             kategorieIds: Bereich === 'BUERO' && KategorieID ? [KategorieID] : [],
           }),

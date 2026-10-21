@@ -214,6 +214,45 @@ export async function POST(req: NextRequest, context: RouteContext) {
       }
     }
 
+    // GER: initiale Raum-/Benutzerzuordnung + Bewegung "Erstanlage" (analog Büroinventar)
+    if (table.toUpperCase() === 'GER') {
+      const benutzerId =
+        body.BenutzerID === undefined || body.BenutzerID === null || body.BenutzerID === ''
+          ? null
+          : Number(body.BenutzerID);
+
+      if (benutzerId !== null && !Number.isInteger(benutzerId)) {
+        return NextResponse.json({ error: 'BenutzerID muss eine gültige Zahl sein' }, { status: 400 });
+      }
+      if (benutzerId !== null) {
+        const benutzer = await prisma.benutzer.findUnique({ where: { BenutzerID: benutzerId } });
+        if (!benutzer) {
+          return NextResponse.json({ error: 'Benutzer nicht gefunden' }, { status: 404 });
+        }
+      }
+
+      const created = await prisma.$transaction(async (tx) => {
+        const ger = await tx.gER.create({ data: data as any });
+        await tx.gerBewegung.create({
+          data: {
+            GerID: ger.GerID,
+            Typ: 'ZUGANG',
+            NachBenutzerID: benutzerId,
+            NachRaumID: ger.StandardRaumID ?? null,
+            Bemerkung: 'Erstanlage',
+          },
+        });
+        if (benutzerId !== null) {
+          await tx.benutzerGER.create({
+            data: { BenutzerID: benutzerId, GERID: ger.GerID, Start: new Date() },
+          });
+        }
+        return ger;
+      });
+
+      return NextResponse.json({ success: true, id: created.GerID });
+    }
+
     await model.create({ data });
 
     return NextResponse.json({ success: true });

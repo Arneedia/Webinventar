@@ -3,6 +3,7 @@ import { apiErrorResponse } from '@/lib/apiError';
 import { prisma } from '@/lib/prismaClient';
 import { requireApiUser, userHasAnyPermission } from '@/lib/auth';
 import { AvailablePermissions } from '@/lib/permissionGroups';
+import { isBereichScope, widenHsModBereich, type BereichScope } from '@/lib/masterDataBereich';
 
 function serializeRelation(rel: any) {
   if (!rel) return null;
@@ -83,6 +84,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Diese Zuordnung existiert bereits' }, { status: 409 });
     }
 
+    // Betroffene Verwaltungsbereiche: explizit aus dem Body oder aus der Payload inferiert
+    const scopes = new Set<BereichScope>();
+    if (isBereichScope(body.bereich)) scopes.add(body.bereich);
+    if (hwIdNumber !== null) scopes.add('GERAETE');
+    if (kategorieIds.length > 0) scopes.add('BUERO');
+
     const created = await prisma.$transaction(async (tx) => {
       await tx.hS_MOD.create({
         data: {
@@ -96,6 +103,11 @@ export async function POST(req: NextRequest) {
           data: kategorieIds.map((KategorieID) => ({ KategorieID, HSID: hsIdNumber, ModID: modIdNumber })),
           skipDuplicates: true,
         });
+      }
+      // Hersteller/Modell für die betroffenen Verwaltungsbereiche freischalten
+      // (nur Erweiterung auf BEIDE — nie einschränken)
+      for (const scope of scopes) {
+        await widenHsModBereich(tx, hsIdNumber, modIdNumber, scope);
       }
       return tx.hS_MOD.findUniqueOrThrow({
         where: { HSID_ModID: { HSID: hsIdNumber, ModID: modIdNumber } },
